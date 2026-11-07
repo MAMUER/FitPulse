@@ -59,7 +59,7 @@ if [[ "$BACKUP_TYPE" == "full" ]]; then
 	set -e
 
 	if [[ $PG_DUMP_STATUS -ne 0 ]]; then
-		echo "ERROR: pg_dump failed with exit code $PG_DUMP_STATUS"
+		echo "ERROR: pg_dump failed with exit code $PG_DUMP_STATUS" >&2
 		exit $PG_DUMP_STATUS
 	fi
 
@@ -72,7 +72,7 @@ if [[ "$BACKUP_TYPE" == "full" ]]; then
 	if aws --endpoint-url "$S3_ENDPOINT" s3 cp "$ENCRYPTED" "s3://${S3_BUCKET}/${S3_KEY}" --only-show-errors; then
 		echo "Backup uploaded to S3 successfully"
 	else
-		echo "ERROR: Failed to upload backup to S3"
+		echo "ERROR: Failed to upload backup to S3" >&2
 		exit 1
 	fi
 
@@ -80,7 +80,7 @@ if [[ "$BACKUP_TYPE" == "full" ]]; then
 	if aws --endpoint-url "$S3_ENDPOINT" s3 cp "$CHECKSUM" "s3://${S3_BUCKET}/${S3_CHECKSUM_KEY}" --only-show-errors; then
 		echo "Checksum uploaded to S3 successfully"
 	else
-		echo "ERROR: Failed to upload checksum to S3"
+		echo "ERROR: Failed to upload checksum to S3" >&2
 		exit 1
 	fi
 
@@ -116,13 +116,13 @@ elif [[ "$BACKUP_TYPE" == "wal" ]]; then
 			if aws --endpoint-url "$S3_ENDPOINT" s3 cp "$wal_file" "s3://${S3_WAL_BUCKET}/${S3_WAL_KEY}" --only-show-errors; then
 				ARCHIVED=$((ARCHIVED + 1))
 			else
-				echo "ERROR: Failed to upload WAL file: $filename"
+				echo "ERROR: Failed to upload WAL file: $filename" >&2
 				FAILED=$((FAILED + 1))
 			fi
 		fi
 	done
 
-	echo "WAL archive completed: ${ARCHIVED} files uploaded, ${FAILED} failed"
+	echo "WAL archive completed: ${ARCHIVED} files uploaded, ${FAILED} failed" >&2
 
 	if [[ $FAILED -gt 0 ]]; then
 		exit 1

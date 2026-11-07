@@ -64,7 +64,7 @@ DECRYPTED_FILE="${TEMP_DIR}/backup.dump"
 openssl enc -d -aes-256-cbc -salt -pbkdf2 -pass pass:"$BACKUP_KEY" -in "${TEMP_DIR}/${BACKUP_FILENAME}" -out "$DECRYPTED_FILE"
 
 if [[ ! -f "$DECRYPTED_FILE" ]]; then
-	echo "ERROR: Decryption failed"
+	echo "ERROR: Decryption failed" >&2
 	exit 1
 fi
 

@@ -63,6 +63,7 @@ describe('AI', () => {
     });
     render(<Ai />);
     await screen.findByText('Классификация');
+    expect(screen.getByText('Классификация')).toBeInTheDocument();
   });
 
   it('renders with empty messages', async () => {

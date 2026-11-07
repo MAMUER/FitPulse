@@ -87,7 +87,7 @@ while true; do
 	fi
 
 	if [[ $attempt -ge $MAX_ATTEMPTS ]]; then
-		echo "Failed after $MAX_ATTEMPTS attempts"
+		echo "Failed after $MAX_ATTEMPTS attempts" >&2
 		exit 1
 	fi
 

@@ -11,7 +11,7 @@ run_fuzz_tests() {
 }
 
 run_uat_staging() {
-	python scripts/api-test.py --base-url "$BASE_URL" || echo "⚠️ API tests failed"
+	python scripts/api-test.py --base-url "$BASE_URL" || echo "⚠️ API tests failed" >&2
 }
 
 run_uat_production() {

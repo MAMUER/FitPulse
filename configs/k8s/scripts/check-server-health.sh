@@ -154,7 +154,7 @@ check_systemd() {
 		log "WARNING: $failed_count systemd units failed" "$YELLOW"
 		local failed_units
 		failed_units=$(systemctl --failed --no-legend 2>/dev/null | awk '{print $2}' | head -5 | tr '\n' ', ')
-		echo "WARNING_SYSTEMD:${failed_count}:${failed_units}"
+		echo "WARNING_SYSTEMD:${failed_count}:${failed_units}" >&2
 		return 0
 	else
 		log "OK: No systemd units failed" "$GREEN"

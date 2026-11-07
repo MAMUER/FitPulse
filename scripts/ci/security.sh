@@ -166,12 +166,12 @@ run_checkov() {
 
 	# checkov exit codes: 0 = no findings, 1 = findings, >=2 = scanner error
 	if [[ "$status" -ge 2 ]]; then
-		echo "::error::Checkov failed to run (exit $status) - IaC scan did not complete, results are NOT green"
+		echo "::error::Checkov failed to run (exit $status) - IaC scan did not complete, results are NOT green" >&2
 		exit "$status"
 	fi
 
 	if [[ "$status" -eq 1 ]]; then
-		echo "::error::Checkov found IaC policy violations - failing the job. Fix the findings below or add a justified skip in .checkov.yaml"
+		echo "::error::Checkov found IaC policy violations - failing the job. Fix the findings below or add a justified skip in .checkov.yaml" >&2
 		python3 - <<-'PY'
 			import collections
 			import json
@@ -346,7 +346,7 @@ sign_images() {
 				sign_ok=true
 				break
 			fi
-			echo "⚠️  Cosign attempt $attempt for $svc failed, retrying..."
+			echo "⚠️  Cosign attempt $attempt for $svc failed, retrying..." >&2
 			echo "   Если ключ зашифрован — проверь COSIGN_PASSWORD; если нет — убери COSIGN_PASSWORD из secrets" >&2
 			sleep $((attempt * 3))
 		done

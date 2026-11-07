@@ -12,7 +12,7 @@ SERVICE_NAME="postgres-service"
 TEST_DURATION="${TEST_DURATION:-300}"      # 5 minutes
 RECOVERY_TIMEOUT="${RECOVERY_TIMEOUT:-60}" # 60 seconds
 
-echo "=== Chaos Test: PostgreSQL Primary Failure ==="
+echo "=== Chaos Test: PostgreSQL Primary Failure ===" >&2
 echo "Namespace: $NAMESPACE"
 echo "Service: $SERVICE_NAME"
 echo "Test duration: ${TEST_DURATION}s"

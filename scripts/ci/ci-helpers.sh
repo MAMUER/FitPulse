@@ -5,7 +5,7 @@ set -euo pipefail
 validate_workflow() {
 	curl --proto "=https" --tlsv1.2 -sSfL https://github.com/rhysd/actionlint/releases/download/v1.7.12/actionlint_1.7.12_linux_amd64.tar.gz -o /tmp/actionlint.tar.gz
 	echo "8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8  /tmp/actionlint.tar.gz" | sha256sum --check --status || {
-		echo "Hash verification failed"
+		echo "Hash verification failed" >&2
 		exit 1
 	}
 	tar -xzf /tmp/actionlint.tar.gz -C /tmp actionlint
@@ -29,7 +29,7 @@ run_hadolint() {
 		-print0 | sort -z)
 
 	if [[ "$failed" -ne 0 ]]; then
-		echo "Hadolint reported failures"
+		echo "Hadolint reported failures" >&2
 		exit 1
 	fi
 }
@@ -44,7 +44,7 @@ install_golangci_lint() {
 		if go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.14.0; then # NOSONAR
 			break
 		fi
-		echo "golangci-lint install attempt $i failed; retrying..."
+		echo "golangci-lint install attempt $i failed; retrying..." >&2
 		sleep 5
 	done
 }
@@ -114,7 +114,7 @@ run_coverage() {
 	fi
 
 	if [[ "$GO_TEST_EXIT" -ne 0 ]] || [[ "$NPM_TEST_EXIT" -ne 0 ]]; then
-		echo "Some tests failed (go=$GO_TEST_EXIT, npm=$NPM_TEST_EXIT), but coverage reports were generated"
+		echo "Some tests failed (go=$GO_TEST_EXIT, npm=$NPM_TEST_EXIT), but coverage reports were generated" >&2
 		return 0
 	fi
 }
@@ -484,7 +484,7 @@ generate_provenance() {
 }
 
 collect_statuses() {
-	get_emoji() { case "$1" in success) echo "✅" ;; failure) echo "❌" ;; skipped) echo "⏭️" ;; *) echo "❓" ;; esac }
+	get_emoji() { case "$1" in success) echo "✅" ;; failure) echo "❌" ;; skipped) echo "⏭️" ;; *) echo "❓" ;; esac } >&2
 	VALIDATE="$(get_emoji "${JOB_STATUS_VALIDATE_WORKFLOW:-success}")"
 	DOCKERFILE_LINT="$(get_emoji "${JOB_STATUS_DOCKERFILE_LINT:-success}")"
 	SUPER_LINTER="$(get_emoji "${JOB_STATUS_SUPER_LINTER:-success}")"

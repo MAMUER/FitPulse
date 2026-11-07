@@ -18,7 +18,7 @@ elif command -v which >/dev/null 2>&1; then
 fi
 
 if [[ -z "$PROTOC_CMD" ]]; then
-	echo "Error: protoc not found in PATH. Install protoc and ensure it's in PATH for bash."
+	echo "Error: protoc not found in PATH. Install protoc and ensure it's in PATH for bash." >&2
 	echo "On Windows: ensure protoc is in system PATH and run 'make' from Git Bash terminal."
 	exit 1
 fi

@@ -39,6 +39,6 @@ if aws --endpoint-url "$S3_ENDPOINT" s3 cp "$WAL_FILE" "s3://${S3_BUCKET}/${S3_K
 	echo "WAL file uploaded successfully: ${S3_KEY}"
 	exit 0
 else
-	echo "ERROR: Failed to upload WAL file to S3"
+	echo "ERROR: Failed to upload WAL file to S3" >&2
 	exit 1
 fi

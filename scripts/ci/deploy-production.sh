@@ -41,7 +41,7 @@ create_secrets() {
 			-n external-secrets \
 			--from-literal=username=external_secrets \
 			--from-literal=password="${EXTERNAL_SECRETS_DB_PASSWORD}" \
-			--dry-run=client -o yaml | kubectl apply --validate=false -f - || echo "::warning::external-secrets-db-credentials creation failed"
+			--dry-run=client -o yaml | kubectl apply --validate=false -f - || echo "::warning::external-secrets-db-credentials creation failed" >&2
 	fi
 
 	echo "Creating app-secrets (direct fallback if ExternalSecrets missing)..."
@@ -94,7 +94,7 @@ create_secrets() {
 			kubectl create secret generic "$sec" -n fitness-platform-production \
 				--from-literal=username="${svc//-/_}" \
 				--from-literal=password="${DB_PASSWORD:-$(openssl rand -hex 16 2>/dev/null || echo 'fitpulse')}" \
-				--dry-run=client -o yaml | kubectl apply -f - || echo "::warning::$sec creation failed"
+				--dry-run=client -o yaml | kubectl apply -f - || echo "::warning::$sec creation failed" >&2
 		fi
 	done
 
@@ -102,7 +102,7 @@ create_secrets() {
 	if [[ -f "db/migrations/V1__full_schema.sql" ]]; then
 		kubectl create configmap db-migrations -n fitness-platform-production \
 			--from-file=V1__full_schema.sql=db/migrations/V1__full_schema.sql \
-			--dry-run=client -o yaml | kubectl apply -f - || echo "::warning::db-migrations creation failed"
+			--dry-run=client -o yaml | kubectl apply -f - || echo "::warning::db-migrations creation failed" >&2
 	else
 		echo "::warning::db/migrations/V1__full_schema.sql not found"
 	fi
@@ -117,7 +117,7 @@ create_secrets() {
 			-n minio \
 			--from-literal=root-user=fitpulse-admin \
 			--from-literal=root-password="${MINIO_SECRET_KEY}" \
-			--dry-run=client -o yaml | kubectl apply --validate=false -f - || echo "::warning::minio-credentials creation failed"
+			--dry-run=client -o yaml | kubectl apply --validate=false -f - || echo "::warning::minio-credentials creation failed" >&2
 	fi
 
 	echo "Creating grafana-credentials secret..."
@@ -126,7 +126,7 @@ create_secrets() {
 		kubectl create secret generic grafana-credentials \
 			-n monitoring \
 			--from-literal=admin-password="${GRAFANA_ADMIN_PASSWORD}" \
-			--dry-run=client -o yaml | kubectl apply --validate=false -f - || echo "::warning::grafana-credentials creation failed"
+			--dry-run=client -o yaml | kubectl apply --validate=false -f - || echo "::warning::grafana-credentials creation failed" >&2
 	fi
 
 	echo "Creating oncall-bot-credentials secret..."
@@ -135,7 +135,7 @@ create_secrets() {
 			-n monitoring \
 			--from-literal=telegram-bot-token="${TELEGRAM_BOT_TOKEN}" \
 			--from-literal=telegram-chat-id="${TELEGRAM_CHAT_ID}" \
-			--dry-run=client -o yaml | kubectl apply --validate=false -f - || echo "::warning::oncall-bot-credentials creation failed"
+			--dry-run=client -o yaml | kubectl apply --validate=false -f - || echo "::warning::oncall-bot-credentials creation failed" >&2
 	fi
 
 	echo "Creating elk-credentials secret..."
@@ -146,7 +146,7 @@ create_secrets() {
 			--from-literal=elasticsearch-password="${ELASTICSEARCH_PASSWORD}" \
 			--from-literal=platform-team-password="${ELASTICSEARCH_PLATFORM_PASSWORD}" \
 			--from-literal=auditor-password="${ELASTICSEARCH_AUDITOR_PASSWORD}" \
-			--dry-run=client -o yaml | kubectl apply --validate=false -f - || echo "::warning::elk-credentials creation failed"
+			--dry-run=client -o yaml | kubectl apply --validate=false -f - || echo "::warning::elk-credentials creation failed" >&2
 	fi
 
 	echo "Creating monitoring-secrets..."
@@ -275,7 +275,7 @@ apply_manifests() {
 			echo "Production overlay applied successfully"
 			break
 		else
-			echo "Attempt $i/$MAX_RETRIES failed."
+			echo "Attempt $i/$MAX_RETRIES failed." >&2
 			if [[ "$i" -lt "$MAX_RETRIES" ]]; then
 				echo "Waiting 10s before retry..."
 				sleep 10
@@ -293,7 +293,7 @@ apply_manifests() {
 					done
 				fi
 			else
-				echo "Failed to apply manifests after $MAX_RETRIES attempts."
+				echo "Failed to apply manifests after $MAX_RETRIES attempts." >&2
 				kubectl get pods -A -o wide || true
 				exit 1
 			fi
@@ -396,7 +396,7 @@ run_migrations() {
 	fi
 	echo "Verifying tables were created..."
 	kubectl exec -n fitness-platform-production postgres-0 -- \
-		psql -U postgres -d fitness -c "SELECT table_name FROM information_schema.tables WHERE table_schema='public' ORDER BY table_name;" || echo "::warning::table verification failed"
+		psql -U postgres -d fitness -c "SELECT table_name FROM information_schema.tables WHERE table_schema='public' ORDER BY table_name;" || echo "::warning::table verification failed" >&2
 }
 
 run_seed_admin() {
@@ -430,7 +430,7 @@ run_seed_admin() {
 		sleep 5
 	done
 	if [[ -z "$POD_NAME" ]]; then
-		echo "::warning::Failed to find seed-admin pod after 150s"
+		echo "::warning::Failed to find seed-admin pod after 150s" >&2
 		kubectl get pods -n fitness-platform-production -o wide 2>&1 || true
 		return 0
 	fi
@@ -482,7 +482,7 @@ run_seed_admin() {
 		if [[ "$DB_CHECK" = "1" ]]; then
 			echo "✅ Admin user already exists in database (idempotent check passed)"
 		else
-			echo "::warning::seed-admin job failed AND admin user not found in database"
+			echo "::warning::seed-admin job failed AND admin user not found in database" >&2
 		fi
 	fi
 	echo "-> Cleaning up completed job..."
@@ -495,17 +495,17 @@ check_logs() {
 	sleep 30
 	echo "Checking pod status..."
 	kubectl get pods -n fitness-platform-production
-	echo "Checking logs for critical errors..."
+	echo "Checking logs for critical errors..." >&2
 	ERROR_FOUND=0
 	for dep in user-service training-service rabbitmq; do
 		echo "=== Logs for $dep ==="
 		if [[ "$dep" == "rabbitmq" ]]; then
-			LOGS=$(kubectl logs statefulset/rabbitmq -n fitness-platform-production --tail=50 2>&1 || echo "Failed to get logs")
+			LOGS=$(kubectl logs statefulset/rabbitmq -n fitness-platform-production --tail=50 2>&1 || echo "Failed to get logs") >&2
 		else
-			LOGS=$(kubectl logs deployment/$dep -n fitness-platform-production --tail=50 2>&1 || echo "Failed to get logs")
+			LOGS=$(kubectl logs deployment/$dep -n fitness-platform-production --tail=50 2>&1 || echo "Failed to get logs") >&2
 		fi
 		echo "$LOGS"
-		if echo "$LOGS" | grep -qE "too many colons|deprecated environment variables|RABBITMQ_DEFAULT_PASS_FILE|RABBITMQ_DEFAULT_USER_FILE|RABBITMQ_VM_MEMORY_HIGH_WATERMARK|Failed to listen"; then
+		if echo "$LOGS" | grep -qE "too many colons|deprecated environment variables|RABBITMQ_DEFAULT_PASS_FILE|RABBITMQ_DEFAULT_USER_FILE|RABBITMQ_VM_MEMORY_HIGH_WATERMARK|Failed to listen"; then >&2
 			echo "::warning::Found critical error in $dep logs" >&2
 			ERROR_FOUND=1
 		fi
@@ -517,9 +517,9 @@ check_logs() {
 		fi
 	done
 	if [[ $ERROR_FOUND -eq 1 ]]; then
-		echo "::warning::Critical errors detected, continuing deployment"
+		echo "::warning::Critical errors detected, continuing deployment" >&2
 	else
-		echo "✅ No critical errors found, all services are healthy"
+		echo "✅ No critical errors found, all services are healthy" >&2
 	fi
 }
 

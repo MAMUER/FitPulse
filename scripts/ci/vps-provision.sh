@@ -330,7 +330,7 @@ else
 	if [[ "$default_class" != "true" ]]; then
 		echo '  ⚠️ StorageClass local-path is not default, patching...'
 		if ! sudo k3s kubectl patch storageclass local-path -p '{"metadata":{"annotations":{"storageclass.kubernetes.io/is-default-class":"true"}}}'; then
-			echo '  ❌ failed to patch StorageClass local-path'
+			echo '  ❌ failed to patch StorageClass local-path' >&2
 			overall_fail=1
 		fi
 	fi
@@ -434,7 +434,7 @@ echo '=== Final pod snapshot ==='
 sudo k3s kubectl get pods -A || true
 
 if [[ "$overall_fail" -ne 0 ]]; then
-	echo '❌ CRITICAL PODS/NODE/STORAGE/PVC NOT READY — failing provision job'
+	echo '❌ CRITICAL PODS/NODE/STORAGE/PVC NOT READY — failing provision job' >&2
 	exit 1
 fi
 echo '✅ All critical system components and PVC provisioning are Ready'
@@ -462,7 +462,7 @@ for src in "mirror.gcr.io/library/busybox:1.37.0" "docker.io/library/busybox:1.3
 		pulled=true
 		break
 	fi
-	echo "Failed to pull ${src}, trying next source..."
+	echo "Failed to pull ${src}, trying next source..." >&2
 done
 if [[ "${pulled}" != true ]]; then
 	echo "Could not preload BusyBox helper image from any source"

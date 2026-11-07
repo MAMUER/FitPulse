@@ -12,7 +12,7 @@ lint_go() {
 		if go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.14.0; then # NOSONAR
 			break
 		fi
-		echo "golangci-lint install attempt $i failed; retrying..."
+		echo "golangci-lint install attempt $i failed; retrying..." >&2
 		sleep 5
 	done
 	go mod tidy

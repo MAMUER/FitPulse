@@ -12,7 +12,7 @@ SERVICE_NAME="valkey-service"
 TEST_DURATION="${TEST_DURATION:-300}"      # 5 minutes
 RECOVERY_TIMEOUT="${RECOVERY_TIMEOUT:-60}" # 60 seconds
 
-echo "=== Chaos Test: Valkey Master Failure ==="
+echo "=== Chaos Test: Valkey Master Failure ===" >&2
 echo "Namespace: $NAMESPACE"
 echo "Service: $SERVICE_NAME"
 echo "Test duration: ${TEST_DURATION}s"

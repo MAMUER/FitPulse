@@ -80,7 +80,7 @@ wait_for_postgres() {
 			kubectl logs postgres-0 -n fitness-platform-production --tail=50 || true
 			exit 1
 		fi
-		echo "Attempt $i/30: pg_isready failed, waiting 3s..."
+		echo "Attempt $i/30: pg_isready failed, waiting 3s..." >&2
 		sleep 3
 	done
 }

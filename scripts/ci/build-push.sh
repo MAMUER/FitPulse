@@ -107,7 +107,7 @@ build_go_binaries() {
 	done
 	for i in "${!pids[@]}"; do
 		wait "${pids[$i]}" || {
-			echo "Build failed for ${names[$i]}"
+			echo "Build failed for ${names[$i]}" >&2
 			exit 1
 		}
 	done

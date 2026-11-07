@@ -120,6 +120,6 @@ if [[ "$PG_STATUS" == "✅ PASS" && "$VALKEY_STATUS" == "✅ PASS" && "$VAULT_ST
 else
 	echo "❌ SOME TESTS FAILED" >>"$REPORT_FILE"
 	echo ""
-	echo "=== Some chaos tests failed ==="
+	echo "=== Some chaos tests failed ===" >&2
 	exit 1
 fi
