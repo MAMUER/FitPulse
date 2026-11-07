@@ -34,6 +34,7 @@ main() {
 	case "$cmd" in
 	all) deploy_all ;;
 	secrets) create_secrets ;;
+	cleanup_disk) cleanup_disk ;;
 	images) import_problem_images ;;
 	manifests) apply_manifests ;;
 	migrations) run_migrations ;;
