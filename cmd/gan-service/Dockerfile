@@ -51,7 +51,7 @@ ENV GAN_SERVICE_METRICS_PORT=9094
 
 EXPOSE 8004 9094
 
-RUN addgroup -g 1001 -S appgroup && adduser -u 1001 -S appuser -G appgroup
+RUN groupadd -r -g 1001 appgroup && useradd -r -u 1001 -g appgroup -d /app -s /sbin/nologin appuser
 USER 1001
 
 ENTRYPOINT ["./gan-service"]
