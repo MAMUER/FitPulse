@@ -622,4 +622,45 @@ describe('useProfile', () => {
     });
     expect(update).toHaveBeenCalledWith({ profileLoaded: true });
   });
+
+  it('editProfile evaluates status fallback when status missing', async () => {
+    window.prompt = vi
+      .fn()
+      .mockReturnValueOnce('NewName')
+      .mockReturnValueOnce(null);
+    setup({ profile: { name: 'M', status: '', email: 'e@e.com', gender: 'm', phone: '', bio: '', devices: [] } });
+    await act(async () => {
+      await result.current.editProfile();
+    });
+    expect(api.saveProfile).not.toHaveBeenCalled();
+  });
+
+  it('searchFriends matches friend by id when name missing', () => {
+    window.prompt = vi.fn().mockReturnValue('42');
+    setup({
+      friends: [{ id: 42, name: '', added: false }],
+      profile: { name: 'M', friends: 0, email: 'e@e.com', gender: 'm', phone: '', bio: '', status: 's', devices: [] },
+    });
+    result.current.searchFriends();
+    expect(update).toHaveBeenCalled();
+  });
+
+  it('toggleFriendAdded by numeric index', () => {
+    setup({
+      friends: [{ id: 1, name: 'A', added: false }],
+      profile: { name: 'M', friends: 0, email: 'e@e.com', gender: 'm', phone: '', bio: '', status: 's', devices: [] },
+    });
+    result.current.toggleFriendAdded(0);
+    expect(update).toHaveBeenCalled();
+  });
+
+  it('openFriendProfile finds by object', () => {
+    const friend = { id: 2, name: 'Bob', added: true };
+    setup({
+      friends: [friend],
+      profile: { name: 'M', friends: 1, email: 'e@e.com', gender: 'm', phone: '', bio: '', status: 's', devices: [] },
+    });
+    result.current.openFriendProfile(friend);
+    expect(update).toHaveBeenCalledWith({ selectedFriend: friend });
+  });
 });

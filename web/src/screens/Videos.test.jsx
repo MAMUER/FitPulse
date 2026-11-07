@@ -73,4 +73,16 @@ describe('Videos', () => {
     render(<Videos />);
     expect(screen.getByText('V1')).toBeInTheDocument();
   });
+
+  it('renders empty state when trainingVideos is null', () => {
+    const loadVideos = vi.fn();
+    useApp.mockReturnValue({
+      state: { videos: [], trainingVideos: null },
+      t: (ru, _en) => ru,
+      go: vi.fn(),
+      loadVideos,
+    });
+    render(<Videos />);
+    expect(screen.getByText('Нет видео')).toBeInTheDocument();
+  });
 });

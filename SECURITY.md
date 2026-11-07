@@ -414,13 +414,17 @@ Mutable tags позволяют владельцу action'а перенапра�
 
 | Файл | Строки | Причина |
 | --- | --- | --- |
-| `cmd/gateway/handlers_auth.go` | 77, 211, 233, 241, 328, 540, 548, 890, 892, 894, 1169, 1171, 1173, 1175, 1177, 1331, 1333, 1335, 1337, 1449, 1451, 1453, 1467, 1755 | gRPC error paths и validation failures, требующие failing backend или malformed input |
-| `cmd/gateway/handlers_training.go` | 134-138, 271-272 | `json.Unmarshal` failure branches, невозможны при валидном `structpb.Struct` |
-| `internal/webhook/handler.go` | 158-159 | fallback при `purgeTickerInterval <= 0`; покрыто `TestServerPurgeExpiredNoncesDefaultInterval` |
-| `web/src/screens/AI.jsx` | 15 | `chatRef.current` guard в `useEffect`; исключено через `/* v8 ignore */` |
-| `web/src/screens/Chat.jsx` | 11-12 | `input` guard в `useEffect`; исключено через `/* v8 ignore start/stop */` |
-| `web/src/screens/Calendar.jsx` | 73 | `if (idx >= 0)` guard в `handleDeleteEvent`; jsdom не триггерит delete path; v8 ignore ломает source map |
-| `web/src/screens/Menstrual.jsx` | 95, 97 | fallbacks for empty string / moderate; covered by tests editing cycles with null fields |
+| `cmd/user-service/migration.go` | 156-158, 189-191 | `rows.Err()` сразу после `QueryContext` (строки ещё не итерированы) и ошибка `rows.Close()` после авто-закрытия при EOF; недостижимо при стандартной итерации `database/sql`. |
+| `cmd/gateway/handlers_auth.go` | 77, 211, 233, 241, 328, 540, 548, 890, 892, 894, 1169, 1171, 1173, 1175, 1177, 1312, 1331, 1333, 1335, 1337, 1449, 1451, 1453, 1467, 1755 | gRPC error paths, encode-error ветки, недостижимые ветки при валидных данных. |
+| `cmd/gateway/handlers_training.go` | 134-138, 271-272 | Ошибки `json.Unmarshal`; невозможны при валидном `structpb.Struct` (Marshal всегда даёт валидный JSON). |
+| `cmd/gateway/ml_helpers.go` | 41-42, 47-49 | `resp.Body.Close()` и `io.ReadAll` ошибки; `resp.Body` предоставляется `net/http` и не возвращает ошибку в нормальной работе. |
+| `internal/auth/jwt/jwt.go` | 30-31, 34-35, 43-44, 119-120, 130, 161, 187-188, 190-191 | Ошибки криптографических операций (`GenerateKey`, `MarshalECPrivateKey`, `MarshalPKIXPublicKey`, `SignedString`); `rand.Read` не падает; `ParseWithClaims` всегда возвращает `*claims.Claims`; формат ключа всегда корректен после проверки кривой P-256. |
+| `internal/server/lifecycle.go` | 83-98, 134, 146 | `ServeWithWork` использует `signal.NotifyContext` (нельзя отменить из теста без OS-сигналов); `log.Fatal` при ошибке `ListenAndServe` (зависит от платформы). |
+| `internal/webhook/handler.go` | 158-159 | Fallback при `purgeTickerInterval <= 0`; покрыто `TestServerPurgeExpiredNoncesDefaultInterval`. |
+| `web/src/screens/AI.jsx` | 15 | Guard `chatRef.current` в `useEffect`; исключено через `/* v8 ignore */`. |
+| `web/src/screens/Chat.jsx` | 11-12 | Guard `input` в `useEffect`; исключено через `/* v8 ignore start/stop */`. |
+| `web/src/screens/Calendar.jsx` | 73 | Guard `if (idx >= 0)` в `handleDeleteEvent`; jsdom не триггерит delete path; v8 ignore ломает source map. |
+| `web/src/screens/Body.jsx` | 22-24, 31, 46 | `bmi` никогда не null (height/weight всегда 170/70 по умолчанию), поэтому `bmi или 0` и `height && weight ? ... : '—'` недостижимы. |
 
 ---
 
@@ -484,14 +488,3 @@ gpg --full-generate-key
 
 - **GitHub Security Advisory**: [Create a security advisory](https://github.com/MAMUER/fitpulse/security/advisories)
 - **Email**: [mihnikolaenko12@yandex.ru](mailto:mihnikolaenko12@yandex.ru)
-
----
-
-## Test Coverage Notes (handlers_training.go)
-
-The following lines in `cmd/gateway/handlers_training.go` cannot be covered by unit tests:
-
-- **Lines 134-138** (`json.Unmarshal` error in `writeGeneratePlanResponse`): `json.Marshal` of a valid `resp.PlanData` always produces valid JSON, so the subsequent `json.Unmarshal` into `map[string]interface{}` cannot fail.
-- **Lines 271-272** (`json.Unmarshal` error in `executeGeneratePlan`): same reason — marshaling a valid proto struct always yields valid JSON.
-
-Covered: 409-410 (`planDataMap == nil` fallback) via `TestTraining_GetPlanHandler_NilPlanData`.

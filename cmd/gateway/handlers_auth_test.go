@@ -3119,3 +3119,42 @@ func TestAuth_YandexCallbackHandler_EncodeFailure(t *testing.T) {
 	req.AddCookie(&http.Cookie{Name: yandexOAuthStateCookie, Value: "abc", Secure: true, HttpOnly: true})
 	g.yandexCallbackHandler(w, req)
 }
+
+func TestAuth_EmailConfirmPageHandler_WriteError(_ *testing.T) {
+	g := newTestGateway()
+	w := &failingHW{ResponseWriter: httptest.NewRecorder()}
+	g.emailConfirmPageHandler(w, httptest.NewRequest(http.MethodGet, "/confirm", nil))
+}
+
+func TestAuth_YandexCallbackHandler_GRPCError(t *testing.T) {
+	tokenServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set(headerContentType, contentTypeJSON)
+		_, _ = w.Write([]byte(`{"access_token":"yandex-access","token_type":"bearer","expires_in":3600}`))
+	}))
+	defer tokenServer.Close()
+
+	g := newTestGateway()
+	g.userClient = &errorUserServiceClient{err: grpcError(codes.Internal, "internal error")}
+	g.yandexOAuthConfig = &oauth2.Config{
+		ClientID:     "test-client-id",
+		ClientSecret: "test-secret",
+		Endpoint: oauth2.Endpoint{
+			AuthURL:  tokenServer.URL + "/authorize",
+			TokenURL: tokenServer.URL + "/token",
+		},
+	}
+
+	orig := http.DefaultTransport
+	http.DefaultTransport = yandexTransportFunc(func(req *http.Request) (*http.Response, error) {
+		if strings.Contains(req.URL.String(), tokenServer.URL) {
+			return orig.RoundTrip(req)
+		}
+		return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(bytes.NewReader([]byte(`{"id":"y1","login":"l","default_email":"a@b.com"}`))), Header: make(http.Header)}, nil
+	})
+	t.Cleanup(func() { http.DefaultTransport = orig })
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequestWithContext(context.Background(), "GET", "/api/v1/auth/yandex/callback?state=abc&code=xyz", nil)
+	req.AddCookie(&http.Cookie{Name: yandexOAuthStateCookie, Value: "abc", Secure: true, HttpOnly: true})
+	g.yandexCallbackHandler(w, req)
+}

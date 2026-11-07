@@ -75,6 +75,11 @@ run_coverage() {
 	python -m coverage run --source=. -m unittest gan_train_test 2>&1
 	PY_TEST_EXIT=$?
 	python -m coverage xml -o coverage.xml 2>&1
+	# Fix paths so SonarCloud can match sources (project-root relative).
+	sed -i 's|<source>.*</source>|<source>.</source>|' coverage.xml
+	sed -i 's|filename="gan_model.py"|filename="cmd/ml_generator/gan_model.py"|g' coverage.xml
+	sed -i 's|filename="gan_train.py"|filename="cmd/ml_generator/gan_train.py"|g' coverage.xml
+	sed -i 's|filename="gan_train_test.py"|filename="cmd/ml_generator/gan_train_test.py"|g' coverage.xml
 	cp coverage.xml ../../bin/coverage.xml
 	cd ../..
 	set -e

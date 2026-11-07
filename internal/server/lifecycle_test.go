@@ -225,7 +225,7 @@ func TestServeWithContextShutdownTimeout(t *testing.T) {
 		client := &http.Client{Timeout: 5 * time.Second}
 		resp, err := client.Get("http://127.0.0.1:" + mainPort + "/")
 		if err == nil {
-			resp.Body.Close()
+			_ = resp.Body.Close()
 		}
 	}()
 
@@ -234,7 +234,7 @@ func TestServeWithContextShutdownTimeout(t *testing.T) {
 		client := &http.Client{Timeout: 5 * time.Second}
 		resp, err := client.Get("http://127.0.0.1:" + metricsPort + "/")
 		if err == nil {
-			resp.Body.Close()
+			_ = resp.Body.Close()
 		}
 	}()
 	time.Sleep(50 * time.Millisecond)

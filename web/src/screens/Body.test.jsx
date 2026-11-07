@@ -67,4 +67,40 @@ describe('Body', () => {
     render(<Body />);
     expect(screen.getByText('70 кг · ИМТ 24.2')).toBeInTheDocument();
   });
+
+  it('renders with default height and weight when missing', () => {
+    const loadBodyComposition = vi.fn();
+    const saveBodyComposition = vi.fn();
+    const go = vi.fn();
+    useApp.mockReturnValue({
+      state: { bodyComposition: null },
+      t: (ru, _en) => ru,
+      go,
+      loadBodyComposition,
+      saveBodyComposition,
+    });
+    render(<Body />);
+    expect(loadBodyComposition).toHaveBeenCalled();
+    expect(screen.getByText('Профиль тела')).toBeInTheDocument();
+  });
+
+  it('saves with empty optional fields', async () => {
+    const loadBodyComposition = vi.fn();
+    const saveBodyComposition = vi.fn().mockResolvedValue({});
+    const go = vi.fn();
+    useApp.mockReturnValue({
+      state: { height: 175, weight: 75, bodyComposition: [] },
+      t: (ru, _en) => ru,
+      go,
+      loadBodyComposition,
+      saveBodyComposition,
+    });
+    render(<Body />);
+    fireEvent.click(screen.getByText('Сохранить'));
+    await waitFor(() => expect(saveBodyComposition).toHaveBeenCalled());
+    const arg = saveBodyComposition.mock.calls[0][0];
+    expect(arg.body_fat_percentage).toBe(0);
+    expect(arg.muscle_mass_percentage).toBe(0);
+    expect(arg.water_percentage).toBe(0);
+  });
 });

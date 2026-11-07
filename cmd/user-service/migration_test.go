@@ -792,3 +792,142 @@ func TestMigratePIIRow_False(t *testing.T) {
 	assert.False(t, result)
 	require.NoError(t, mock.ExpectationsWereMet())
 }
+
+// ---------------------------------------------------------------------------
+// migrateTablePII additional error branches
+// ---------------------------------------------------------------------------
+
+func TestMigrateTablePII_ScanError(t *testing.T) {
+	resetTestEnv(t)
+	defer resetTestEnv(t)
+
+	ctx := context.Background()
+	log := newTestLogger(t)
+	mockDB, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer func() { _ = mockDB.Close() }()
+
+	tbl := piiTable{name: "users", idCol: "id", pairs: []pair{{enc: "email_encrypted", plain: "email"}}}
+
+	// Return fewer columns than expected to force rows.Scan error.
+	mock.ExpectQuery("SELECT").
+		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow("1"))
+
+	migrateTablePII(ctx, mockDB, log, tbl, "key", 1)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestMigrateTablePII_RowErrAfterIteration(t *testing.T) {
+	resetTestEnv(t)
+	defer resetTestEnv(t)
+
+	ctx := context.Background()
+	log := newTestLogger(t)
+	mockDB, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer func() { _ = mockDB.Close() }()
+
+	tbl := piiTable{name: "users", idCol: "id", pairs: []pair{{enc: "email_encrypted", plain: "email"}}}
+
+	mock.ExpectQuery("SELECT").
+		WillReturnRows(sqlmock.NewRows([]string{"id", "email_encrypted"}).
+			AddRow("1", "encrypted1").
+			RowError(0, errors.New("iter boom")))
+
+	migrateTablePII(ctx, mockDB, log, tbl, "key", 1)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+// ---------------------------------------------------------------------------
+// migratePIIRow additional false branches
+// ---------------------------------------------------------------------------
+
+func TestMigratePIIRow_AlreadyPgsodium(t *testing.T) {
+	resetTestEnv(t)
+	defer resetTestEnv(t)
+
+	ctx := context.Background()
+	log := newTestLogger(t)
+	mockDB, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer func() { _ = mockDB.Close() }()
+
+	tbl := piiTable{name: "users", idCol: "id", pairs: []pair{{enc: "email_encrypted", plain: "email"}}}
+
+	migCtx := piiMigrationContext{
+		database: mockDB,
+		log:      log,
+		t:        tbl,
+		key:      "key",
+		id:       1,
+	}
+
+	mock.ExpectQuery("SELECT convert_from").
+		WillReturnRows(sqlmock.NewRows([]string{"convert_from"}).AddRow("probe"))
+
+	result := migratePIIRow(ctx, migCtx, "1", []interface{}{"1", "encrypted"})
+	assert.False(t, result)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestMigratePIIRow_NoPairs(t *testing.T) {
+	resetTestEnv(t)
+	defer resetTestEnv(t)
+
+	ctx := context.Background()
+	log := newTestLogger(t)
+	mockDB, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer func() { _ = mockDB.Close() }()
+
+	tbl := piiTable{name: "users", idCol: "id", pairs: []pair{}}
+
+	migCtx := piiMigrationContext{
+		database: mockDB,
+		log:      log,
+		t:        tbl,
+		key:      "key",
+		id:       1,
+	}
+
+	mock.ExpectQuery("SELECT convert_from").
+		WillReturnRows(sqlmock.NewRows([]string{"convert_from"}))
+
+	result := migratePIIRow(ctx, migCtx, "1", []interface{}{"1", "encrypted"})
+	assert.False(t, result)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestMigratePIIRow_ExecError(t *testing.T) {
+	resetTestEnv(t)
+	defer resetTestEnv(t)
+
+	ctx := context.Background()
+	log := newTestLogger(t)
+	mockDB, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer func() { _ = mockDB.Close() }()
+
+	tbl := piiTable{name: "users", idCol: "id", pairs: []pair{{enc: "email_encrypted", plain: "email"}}}
+
+	migCtx := piiMigrationContext{
+		database: mockDB,
+		log:      log,
+		t:        tbl,
+		key:      "key",
+		id:       1,
+	}
+
+	mock.ExpectQuery("SELECT convert_from").
+		WillReturnRows(sqlmock.NewRows([]string{"convert_from"}))
+
+	mock.ExpectQuery("SELECT pgp_sym_decrypt").
+		WillReturnRows(sqlmock.NewRows([]string{"pgp_sym_decrypt"}).AddRow("decrypted-value"))
+
+	mock.ExpectExec("UPDATE users SET").
+		WillReturnError(errors.New("exec boom"))
+
+	result := migratePIIRow(ctx, migCtx, "1", []interface{}{"1", "encrypted-value"})
+	assert.False(t, result)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
