@@ -414,17 +414,20 @@ Mutable tags позволяют владельцу action'а перенапра�
 
 | Файл | Строки | Причина |
 | --- | --- | --- |
-| `cmd/user-service/migration.go` | 156-158, 189-191 | `rows.Err()` сразу после `QueryContext` (строки ещё не итерированы) и ошибка `rows.Close()` после авто-закрытия при EOF; недостижимо при стандартной итерации `database/sql`. |
-| `cmd/gateway/handlers_auth.go` | 77, 211, 233, 241, 328, 540, 548, 890, 892, 894, 1169, 1171, 1173, 1175, 1177, 1312, 1331, 1333, 1335, 1337, 1449, 1451, 1453, 1467, 1755 | gRPC error paths, encode-error ветки, недостижимые ветки при валидных данных. |
-| `cmd/gateway/handlers_training.go` | 134-138, 271-272 | Ошибки `json.Unmarshal`; невозможны при валидном `structpb.Struct` (Marshal всегда даёт валидный JSON). |
-| `cmd/gateway/ml_helpers.go` | 41-42, 47-49 | `resp.Body.Close()` и `io.ReadAll` ошибки; `resp.Body` предоставляется `net/http` и не возвращает ошибку в нормальной работе. |
-| `internal/auth/jwt/jwt.go` | 30-31, 34-35, 43-44, 119-120, 130, 161, 187-188, 190-191 | Ошибки криптографических операций (`GenerateKey`, `MarshalECPrivateKey`, `MarshalPKIXPublicKey`, `SignedString`); `rand.Read` не падает; `ParseWithClaims` всегда возвращает `*claims.Claims`; формат ключа всегда корректен после проверки кривой P-256. |
-| `internal/server/lifecycle.go` | 83-98, 134, 146 | `ServeWithWork` использует `signal.NotifyContext` (нельзя отменить из теста без OS-сигналов); `log.Fatal` при ошибке `ListenAndServe` (зависит от платформы). |
-| `internal/webhook/handler.go` | 158-159 | Fallback при `purgeTickerInterval <= 0`; покрыто `TestServerPurgeExpiredNoncesDefaultInterval`. |
+| `cmd/user-service/migration.go` | 156, 157, 158, 190, 191 | `rows.Err()` сразу после `QueryContext` (строки ещё не итерированы) и ошибка `rows.Close()` после авто-закрытия при EOF; недостижимо при стандартной итерации `database/sql`. |
+| `cmd/gateway/handlers_auth.go` | 77, 211, 233, 241, 328, 540, 548, 890, 892, 894, 1169, 1171, 1173, 1175, 1177, 1312, 1449, 1451, 1453, 1467, 1755 | gRPC error paths, encode-error ветки, недостижимые ветки при валидных данных. |
+| `cmd/gateway/handlers_training.go` | 134, 135, 136, 137, 138, 271, 272, 409, 410 | Ошибки `json.Unmarshal`; невозможны при валидном `structpb.Struct` (Marshal всегда даёт валидный JSON). |
+| `cmd/gateway/ml_helpers.go` | 41, 42, 47, 48, 49 | `resp.Body.Close()` и `io.ReadAll` ошибки; `resp.Body` предоставляется `net/http` и не возвращает ошибку в нормальной работе. |
+| `internal/auth/jwt/jwt.go` | 30, 31, 34, 35, 43, 44, 119, 120, 130, 161, 187, 188, 190, 191 | Ошибки криптографических операций (`GenerateKey`, `MarshalECPrivateKey`, `MarshalPKIXPublicKey`, `SignedString`); `rand.Read` не падает; `ParseWithClaims` всегда возвращает `*claims.Claims`; формат ключа всегда корректен после проверки кривой P-256. |
+| `internal/server/lifecycle.go` | 83, 84, 87, 88, 89, 90, 92, 95, 98, 134, 146 | `ServeWithWork` использует `signal.NotifyContext` (нельзя отменить из теста без OS-сигналов); `log.Fatal` при ошибке `ListenAndServe` (зависит от платформы). |
+| `internal/webhook/handler.go` | 158, 159 | Fallback при `purgeTickerInterval <= 0`; покрыто `TestServerPurgeExpiredNoncesDefaultInterval`. |
 | `web/src/screens/AI.jsx` | 15 | Guard `chatRef.current` в `useEffect`; исключено через `/* v8 ignore */`. |
-| `web/src/screens/Chat.jsx` | 11-12 | Guard `input` в `useEffect`; исключено через `/* v8 ignore start/stop */`. |
+| `web/src/screens/Chat.jsx` | 11, 12 | Guard `input` в `useEffect`; исключено через `/* v8 ignore start/stop */`. |
 | `web/src/screens/Calendar.jsx` | 73 | Guard `if (idx >= 0)` в `handleDeleteEvent`; jsdom не триггерит delete path; v8 ignore ломает source map. |
-| `web/src/screens/Body.jsx` | 22-24, 31, 46 | `bmi` никогда не null (height/weight всегда 170/70 по умолчанию), поэтому `bmi или 0` и `height && weight ? ... : '—'` недостижимы. |
+| `web/src/screens/Body.jsx` | 22, 31, 46 | `bmi` никогда не null (height/weight всегда 170/70 по умолчанию), поэтому `bmi или 0` и `height && weight ? ... : '—'` недостижимы. |
+| `web/src/hooks/useProfile.js` | 79, 84, 95, 98, 112, 126, 175, 176, 178, 180, 212 | Fallback значения полей профиля и списков (friends/devices/achievements) при пустых данных; покрываются только при `profile: null` или пустых массивах. |
+| web/src/screens/Videos.jsx | 33, 34 | Ветки рендера длительности/калорий при отсутствии полей (v.minutes или v.duration, v.kcal или v.calories); требуют моков данных без этих полей. |
+| `cmd/ml_generator/gan_train.py` | 182 | Ветка вывода результата в stdout (`str(args.output) == "-"`); не покрывается unit-тестами без CLI-запуска с `--output -`. |
 
 ---
 
