@@ -62,7 +62,7 @@ spec:
       containers:
         - name: valkey
           # checkov:skip=CKV_K8S_43: Known public image; tag-based reference acceptable
-          image: docker.m.daocloud.io/valkey/valkey:9-alpine
+          image: docker.io/valkey/valkey:9-alpine
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 6379

@@ -1289,12 +1289,12 @@ jobs:
         run: |
           set -e
           IMAGES=(
-            "docker.m.daocloud.io/library/rabbitmq:4-management-alpine"
-            "docker.m.daocloud.io/valkey/valkey:9-alpine"
-            "docker.m.daocloud.io/library/postgres:18-alpine"
+            "docker.io/library/rabbitmq:4-management-alpine"
+            "docker.io/valkey/valkey:9-alpine"
+            "docker.io/library/postgres:18-alpine"
             "registry.k8s.io/ingress-nginx/controller:v1.11.3"
             "docker.io/minio/minio:RELEASE.2025-10-15T17-29-55Z"
-            "docker.m.daocloud.io/grafana/grafana:11.2.0"
+            "docker.io/grafana/grafana:11.2.0"
           )
           for img in "${IMAGES[@]}"; do
             echo "-> Pulling $img on runner..."

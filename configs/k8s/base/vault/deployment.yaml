@@ -53,7 +53,7 @@ spec:
           emptyDir: {}
       containers:
         - name: vault
-          image: docker.m.daocloud.io/hashicorp/vault:1.15.0
+          image: docker.io/hashicorp/vault:1.15.0
           imagePullPolicy: IfNotPresent
           securityContext:
             runAsNonRoot: true

@@ -218,6 +218,60 @@ echo '✅ Disk cleanup completed'
 "
 }
 
+PROBLEM_IMAGES=(
+  "argoproj/argocd:v2.11.0"
+  "curlimages/curl:8.5.0"
+  "docker.elastic.co/elasticsearch/elasticsearch:8.12.0"
+  "docker.elastic.co/kibana/kibana:8.12.0"
+  "docker.elastic.co/logstash/logstash:8.12.0"
+  "docker.io/fluent/fluent-bit:3.0.0"
+  "docker.io/flyway/flyway:11"
+  "docker.io/grafana/grafana:11.2.0"
+  "docker.io/hashicorp/vault:1.15.0"
+  "docker.io/library/busybox:1.37.0"
+  "docker.io/library/postgres:18-alpine"
+  "docker.io/library/rabbitmq:4-management-alpine"
+  "docker.io/minio/minio:RELEASE.2025-10-15T17-29-55Z"
+  "docker.io/otel/opentelemetry-collector:0.91.0"
+  "docker.io/valkey/valkey:9-alpine"
+  "fluent/fluent-bit:2.2.2"
+  "grafana/grafana:10.4.1"
+  "grafana/loki:2.9.3"
+  "jaegertracing/all-in-one:1.62"
+  "oliver006/redis_exporter:v1.53.0"
+  "oncall/oncall:1.0.0"
+  "prom/alertmanager:v0.27.0"
+  "prom/node-exporter:v1.8.2"
+  "prom/prometheus:v2.51.0"
+  "prometheuscommunity/postgres-exporter:v0.15.0"
+  "rancher/local-path-provisioner:v0.0.37"
+  "redis:7-alpine"
+  "registry.k8s.io/ingress-nginx/controller:v1.11.3"
+)
+
+import_problem_images() {
+  echo "=== Importing problem images manually via runner ==="
+  for img in "${PROBLEM_IMAGES[@]}"; do
+    safe_name=$(echo "$img" | tr '/:' '_')
+    tar_file="/tmp/${safe_name}.tar"
+
+    echo "-> [1/4] Pulling $img on runner..."
+    docker pull "$img" || { echo "Failed to pull $img"; exit 1; }
+
+    echo "-> [2/4] Saving image to $tar_file..."
+    docker save "$img" -o "$tar_file"
+
+    echo "-> [3/4] Uploading archive to VPS..."
+    bash scripts/ssh-retry.sh scp "$tar_file" "${VPS_USER}@${VPS_HOST}:/tmp/"
+
+    echo "-> [4/4] Importing image into k3s containerd on VPS..."
+    bash scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}"       "sudo k3s ctr -n k8s.io images import /tmp/${safe_name}.tar && sudo rm -f /tmp/${safe_name}.tar"
+
+    echo "Imported $img"
+  done
+  echo "=== Problem images import completed ==="
+}
+
 pre_pull_images() {
 	echo "-> Pre-pulling application images on VPS..."
 	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "
@@ -566,6 +620,7 @@ main() {
 		create_secrets
 		ensure_service_account
 		update_image_tags
+		import_problem_images
 		cleanup_disk
 		apply_manifests
 		wait_for_rabbitmq
