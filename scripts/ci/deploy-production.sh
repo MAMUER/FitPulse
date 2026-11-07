@@ -85,7 +85,7 @@ create_secrets() {
 	if ! kubectl get secret app-secrets -n fitness-platform-production -o jsonpath='{.data.JWT_PRIVATE_KEY_PEM}' 2>/dev/null | grep -q .; then
 		JWT_PRIV="${JWT_PRIVATE_KEY_PEM:-$(openssl genrsa 2048 2>/dev/null | openssl pkcs8 -topk8 -nocrypt 2>/dev/null || openssl genrsa 2048 2>/dev/null)}"
 		JWT_PUB="${JWT_PUBLIC_KEY_PEM:-$(echo "$JWT_PRIV" | openssl rsa -pubout 2>/dev/null || true)}"
-		kubectl patch secret app-secrets -n fitness-platform-production --type merge -p "{\"data\":{\"JWT_PRIVATE_KEY_PEM\":\"$(printf '%s' "$JWT_PRIV" | base64 -w0)\",\"JWT_PUBLIC_KEY_PEM\":\"$(printf '%s' "$JWT_PUB" | base64 -w0)\"}}" >/dev/null 2>&1 || true
+		kubectl patch secret app-secrets -n fitness-platform-production --type merge -p "{\"stringData\":{\"JWT_PRIVATE_KEY_PEM\":\"$JWT_PRIV\",\"JWT_PUBLIC_KEY_PEM\":\"$JWT_PUB\"}}" >/dev/null 2>&1 || true
 	fi
 
 	# Ensure POSTGRES_USER/PASSWORD/DB are present (fix empty/missing keys in pre-existing secrets)
@@ -97,12 +97,11 @@ create_secrets() {
 	echo "Creating per-service DB credentials (fallback)..."
 	for svc in user-service training-service biometric-service data-processor; do
 		sec="${svc}-db-credentials"
-		if ! kubectl get secret "$sec" -n fitness-platform-production >/dev/null 2>&1; then
-			kubectl create secret generic "$sec" -n fitness-platform-production \
-				--from-literal=username="${svc//-/_}" \
-				--from-literal=password="${DB_PASSWORD:-$(openssl rand -hex 16 2>/dev/null || echo 'fitpulse')}" \
-				--dry-run=client -o yaml | kubectl apply -f - || echo "::warning::$sec creation failed" >&2
-		fi
+		kubectl create secret generic "$sec" -n fitness-platform-production \
+			--from-literal=POSTGRES_USER="${POSTGRES_USER:-fitness_admin}" \
+			--from-literal=POSTGRES_PASSWORD="${POSTGRES_PASSWORD:-}" \
+			--from-literal=POSTGRES_DB="${POSTGRES_DB:-fitness}" \
+			--dry-run=client -o yaml | kubectl apply -f - || echo "::warning::$sec creation failed" >&2
 	done
 
 	echo "Creating db-migrations ConfigMap..."
@@ -403,7 +402,7 @@ run_migrations() {
 	fi
 	echo "Verifying tables were created..."
 	kubectl exec -n fitness-platform-production postgres-0 -- \
-		psql -U postgres -d fitness -c "SELECT table_name FROM information_schema.tables WHERE table_schema='public' ORDER BY table_name;" || echo "::warning::table verification failed" >&2
+		psql -U "${POSTGRES_USER:-fitness_admin}" -d "${POSTGRES_DB:-fitness}" -c "SELECT table_name FROM information_schema.tables WHERE table_schema='public' ORDER BY table_name;" || echo "::warning::table verification failed" >&2
 }
 
 run_seed_admin() {

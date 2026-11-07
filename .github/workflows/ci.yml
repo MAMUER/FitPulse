@@ -522,7 +522,8 @@ jobs:
     services:
       postgres:
         image: postgres:18-alpine
-        env: { POSTGRES_PASSWORD: test, POSTGRES_INITDB_ARGS: "--locale=C.UTF-8" }
+        env:
+          { POSTGRES_PASSWORD: test, POSTGRES_INITDB_ARGS: "--locale=C.UTF-8" }
         options: >-
           --health-cmd "pg_isready -U postgres"
           --health-interval 10s
@@ -1291,8 +1292,8 @@ jobs:
             "docker.m.daocloud.io/library/rabbitmq:4-management-alpine"
             "docker.m.daocloud.io/valkey/valkey:9-alpine"
             "docker.m.daocloud.io/library/postgres:18-alpine"
-            "docker.m.daocloud.io/ingress-nginx/controller:v1.11.3"
-            "docker.m.daocloud.io/minio/minio:RELEASE.2025-10-15T17-29-55Z"
+            "registry.k8s.io/ingress-nginx/controller:v1.11.3"
+            "docker.io/minio/minio:RELEASE.2025-10-15T17-29-55Z"
             "docker.m.daocloud.io/grafana/grafana:11.2.0"
           )
           for img in "${IMAGES[@]}"; do
@@ -1586,32 +1587,32 @@ jobs:
           VPS_PORT: ${{ secrets.VPS_PORT }}
           VPS_USER: ${{ secrets.VPS_USER }}
         run: |
-           set -euo pipefail
-           ssh -p "${VPS_PORT:-22}" -o StrictHostKeyChecking=accept-new "${VPS_USER}@${VPS_HOST}" 'bash -s' << 'EOF'
-           set -euo pipefail
-           mkdir -p ~/security-results
-           
-            echo "Installing/updating kube-bench binary and config..."
-            curl -sL https://github.com/aquasecurity/kube-bench/releases/download/v0.8.0/kube-bench_0.8.0_linux_amd64.tar.gz -o /tmp/kube-bench.tar.gz
-            tar -xzf /tmp/kube-bench.tar.gz -C /tmp
-            sudo mv /tmp/kube-bench /usr/local/bin/kube-bench
+          set -euo pipefail
+          ssh -p "${VPS_PORT:-22}" -o StrictHostKeyChecking=accept-new "${VPS_USER}@${VPS_HOST}" 'bash -s' << 'EOF'
+          set -euo pipefail
+          mkdir -p ~/security-results
 
-            sudo rm -rf /etc/kubebench
-            sudo mkdir -p /etc/kubebench
-            sudo cp -r /tmp/cfg/* /etc/kubebench/
+           echo "Installing/updating kube-bench binary and config..."
+           curl -sL https://github.com/aquasecurity/kube-bench/releases/download/v0.8.0/kube-bench_0.8.0_linux_amd64.tar.gz -o /tmp/kube-bench.tar.gz
+           tar -xzf /tmp/kube-bench.tar.gz -C /tmp
+           sudo mv /tmp/kube-bench /usr/local/bin/kube-bench
 
-            rm -f /tmp/kube-bench.tar.gz
-            echo "✅ kube-bench installed successfully"
+           sudo rm -rf /etc/kubebench
+           sudo mkdir -p /etc/kubebench
+           sudo cp -r /tmp/cfg/* /etc/kubebench/
+
+           rm -f /tmp/kube-bench.tar.gz
+           echo "✅ kube-bench installed successfully"
 
 
-           echo "Running kube-bench scan..."
-           # Убрали "|| true", чтобы пайплайн честно падал, если сканирование не удалось
-           sudo kube-bench run --config-dir /tmp/cfg --targets node --json > ~/security-results/kube-bench-results.json
-           EOF
-           
-           mkdir -p security-results
-           # Скачиваем результат. Если файл пустой или команда выше упала, этот шаг тоже упадет (что правильно)
-           scp -P "${VPS_PORT:-22}" -o StrictHostKeyChecking=accept-new "${VPS_USER}@${VPS_HOST}:~/security-results/kube-bench-results.json" security-results/
+          echo "Running kube-bench scan..."
+          # Убрали "|| true", чтобы пайплайн честно падал, если сканирование не удалось
+          sudo kube-bench run --config-dir /tmp/cfg --targets node --json > ~/security-results/kube-bench-results.json
+          EOF
+
+          mkdir -p security-results
+          # Скачиваем результат. Если файл пустой или команда выше упала, этот шаг тоже упадет (что правильно)
+          scp -P "${VPS_PORT:-22}" -o StrictHostKeyChecking=accept-new "${VPS_USER}@${VPS_HOST}:~/security-results/kube-bench-results.json" security-results/
 
   kube-hunter:
     name: Kube-Hunter Penetration Test
