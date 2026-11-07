@@ -21,8 +21,6 @@ ensure_service_account() {
 	echo "ServiceAccount ready"
 }
 
-
-
 create_image_pull_secret() {
 	echo "Creating imagePullSecret for ghcr.io..."
 	kubectl create namespace fitness-platform-production --dry-run=client -o yaml | kubectl apply --validate=false -f -
@@ -35,8 +33,6 @@ create_image_pull_secret() {
 	echo "imagePullSecret created/updated"
 }
 
-
-
 update_image_tags() {
 	echo "Updating image tags to :latest"
 	cd configs/k8s/overlays/production
@@ -44,8 +40,6 @@ update_image_tags() {
 		kustomize edit set image "ghcr.io/mamuer/project/$svc=ghcr.io/mamuer/project/$svc:latest" || true
 	done
 }
-
-
 
 cleanup_disk() {
 	echo "-> Cleaning up disk space on VPS..."
@@ -67,6 +61,3 @@ df -h /
 echo '✅ Disk cleanup completed'
 "
 }
-
-
-

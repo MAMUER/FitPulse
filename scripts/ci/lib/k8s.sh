@@ -44,8 +44,6 @@ apply_manifests() {
 	cd - >/dev/null
 }
 
-
-
 wait_for_rabbitmq() {
 	echo "Waiting for RabbitMQ pod to be scheduled..."
 	for i in {1..60}; do
@@ -70,8 +68,6 @@ wait_for_rabbitmq() {
 	fi
 }
 
-
-
 verify_postgres() {
 	echo "=== Checking resources in namespace ==="
 	kubectl get all -n fitness-platform-production
@@ -89,8 +85,6 @@ verify_postgres() {
 	kubectl get pods -n fitness-platform-production -o wide
 }
 
-
-
 run_migrations() {
 	echo "Running database migrations via Flyway..."
 	kubectl delete job migrate-db -n fitness-platform-production --ignore-not-found=true || true
@@ -105,8 +99,6 @@ run_migrations() {
 	kubectl exec -n fitness-platform-production postgres-0 -- \
 		psql -U "${POSTGRES_USER:-fitness_admin}" -d "${POSTGRES_DB:-fitness}" -c "SELECT table_name FROM information_schema.tables WHERE table_schema='public' ORDER BY table_name;" || echo "::warning::table verification failed" >&2
 }
-
-
 
 run_seed_admin() {
 	echo "=== Running seed-admin job ==="
@@ -199,8 +191,6 @@ run_seed_admin() {
 	echo "✅ seed-admin step completed"
 }
 
-
-
 verify_deployment() {
 	for i in {1..30}; do
 		if kubectl get --raw /healthz &>/dev/null; then
@@ -220,8 +210,6 @@ verify_deployment() {
 	sleep 30
 }
 
-
-
 deploy_open_wearables() {
 	echo "=== Deploying Open Wearables ==="
 	kubectl apply -k configs/k8s/base/ -n fitness-platform-production --validate=false || true
@@ -232,8 +220,6 @@ deploy_open_wearables() {
 	kubectl wait --for=condition=ready pod -l app=open-wearables-frontend -n fitness-platform-production --timeout=300s || echo "::warning::Open Wearables frontend not ready yet"
 	echo "✅ Open Wearables deployed"
 }
-
-
 
 debug_pod_status() {
 	for i in {1..30}; do
@@ -262,8 +248,6 @@ debug_pod_status() {
 	echo "=== Recent events ==="
 	kubectl get events -n fitness-platform-production --sort-by="$LAST_TIMESTAMP_SORT" | tail -20 || true
 }
-
-
 
 check_logs() {
 	echo "Waiting for pods to stabilize..."
@@ -297,6 +281,3 @@ check_logs() {
 		echo "✅ No critical errors found, all services are healthy" >&2
 	fi
 }
-
-
-

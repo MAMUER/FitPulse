@@ -170,6 +170,3 @@ create_secrets() {
 		echo "✅ captcha-secrets created"
 	fi
 }
-
-
-

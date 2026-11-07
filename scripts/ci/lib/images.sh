@@ -34,8 +34,6 @@ import_problem_images() {
 	echo "=== Problem images import completed ==="
 }
 
-
-
 pre_pull_images() {
 	echo "-> Pre-pulling application images on VPS..."
 	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "
@@ -59,6 +57,3 @@ pre_pull_images() {
 	"
 	echo "✅ Pre-pull step completed"
 }
-
-
-
