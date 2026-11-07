@@ -42,5 +42,26 @@ update_image_tags() {
 }
 
 cleanup_disk() {
-	echo "-> Skipping disk cleanup in CI (handled by VPS cron)"
+	log_info "-> Cleaning up disk space on VPS (safe mode)..."
+	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "
+		echo '=== Disk usage before cleanup ==='
+		df -h /
+		echo ''
+		
+		echo '-> Cleaning system logs older than 7 days...'
+		sudo journalctl --vacuum-time=7d || true
+		
+		echo '-> Cleaning apt cache and old kernels...'
+		sudo apt-get clean || true
+		sudo apt-get autoremove -y || true
+		
+		echo '-> Pruning unused Docker/Containerd resources (SAFE: only dangling, not active)...'
+		# Не используем --prune для образов, только чистим "висячие" (dangling) слои
+		sudo k3s crictl rmi --prune 2>/dev/null | grep -v 'error' || true
+		
+		echo ''
+		echo '=== Disk usage after cleanup ==='
+		df -h /
+	"
+	log_info "✅ Disk cleanup completed"
 }
