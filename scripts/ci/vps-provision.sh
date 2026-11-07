@@ -186,6 +186,24 @@ fi
 "
 }
 
+configure_registries() {
+	echo "-> Configuring containerd mirrors..."
+	sudo mkdir -p /etc/rancher/k3s
+	cat <<'EOF' | sudo tee /etc/rancher/k3s/registries.yaml > /dev/null
+mirrors:
+  "docker.io":
+    endpoint:
+      - "https://docker.1ms.run"
+      - "https://dockerhub.icu"
+      - "https://registry-1.docker.io"
+  "quay.io":
+    endpoint:
+      - "https://quay.m.daocloud.io"
+      - "https://quay.io"
+EOF
+	echo "registries.yaml configured"
+}
+
 start_k3s() {
 	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "
 set -euo pipefail
@@ -261,6 +279,12 @@ wget -q --tries=5 --timeout=60 -O /tmp/k3s-airgap.tar.gz \"https://github.com/k3
 echo '-> Importing airgap images into containerd...'
 sudo k3s ctr -n k8s.io images import /tmp/k3s-airgap.tar.gz
 sudo rm -f /tmp/k3s-airgap.tar.gz
+
+echo '-> Retagging images to remove docker.io prefix...'
+for img in $(sudo k3s ctr -n k8s.io images ls -q | grep '^docker.io/' || true); do
+	new_name=$(echo "$img" | sed 's|^docker.io/||')
+	sudo k3s ctr -n k8s.io images tag "$img" "$new_name" 2>/dev/null || true
+done
 
 echo '-> Restarting k3s to apply imported images...'
 sudo systemctl restart k3s
@@ -519,6 +543,7 @@ main() {
 		ensure_local_path_dir
 		prepare_k3s_config
 		restart_k3s_if_needed
+		configure_registries
 		install_k3s
 		preload_airgap_images
 		preload_busybox_image
@@ -534,6 +559,7 @@ main() {
 	prepare_k3s_config) prepare_k3s_config ;;
 	restart_k3s_if_needed) restart_k3s_if_needed ;;
 	start_k3s) start_k3s ;;
+	configure_registries) configure_registries ;;
 	install_k3s) install_k3s ;;
 	preload_airgap_images) preload_airgap_images ;;
 	preload_busybox_image) preload_busybox_image ;;
