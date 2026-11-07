@@ -189,7 +189,7 @@ fi
 configure_registries() {
 	echo "-> Configuring containerd mirrors..."
 	sudo mkdir -p /etc/rancher/k3s
-	cat <<'EOF' | sudo tee /etc/rancher/k3s/registries.yaml > /dev/null
+	cat <<'EOF' | sudo tee /etc/rancher/k3s/registries.yaml >/dev/null
 mirrors:
   "docker.io":
     endpoint:
@@ -281,9 +281,9 @@ sudo k3s ctr -n k8s.io images import /tmp/k3s-airgap.tar.gz
 sudo rm -f /tmp/k3s-airgap.tar.gz
 
 echo '-> Retagging images to remove docker.io prefix...'
-for img in $(sudo k3s ctr -n k8s.io images ls -q | grep '^docker.io/' || true); do
-	new_name=$(echo "$img" | sed 's|^docker.io/||')
-	sudo k3s ctr -n k8s.io images tag "$img" "$new_name" 2>/dev/null || true
+for img in $(sudo /usr/local/bin/k3s ctr -n k8s.io images ls -q | grep '^docker.io/' || true); do
+	new_name="${img#docker.io/}"
+	sudo /usr/local/bin/k3s ctr -n k8s.io images tag "$img" "$new_name" 2>/dev/null || true
 done
 
 echo '-> Restarting k3s to apply imported images...'
@@ -481,7 +481,7 @@ for src in "mirror.gcr.io/library/busybox:1.37.0" "docker.io/library/busybox:1.3
 		if [[ "${src}" != "${BUSYBOX_TARGET}" ]]; then
 			echo "-> Retagging ${src} to ${BUSYBOX_TARGET}"
 			sudo k3s ctr -n k8s.io images rm "${BUSYBOX_TARGET}" >/dev/null 2>&1 || true
-			sudo k3s ctr -n k8s.io images tag "${src}" "${BUSYBOX_TARGET}"
+			sudo /usr/local/bin/k3s ctr -n k8s.io images tag "${src}" "${BUSYBOX_TARGET}"
 		fi
 		pulled=true
 		break
@@ -494,7 +494,7 @@ if [[ "${pulled}" != true ]]; then
 	exit 1
 fi
 sudo k3s ctr -n k8s.io images rm "busybox:1.37.0" >/dev/null 2>&1 || true
-sudo k3s ctr -n k8s.io images tag "${BUSYBOX_TARGET}" "busybox:1.37.0" || true
+sudo /usr/local/bin/k3s ctr -n k8s.io images tag "${BUSYBOX_TARGET}" "busybox:1.37.0" || true
 echo "BusyBox helper image ready: ${BUSYBOX_TARGET}"
 EOF
 }
