@@ -164,7 +164,7 @@ if [[ \"\$LOCAL_HASH\" != \"\$SAVED_HASH\" ]]; then
 
 	sudo systemctl restart k3s
 	for i in \$(seq 1 90); do
-		if sudo k3s kubectl cluster-info &>/dev/null; then
+		if sudo /usr/local/bin/k3s kubectl cluster-info &>/dev/null; then
 			echo \"? k3s ready after \${i}s\"
 			break
 		fi
@@ -179,7 +179,7 @@ if [[ \"\$LOCAL_HASH\" != \"\$SAVED_HASH\" ]]; then
 	echo '-> Saving config hash for future comparisons...'
 	echo \"\$LOCAL_HASH\" | sudo tee /etc/rancher/k3s/.config-hash > /dev/null
 	echo '? k3s restarted with new config'
-	sudo k3s kubectl get nodes -o wide
+	sudo /usr/local/bin/k3s kubectl get nodes -o wide
 else
 	echo '? Config unchanged, skipping k3s restart'
 fi
@@ -209,8 +209,8 @@ start_k3s() {
 set -euo pipefail
 echo '-> Starting k3s...'
 echo '-> Cleaning stuck pods from previous runs BEFORE restart...'
-sudo k3s kubectl delete pods --all -n kube-system --force --grace-period=0 2>/dev/null || true
-sudo k3s kubectl delete pods --all -n local-path-storage --force --grace-period=0 2>/dev/null || true
+sudo /usr/local/bin/k3s kubectl delete pods --all -n kube-system --force --grace-period=0 2>/dev/null || true
+sudo /usr/local/bin/k3s kubectl delete pods --all -n local-path-storage --force --grace-period=0 2>/dev/null || true
 
 sudo sysctl -w net.ipv4.ip_no_pmtu_disc=1
 sudo touch /etc/sysctl.conf 2>/dev/null
@@ -223,7 +223,7 @@ sudo systemctl enable --now k3s
 
 echo '-> Waiting for readiness...'
 for i in \$(seq 1 120); do
-	if sudo k3s kubectl cluster-info &> /dev/null; then
+	if sudo /usr/local/bin/k3s kubectl cluster-info &> /dev/null; then
 		echo \"k3s ready after \${i}s\"
 		break
 	fi
@@ -236,8 +236,8 @@ for i in \$(seq 1 120); do
 done
 
 echo '=== Cluster status (snapshot; readiness is gated by wait_for_critical_pods) ==='
-sudo k3s kubectl get nodes -o wide
-sudo k3s kubectl get pods -A
+sudo /usr/local/bin/k3s kubectl get nodes -o wide
+sudo /usr/local/bin/k3s kubectl get pods -A
 "
 }
 
@@ -277,7 +277,7 @@ echo '-> Downloading k3s airgap images bundle (contains local-path-provisioner &
 wget -q --tries=5 --timeout=60 -O /tmp/k3s-airgap.tar.gz \"https://github.com/k3s-io/k3s/releases/download/\${K3S_VER}/k3s-airgap-images-amd64.tar.gz\"
 
 echo '-> Importing airgap images into containerd...'
-sudo k3s ctr -n k8s.io images import /tmp/k3s-airgap.tar.gz
+sudo /usr/local/bin/k3s ctr -n k8s.io images import /tmp/k3s-airgap.tar.gz
 sudo rm -f /tmp/k3s-airgap.tar.gz
 
 echo '-> Retagging images to remove docker.io prefix...'
@@ -290,7 +290,7 @@ echo '-> Restarting k3s to apply imported images...'
 sudo systemctl restart k3s
 
 echo '-> Verifying images are loaded:'
-sudo k3s crictl images | grep -E 'local-path-provisioner|pause' || true
+sudo /usr/local/bin/k3s crictl images | grep -E 'local-path-provisioner|pause' || true
 "
 }
 
@@ -301,9 +301,9 @@ set -euo pipefail
 overall_fail=0
 
 echo '• checking node Ready'
-if ! sudo k3s kubectl wait --for=condition=Ready node --all --timeout=120s; then
+if ! sudo /usr/local/bin/k3s kubectl wait --for=condition=Ready node --all --timeout=120s; then
 	echo '  ❌ node is not Ready'
-	sudo k3s kubectl get nodes -o wide || true
+	sudo /usr/local/bin/k3s kubectl get nodes -o wide || true
 	overall_fail=1
 fi
 
@@ -321,7 +321,7 @@ for entry in "${CRITICAL[@]}"; do
 
 	appeared=false
 	for i in $(seq 1 60); do
-		if sudo k3s kubectl get pods -n "$ns" -l "$sel" --no-headers 2>/dev/null | grep -q .; then
+		if sudo /usr/local/bin/k3s kubectl get pods -n "$ns" -l "$sel" --no-headers 2>/dev/null | grep -q .; then
 			appeared=true
 			break
 		fi
@@ -334,11 +334,11 @@ for entry in "${CRITICAL[@]}"; do
 		continue
 	fi
 
-	if ! sudo k3s kubectl wait --for=condition=Ready pod -l "$sel" -n "$ns" --timeout=300s; then
+	if ! sudo /usr/local/bin/k3s kubectl wait --for=condition=Ready pod -l "$sel" -n "$ns" --timeout=300s; then
 		echo "  ❌ $name: not Ready within 300s. Diagnostics:"
-		sudo k3s kubectl get pods -n "$ns" -l "$sel" -o wide || true
-		sudo k3s kubectl describe pods -n "$ns" -l "$sel" | tail -80 || true
-		sudo k3s kubectl logs -n "$ns" -l "$sel" --tail=50 || true
+		sudo /usr/local/bin/k3s kubectl get pods -n "$ns" -l "$sel" -o wide || true
+		sudo /usr/local/bin/k3s kubectl describe pods -n "$ns" -l "$sel" | tail -80 || true
+		sudo /usr/local/bin/k3s kubectl logs -n "$ns" -l "$sel" --tail=50 || true
 		overall_fail=1
 	else
 		echo "  ✅ $name is Ready"
@@ -346,20 +346,20 @@ for entry in "${CRITICAL[@]}"; do
 done
 
 echo '• checking StorageClass local-path'
-if ! sudo k3s kubectl get storageclass local-path >/dev/null 2>&1; then
+if ! sudo /usr/local/bin/k3s kubectl get storageclass local-path >/dev/null 2>&1; then
 	echo '  ❌ StorageClass local-path missing'
 	overall_fail=1
 else
-	default_class=$(sudo k3s kubectl get storageclass local-path -o jsonpath='{.metadata.annotations.storageclass\.kubernetes\.io/is-default-class}' 2>/dev/null || echo '')
+	default_class=$(sudo /usr/local/bin/k3s kubectl get storageclass local-path -o jsonpath='{.metadata.annotations.storageclass\.kubernetes\.io/is-default-class}' 2>/dev/null || echo '')
 	if [[ "$default_class" != "true" ]]; then
 		echo '  ⚠️ StorageClass local-path is not default, patching...'
-		if ! sudo k3s kubectl patch storageclass local-path -p '{"metadata":{"annotations":{"storageclass.kubernetes.io/is-default-class":"true"}}}'; then
+		if ! sudo /usr/local/bin/k3s kubectl patch storageclass local-path -p '{"metadata":{"annotations":{"storageclass.kubernetes.io/is-default-class":"true"}}}'; then
 			echo '  ❌ failed to patch StorageClass local-path' >&2
 			overall_fail=1
 		fi
 	fi
 
-	mode=$(sudo k3s kubectl get storageclass local-path -o jsonpath='{.volumeBindingMode}' 2>/dev/null || echo '')
+	mode=$(sudo /usr/local/bin/k3s kubectl get storageclass local-path -o jsonpath='{.volumeBindingMode}' 2>/dev/null || echo '')
 	if [[ "$mode" != "WaitForFirstConsumer" ]]; then
 		echo "  ❌ StorageClass local-path has wrong volumeBindingMode: ${mode:-<empty>}"
 		overall_fail=1
@@ -367,19 +367,19 @@ else
 fi
 
 echo '-> Cleaning stale smoke resources before gate...'
-sudo k3s kubectl delete pods -n local-path-storage -l app.kubernetes.io/name=lp-smoke --ignore-not-found --wait=false >/dev/null 2>&1 || true
-sudo k3s kubectl delete pvc -n local-path-storage -l app.kubernetes.io/name=lp-smoke --ignore-not-found --wait=false >/dev/null 2>&1 || true
-for pod in $(sudo k3s kubectl get pods -n local-path-storage -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' 2>/dev/null | grep -E '^(lp-smoke-|ci-lp-smoke-|helper-pod-)' || true); do
-	sudo k3s kubectl delete pod "$pod" -n local-path-storage --ignore-not-found --wait=false >/dev/null 2>&1 || true
+sudo /usr/local/bin/k3s kubectl delete pods -n local-path-storage -l app.kubernetes.io/name=lp-smoke --ignore-not-found --wait=false >/dev/null 2>&1 || true
+sudo /usr/local/bin/k3s kubectl delete pvc -n local-path-storage -l app.kubernetes.io/name=lp-smoke --ignore-not-found --wait=false >/dev/null 2>&1 || true
+for pod in $(sudo /usr/local/bin/k3s kubectl get pods -n local-path-storage -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' 2>/dev/null | grep -E '^(lp-smoke-|ci-lp-smoke-|helper-pod-)' || true); do
+	sudo /usr/local/bin/k3s kubectl delete pod "$pod" -n local-path-storage --ignore-not-found --wait=false >/dev/null 2>&1 || true
 done
-for pvc in $(sudo k3s kubectl get pvc -n local-path-storage -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' 2>/dev/null | grep -E '^(lp-smoke-|ci-lp-smoke-)' || true); do
-	sudo k3s kubectl delete pvc "$pvc" -n local-path-storage --ignore-not-found --wait=false >/dev/null 2>&1 || true
+for pvc in $(sudo /usr/local/bin/k3s kubectl get pvc -n local-path-storage -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' 2>/dev/null | grep -E '^(lp-smoke-|ci-lp-smoke-)' || true); do
+	sudo /usr/local/bin/k3s kubectl delete pvc "$pvc" -n local-path-storage --ignore-not-found --wait=false >/dev/null 2>&1 || true
 done
 sleep 5
 
 echo '• smoke-testing PVC provisioning'
 SMOKE_NAME="ci-lp-smoke-$(date +%s)"
-cat <<MANIFEST | sudo k3s kubectl apply -f -
+cat <<MANIFEST | sudo /usr/local/bin/k3s kubectl apply -f -
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
@@ -413,17 +413,17 @@ spec:
 MANIFEST
 
 cleanup_smoke() {
-	sudo k3s kubectl delete pod "${SMOKE_NAME}-consumer" -n local-path-storage --ignore-not-found --wait=false >/dev/null 2>&1 || true
-	sudo k3s kubectl delete pvc "${SMOKE_NAME}" -n local-path-storage --ignore-not-found --wait=false >/dev/null 2>&1 || true
+	sudo /usr/local/bin/k3s kubectl delete pod "${SMOKE_NAME}-consumer" -n local-path-storage --ignore-not-found --wait=false >/dev/null 2>&1 || true
+	sudo /usr/local/bin/k3s kubectl delete pvc "${SMOKE_NAME}" -n local-path-storage --ignore-not-found --wait=false >/dev/null 2>&1 || true
 }
 trap cleanup_smoke EXIT
 
-if ! sudo k3s kubectl wait pvc "${SMOKE_NAME}" -n local-path-storage --for=condition=Bound --timeout=180s; then
+if ! sudo /usr/local/bin/k3s kubectl wait pvc "${SMOKE_NAME}" -n local-path-storage --for=condition=Bound --timeout=180s; then
 	echo '  ❌ Smoke PVC did not become Bound; local-path provisioner is not functional'
-	sudo k3s kubectl get pvc,pods -n local-path-storage -o wide || true
-	sudo k3s kubectl describe pvc "${SMOKE_NAME}" -n local-path-storage || true
-	sudo k3s kubectl get events -n local-path-storage --sort-by=.lastTimestamp | tail -80 || true
-	sudo k3s kubectl logs -n local-path-storage -l app=local-path-provisioner --tail=100 || true
+	sudo /usr/local/bin/k3s kubectl get pvc,pods -n local-path-storage -o wide || true
+	sudo /usr/local/bin/k3s kubectl describe pvc "${SMOKE_NAME}" -n local-path-storage || true
+	sudo /usr/local/bin/k3s kubectl get events -n local-path-storage --sort-by=.lastTimestamp | tail -80 || true
+	sudo /usr/local/bin/k3s kubectl logs -n local-path-storage -l app=local-path-provisioner --tail=100 || true
 	overall_fail=1
 else
 	echo '  ✅ Smoke PVC bound; local-path provisioning works'
@@ -434,17 +434,17 @@ trap - EXIT
 
 echo '-> Cleaning up stale non-ready pods in system namespaces...'
 for ns in kube-system local-path-storage; do
-	sudo k3s kubectl get pods -n "$ns" --no-headers 2>/dev/null |
+	sudo /usr/local/bin/k3s kubectl get pods -n "$ns" --no-headers 2>/dev/null |
 		awk '$3 != "Running" && $3 != "Completed" && $3 != "Terminating" && $1 !~ /^(lp-smoke-|ci-lp-smoke-|helper-pod-|create-pvc-|delete-pvc-)/ {print $1}' |
 		while read -r pod; do
-			sudo k3s kubectl delete pod "$pod" -n "$ns" --ignore-not-found --wait=false >/dev/null 2>&1 || true
+			sudo /usr/local/bin/k3s kubectl delete pod "$pod" -n "$ns" --ignore-not-found --wait=false >/dev/null 2>&1 || true
 		done
 done
 sleep 15
 
 for ns in kube-system local-path-storage; do
 	bad=$(
-		sudo k3s kubectl get pods -n "$ns" --no-headers 2>/dev/null |
+		sudo /usr/local/bin/k3s kubectl get pods -n "$ns" --no-headers 2>/dev/null |
 			awk '$3 != "Running" && $3 != "Completed" && $3 != "Terminating" && $1 !~ /^(lp-smoke-|ci-lp-smoke-|helper-pod-|create-pvc-|delete-pvc-)/ {print $1 " " $2 " " $3}' || true
 	)
 	if [[ -n "$bad" ]]; then
@@ -455,7 +455,7 @@ for ns in kube-system local-path-storage; do
 done
 
 echo '=== Final pod snapshot ==='
-sudo k3s kubectl get pods -A || true
+sudo /usr/local/bin/k3s kubectl get pods -A || true
 
 if [[ "$overall_fail" -ne 0 ]]; then
 	echo '❌ CRITICAL PODS/NODE/STORAGE/PVC NOT READY — failing provision job' >&2
@@ -470,17 +470,17 @@ preload_busybox_image() {
 set -euo pipefail
 BUSYBOX_TARGET="docker.io/library/busybox:1.37.0"
 echo '-> Ensuring BusyBox helper image is available locally...'
-if sudo k3s crictl images 2>/dev/null | grep -E 'busybox[[:space:]]+1\.37\.0' >/dev/null; then
+if sudo /usr/local/bin/k3s crictl images 2>/dev/null | grep -E 'busybox[[:space:]]+1\.37\.0' >/dev/null; then
 	echo "BusyBox already present as ${BUSYBOX_TARGET}"
 	exit 0
 fi
 pulled=false
 for src in "mirror.gcr.io/library/busybox:1.37.0" "docker.io/library/busybox:1.37.0"; do
 	echo "-> Trying to pull ${src}"
-	if timeout 180 sudo k3s crictl pull "${src}"; then
+	if timeout 180 sudo /usr/local/bin/k3s crictl pull "${src}"; then
 		if [[ "${src}" != "${BUSYBOX_TARGET}" ]]; then
 			echo "-> Retagging ${src} to ${BUSYBOX_TARGET}"
-			sudo k3s ctr -n k8s.io images rm "${BUSYBOX_TARGET}" >/dev/null 2>&1 || true
+			sudo /usr/local/bin/k3s ctr -n k8s.io images rm "${BUSYBOX_TARGET}" >/dev/null 2>&1 || true
 			sudo /usr/local/bin/k3s ctr -n k8s.io images tag "${src}" "${BUSYBOX_TARGET}"
 		fi
 		pulled=true
@@ -490,10 +490,10 @@ for src in "mirror.gcr.io/library/busybox:1.37.0" "docker.io/library/busybox:1.3
 done
 if [[ "${pulled}" != true ]]; then
 	echo "Could not preload BusyBox helper image from any source"
-	sudo k3s crictl images | grep busybox || true
+	sudo /usr/local/bin/k3s crictl images | grep busybox || true
 	exit 1
 fi
-sudo k3s ctr -n k8s.io images rm "busybox:1.37.0" >/dev/null 2>&1 || true
+sudo /usr/local/bin/k3s ctr -n k8s.io images rm "busybox:1.37.0" >/dev/null 2>&1 || true
 sudo /usr/local/bin/k3s ctr -n k8s.io images tag "${BUSYBOX_TARGET}" "busybox:1.37.0" || true
 echo "BusyBox helper image ready: ${BUSYBOX_TARGET}"
 EOF
@@ -503,13 +503,13 @@ cleanup_stale_smoke_resources() {
 	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" <<'EOF'
 set -euo pipefail
 echo '-> Cleaning stale local-path smoke resources...'
-sudo k3s kubectl delete pods -n local-path-storage -l app.kubernetes.io/name=lp-smoke --ignore-not-found --wait=false >/dev/null 2>&1 || true
-sudo k3s kubectl delete pvc -n local-path-storage -l app.kubernetes.io/name=lp-smoke --ignore-not-found --wait=false >/dev/null 2>&1 || true
-for pod in $(sudo k3s kubectl get pods -n local-path-storage -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' 2>/dev/null | grep -E '^(lp-smoke-|ci-lp-smoke-)' || true); do
-	sudo k3s kubectl delete pod "$pod" -n local-path-storage --ignore-not-found --wait=false >/dev/null 2>&1 || true
+sudo /usr/local/bin/k3s kubectl delete pods -n local-path-storage -l app.kubernetes.io/name=lp-smoke --ignore-not-found --wait=false >/dev/null 2>&1 || true
+sudo /usr/local/bin/k3s kubectl delete pvc -n local-path-storage -l app.kubernetes.io/name=lp-smoke --ignore-not-found --wait=false >/dev/null 2>&1 || true
+for pod in $(sudo /usr/local/bin/k3s kubectl get pods -n local-path-storage -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' 2>/dev/null | grep -E '^(lp-smoke-|ci-lp-smoke-)' || true); do
+	sudo /usr/local/bin/k3s kubectl delete pod "$pod" -n local-path-storage --ignore-not-found --wait=false >/dev/null 2>&1 || true
 done
-for pvc in $(sudo k3s kubectl get pvc -n local-path-storage -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' 2>/dev/null | grep -E '^(lp-smoke-|ci-lp-smoke-)' || true); do
-	sudo k3s kubectl delete pvc "$pvc" -n local-path-storage --ignore-not-found --wait=false >/dev/null 2>&1 || true
+for pvc in $(sudo /usr/local/bin/k3s kubectl get pvc -n local-path-storage -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' 2>/dev/null | grep -E '^(lp-smoke-|ci-lp-smoke-)' || true); do
+	sudo /usr/local/bin/k3s kubectl delete pvc "$pvc" -n local-path-storage --ignore-not-found --wait=false >/dev/null 2>&1 || true
 done
 sleep 5
 echo 'Stale smoke resources cleaned'
