@@ -35,4 +35,3 @@ wait_for_api() {
 	log_error "API server not available after 150s"
 	return 1
 }
-PY

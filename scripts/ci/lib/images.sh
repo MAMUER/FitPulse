@@ -71,4 +71,3 @@ pre_pull_images() {
 	"
 	log_info "Pre-pull step completed"
 }
-PY

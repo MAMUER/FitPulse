@@ -32,16 +32,16 @@ deploy_all() {
 main() {
 	local cmd="${1:-all}"
 	case "$cmd" in
-		all) deploy_all ;;
-		secrets) create_secrets ;;
-		images) import_problem_images ;;
-		manifests) apply_manifests ;;
-		migrations) run_migrations ;;
-		verify) verify_deployment ;;
-		*)
-			log_error "Unknown command: $cmd"
-			exit 1
-			;;
+	all) deploy_all ;;
+	secrets) create_secrets ;;
+	images) import_problem_images ;;
+	manifests) apply_manifests ;;
+	migrations) run_migrations ;;
+	verify) verify_deployment ;;
+	*)
+		log_error "Unknown command: $cmd"
+		exit 1
+		;;
 	esac
 }
 
