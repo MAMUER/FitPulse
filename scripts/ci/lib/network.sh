@@ -42,16 +42,5 @@ update_image_tags() {
 }
 
 cleanup_disk() {
-	echo "-> Cleaning up disk space on VPS..."
-	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "
-		echo '=== Disk usage before cleanup ==='
-		df -h /
-		echo ''
-		echo '-> Cleaning system logs older than 7 days...'
-		sudo journalctl --vacuum-time=7d || true
-		echo ''
-		echo '=== Disk usage after cleanup ==='
-		df -h /
-	"
-	echo "Disk cleanup completed"
+	echo "-> Skipping disk cleanup in CI (handled by VPS cron)"
 }
