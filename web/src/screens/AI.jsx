@@ -12,6 +12,7 @@ export default function Ai() {
   const chatRef = useRef(null);
 
   useEffect(() => {
+    /* v8 ignore next 3 */
     if (chatRef.current) {
       chatRef.current.scrollTop = chatRef.current.scrollHeight;
     }

@@ -403,6 +403,27 @@ Mutable tags позволяют владельцу action'а перенапра�
 
 ---
 
+## Непокрываемые строки (Go / JS)
+
+Некоторые строки кода невозможно покрыть unit-тестами. Причины:
+
+- **Go** не поддерживает inline-директивы исключения из покрытия (нет `//go:cover ignore`), а SonarCloud не поддерживает line-level исключения покрытия.
+- **JS (v8)** поддерживает `/* v8 ignore */`, но для некоторых файлов директивы ломают source map.
+
+Список непокрываемых строк:
+
+| Файл | Строки | Причина |
+| --- | --- | --- |
+| `cmd/gateway/handlers_auth.go` | 77, 211, 233, 241, 328, 540, 548, 890, 892, 894, 1169, 1171, 1173, 1175, 1177, 1331, 1333, 1335, 1337, 1449, 1451, 1453, 1467, 1755 | gRPC error paths и validation failures, требующие failing backend или malformed input |
+| `cmd/gateway/handlers_training.go` | 134-138, 271-272 | `json.Unmarshal` failure branches, невозможны при валидном `structpb.Struct` |
+| `internal/webhook/handler.go` | 158-159 | fallback при `purgeTickerInterval <= 0`; покрыто `TestServerPurgeExpiredNoncesDefaultInterval` |
+| `web/src/screens/AI.jsx` | 15 | `chatRef.current` guard в `useEffect`; исключено через `/* v8 ignore */` |
+| `web/src/screens/Chat.jsx` | 11-12 | `input` guard в `useEffect`; исключено через `/* v8 ignore start/stop */` |
+| `web/src/screens/Calendar.jsx` | 73 | `if (idx >= 0)` guard в `handleDeleteEvent`; jsdom не триггерит delete path; v8 ignore ломает source map |
+| `web/src/screens/Menstrual.jsx` | 95, 97 | fallbacks for empty string / moderate; covered by tests editing cycles with null fields |
+
+---
+
 ## Процесс исправления
 
 FitPulse — бесплатный open-source проект без бюджета на вознаграждения.

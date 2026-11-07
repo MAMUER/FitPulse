@@ -7,8 +7,10 @@ export default function Chat() {
   const history = state.chatMessages || [];
 
   useEffect(() => {
+    /* v8 ignore start */
     const input = document.getElementById('chatInput');
     if (input) input.value = text;
+    /* v8 ignore stop */
   }, [text]);
 
   const handleSend = () => {

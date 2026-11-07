@@ -51,7 +51,7 @@ install_golangci_lint() {
 
 install_python_deps() {
 	python -m pip install --only-binary :all: --upgrade pip==25.0
-	python -m pip install --only-binary :all: -r cmd/ml_generator/requirements.txt
+	python -m pip install --only-binary :all: -r cmd/gan-service/requirements.txt
 }
 
 run_coverage() {
@@ -70,7 +70,7 @@ run_coverage() {
 
 	echo "-> Running Python tests with coverage..."
 	python -m pip install --only-binary :all: coverage 2>/dev/null || python -m pip install --only-binary :all: coverage
-	python -m pip install --only-binary :all: -r cmd/ml_generator/requirements.txt 2>/dev/null || true
+	python -m pip install --only-binary :all: -r cmd/gan-service/requirements.txt 2>/dev/null || true
 	cd cmd/ml_generator
 	python -m coverage run --source=. -m unittest gan_train_test 2>&1
 	PY_TEST_EXIT=$?

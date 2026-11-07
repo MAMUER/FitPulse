@@ -577,6 +577,31 @@ func TestTraining_GetPlanHandler_WithDates(t *testing.T) {
 	assert.Contains(t, w.Body.String(), "plan_id")
 }
 
+func TestTraining_GetPlanHandler_NilPlanData(t *testing.T) {
+	g := newTestGateway()
+	withTrainingClient(g)
+	trainingClient := g.trainingClient.(*mockTrainingClient)
+	trainingClient.plans["plan-1"] = &trainingpb.TrainingPlan{
+		Id:        "plan-1",
+		UserId:    "user-123",
+		Status:    "active",
+		PlanData:  nil,
+		StartDate: timestamppb.Now(),
+		EndDate:   timestamppb.Now(),
+	}
+
+	w := httptest.NewRecorder()
+	rctx := chi.NewRouteContext()
+	rctx.URLParams.Add("plan_id", "plan-1")
+	ctx := context.WithValue(context.Background(), middleware.UserIDKey, "user-123")
+	req := httptest.NewRequestWithContext(ctx, "GET", "/api/v1/training/plans/plan-1", nil)
+	req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
+
+	g.getPlanHandler(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+}
+
 func TestTraining_GetAchievementsHandler_GRPCError(t *testing.T) {
 	g := newTestGateway()
 	g.userClient = &errorUserServiceClient{err: grpcError(codes.Internal, "internal error")}

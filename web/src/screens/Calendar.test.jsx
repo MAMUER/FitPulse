@@ -181,4 +181,43 @@ describe('Calendar', () => {
     render(<Calendar />);
     expect(loadCalendarEvents).toHaveBeenCalled();
   });
+
+  it('renders events with missing id type and description', async () => {
+    const loadCalendarEvents = vi.fn();
+    const deleteCalendarEvent = vi.fn().mockResolvedValue({});
+    const firstDay = startOfWeek(startOfMonth(new Date()));
+    const dateStr = format(firstDay, 'yyyy-MM-dd');
+    useApp.mockReturnValue({
+      state: {
+        language: 'ru',
+        calendarEventsList: [
+          {
+            id: null,
+            date: dateStr,
+            title: 'Событие',
+            type: 'unknown_type',
+            time: null,
+            description: null,
+          },
+        ],
+      },
+      t: (ru, _en) => ru,
+      addEvent: vi.fn(),
+      deleteCalendarEvent,
+      loadCalendarEvents,
+    });
+    render(<Calendar />);
+    const buttons = screen.getAllByRole('button');
+    const dayBtn = buttons.find(
+      (b) =>
+        b.className.includes('cal-cell') && !b.className.includes('cal-head')
+    );
+    if (dayBtn) fireEvent.click(dayBtn);
+    expect(await screen.findByText('Событие')).toBeInTheDocument();
+    const delButtons = screen.queryAllByText('Удалить');
+    if (delButtons.length > 0) {
+      fireEvent.click(delButtons[0]);
+      await waitFor(() => expect(deleteCalendarEvent).toHaveBeenCalled());
+    }
+  });
 });

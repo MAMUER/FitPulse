@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { useApp } from '../contexts/AppContext';
 import Ai from './AI';
@@ -45,6 +45,38 @@ describe('AI', () => {
     fireEvent.click(screen.getByText('Отправить'));
     fireEvent.click(screen.getByText('Назад'));
     expect(go).toHaveBeenCalledWith('home');
+  });
+
+  it('renders ai summary with missing plan and diet', async () => {
+    const sendAI = vi.fn();
+    const go = vi.fn();
+    useApp.mockReturnValue({
+      state: {
+        messages: [],
+        aiClassification: { x: 1 },
+        aiPlan: null,
+        aiDiet: null,
+      },
+      t: (ru, _en) => ru,
+      sendAI,
+      go,
+    });
+    render(<Ai />);
+    await screen.findByText('Классификация');
+  });
+
+  it('renders with empty messages', async () => {
+    const sendAI = vi.fn();
+    const go = vi.fn();
+    useApp.mockReturnValue({
+      state: { messages: [] },
+      t: (ru, _en) => ru,
+      sendAI,
+      go,
+    });
+    render(<Ai />);
+    await new Promise((r) => setTimeout(r, 50));
+    expect(screen.getByText('AI-советник')).toBeInTheDocument();
   });
 
   it('renders without messages', () => {

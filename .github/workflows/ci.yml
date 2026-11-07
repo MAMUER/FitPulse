@@ -1606,7 +1606,7 @@ jobs:
 
            echo "Running kube-bench scan..."
            # Убрали "|| true", чтобы пайплайн честно падал, если сканирование не удалось
-           sudo kube-bench run --targets node --json > ~/security-results/kube-bench-results.json
+           sudo kube-bench run --config-dir /tmp/cfg --targets node --json > ~/security-results/kube-bench-results.json
            EOF
            
            mkdir -p security-results
