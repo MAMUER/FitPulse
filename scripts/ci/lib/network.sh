@@ -44,20 +44,14 @@ update_image_tags() {
 cleanup_disk() {
 	echo "-> Cleaning up disk space on VPS..."
 	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "
-echo '=== Disk usage before cleanup ==='
-df -h /
-echo ''
-echo '-> Cleaning containerd cache (k3s internal)...'
-k3s crictl rmi --prune 2>/dev/null || crictl rmi --prune 2>/dev/null || true
-echo ''
-echo '-> Cleaning system logs older than 7 days...'
-sudo journalctl --vacuum-time=7d || true
-echo ''
-echo '-> Cleaning /tmp files older than 1 day...'
-sudo find /tmp -type f -mtime +1 -delete || true
-echo ''
-echo '=== Disk usage after cleanup ==='
-df -h /
-echo '✅ Disk cleanup completed'
-"
+		echo '=== Disk usage before cleanup ==='
+		df -h /
+		echo ''
+		echo '-> Cleaning system logs older than 7 days...'
+		sudo journalctl --vacuum-time=7d || true
+		echo ''
+		echo '=== Disk usage after cleanup ==='
+		df -h /
+	"
+	echo "Disk cleanup completed"
 }
