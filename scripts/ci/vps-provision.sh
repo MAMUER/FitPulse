@@ -280,12 +280,13 @@ echo '-> Importing airgap images into containerd...'
 sudo /usr/local/bin/k3s ctr -n k8s.io images import /tmp/k3s-airgap.tar.gz
 sudo rm -f /tmp/k3s-airgap.tar.gz
 
-echo '-> Retagging images to remove docker.io prefix...'
-for img in $(sudo /usr/local/bin/k3s ctr -n k8s.io images ls -q | grep '^docker.io/' || true); do
-	new_name="${img#docker.io/}"
-	sudo /usr/local/bin/k3s ctr -n k8s.io images tag "$img" "$new_name" 2>/dev/null || true
 done
-
+	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" '
+		for img in $(sudo /usr/local/bin/k3s ctr -n k8s.io images ls -q | grep "^docker.io/" || true); do
+			new_name="${img#docker.io/}"
+			sudo /usr/local/bin/k3s ctr -n k8s.io images tag "$img" "$new_name" 2>/dev/null || true
+		done
+	'
 echo '-> Restarting k3s to apply imported images...'
 sudo systemctl restart k3s
 
