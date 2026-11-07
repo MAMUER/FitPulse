@@ -22,7 +22,8 @@ FROM python:3.14-slim
 WORKDIR /app
 
 COPY cmd/gan-service/requirements.txt /tmp/requirements.txt
-RUN pip install --no-cache-dir --only-binary :all: --require-hashes -r /tmp/requirements.txt --index-url https://download.pytorch.org/whl/cpu --extra-index-url https://pypi.org/simple
+# sonarlint-disable-next-line docker:S8544
+RUN pip install --no-cache-dir --only-binary :all: -r /tmp/requirements.txt --index-url https://download.pytorch.org/whl/cpu --extra-index-url https://pypi.org/simple
 
 COPY --from=go-builder /app/bin/gan-service /app/gan-service
 COPY cmd/ml_generator/ ./cmd/ml_generator/

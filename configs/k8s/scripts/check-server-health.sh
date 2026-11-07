@@ -233,6 +233,8 @@ main() {
 			message+="🟢 <b>Status: HEALTHY</b>\n\n"
 			message+="All checks passed successfully ✅\n"
 			;;
+		*)
+			;;
 		esac
 		message+="\n<b>Summary:</b>\n"
 		message+="  • Fstab: ${fstab_result%%:*}\n"

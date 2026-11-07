@@ -628,7 +628,17 @@ describe('useProfile', () => {
       .fn()
       .mockReturnValueOnce('NewName')
       .mockReturnValueOnce(null);
-    setup({ profile: { name: 'M', status: '', email: 'e@e.com', gender: 'm', phone: '', bio: '', devices: [] } });
+    setup({
+      profile: {
+        name: 'M',
+        status: '',
+        email: 'e@e.com',
+        gender: 'm',
+        phone: '',
+        bio: '',
+        devices: [],
+      },
+    });
     await act(async () => {
       await result.current.editProfile();
     });
@@ -639,7 +649,16 @@ describe('useProfile', () => {
     window.prompt = vi.fn().mockReturnValue('42');
     setup({
       friends: [{ id: 42, name: '', added: false }],
-      profile: { name: 'M', friends: 0, email: 'e@e.com', gender: 'm', phone: '', bio: '', status: 's', devices: [] },
+      profile: {
+        name: 'M',
+        friends: 0,
+        email: 'e@e.com',
+        gender: 'm',
+        phone: '',
+        bio: '',
+        status: 's',
+        devices: [],
+      },
     });
     result.current.searchFriends();
     expect(update).toHaveBeenCalled();
@@ -648,7 +667,16 @@ describe('useProfile', () => {
   it('toggleFriendAdded by numeric index', () => {
     setup({
       friends: [{ id: 1, name: 'A', added: false }],
-      profile: { name: 'M', friends: 0, email: 'e@e.com', gender: 'm', phone: '', bio: '', status: 's', devices: [] },
+      profile: {
+        name: 'M',
+        friends: 0,
+        email: 'e@e.com',
+        gender: 'm',
+        phone: '',
+        bio: '',
+        status: 's',
+        devices: [],
+      },
     });
     result.current.toggleFriendAdded(0);
     expect(update).toHaveBeenCalled();
@@ -658,7 +686,16 @@ describe('useProfile', () => {
     const friend = { id: 2, name: 'Bob', added: true };
     setup({
       friends: [friend],
-      profile: { name: 'M', friends: 1, email: 'e@e.com', gender: 'm', phone: '', bio: '', status: 's', devices: [] },
+      profile: {
+        name: 'M',
+        friends: 1,
+        email: 'e@e.com',
+        gender: 'm',
+        phone: '',
+        bio: '',
+        status: 's',
+        devices: [],
+      },
     });
     result.current.openFriendProfile(friend);
     expect(update).toHaveBeenCalledWith({ selectedFriend: friend });

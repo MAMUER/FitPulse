@@ -1,4 +1,4 @@
-# yaml-language-server: disable
+# yaml-language-server: =none
 # file_format: kubernetes
 apiVersion: v1
 kind: Service
