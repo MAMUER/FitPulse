@@ -13,7 +13,7 @@ fi
 # Check if trufflehog is installed
 if ! command -v trufflehog &>/dev/null; then
 	if [[ "$CI_MODE" == "true" ]]; then
-		echo "ERROR: TruffleHog not found in CI environment."
+		echo "ERROR: TruffleHog not found in CI environment." >&2
 		echo "   Install: go install github.com/trufflesecurity/trufflehog/v3@v3.81.0"
 		exit 1
 	else

@@ -1,5 +1,4 @@
-# yaml-language-server: =none
-# file_format: kubernetes
+# yaml-language-server: $schema=
 apiVersion: v1
 kind: ConfigMap
 metadata:

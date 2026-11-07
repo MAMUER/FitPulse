@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+PASS_STATUS="✅ PASS"
+
 # Master Chaos Test Script
 # Runs all chaos tests and generates a report
 #
@@ -42,7 +44,7 @@ EOF
 # Run PostgreSQL chaos test
 echo "Running PostgreSQL chaos test..."
 if bash "$(dirname "$0")/chaos-test-postgres.sh" "$NAMESPACE"; then
-	PG_STATUS="✅ PASS"
+	PG_STATUS="$PASS_STATUS"
 	PG_TIME=$(bash "$(dirname "$0")/chaos-test-postgres.sh" "$NAMESPACE" 2>&1 | grep "Recovery time:" | awk '{print $3}' || echo "N/A")
 else
 	PG_STATUS="❌ FAIL"
@@ -53,7 +55,7 @@ echo "PostgreSQL: $PG_STATUS (${PG_TIME})"
 # Run Valkey chaos test
 echo "Running Valkey chaos test..."
 if bash "$(dirname "$0")/chaos-test-valkey.sh" "$NAMESPACE"; then
-	VALKEY_STATUS="✅ PASS"
+	VALKEY_STATUS="$PASS_STATUS"
 	VALKEY_TIME=$(bash "$(dirname "$0")/chaos-test-valkey.sh" "$NAMESPACE" 2>&1 | grep "Recovery time:" | awk '{print $3}' || echo "N/A")
 else
 	VALKEY_STATUS="❌ FAIL"
@@ -64,7 +66,7 @@ echo "Valkey: $VALKEY_STATUS (${VALKEY_TIME})"
 # Run Vault chaos test
 echo "Running Vault chaos test..."
 if bash "$(dirname "$0")/chaos-test-vault.sh" "$NAMESPACE"; then
-	VAULT_STATUS="✅ PASS"
+	VAULT_STATUS="$PASS_STATUS"
 	VAULT_TIME=$(bash "$(dirname "$0")/chaos-test-vault.sh" "$NAMESPACE" 2>&1 | grep "Recovery time:" | awk '{print $3}' || echo "N/A")
 else
 	VAULT_STATUS="❌ FAIL"
@@ -112,7 +114,7 @@ cat >>"$REPORT_FILE" <<EOF
 EOF
 
 # Overall result
-if [[ "$PG_STATUS" == "✅ PASS" && "$VALKEY_STATUS" == "✅ PASS" && "$VAULT_STATUS" == "✅ PASS" ]]; then
+if [[ "$PG_STATUS" == "$PASS_STATUS" && "$VALKEY_STATUS" == "$PASS_STATUS" && "$VAULT_STATUS" == "$PASS_STATUS" ]]; then
 	echo "✅ ALL TESTS PASSED" >>"$REPORT_FILE"
 	echo ""
 	echo "=== All chaos tests passed ==="

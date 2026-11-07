@@ -12,7 +12,7 @@ BACKUP_S3="${1:-}"
 RECOVERY_TARGET="${2:-}"
 
 if [[ -z "$BACKUP_S3" ]]; then
-	echo "ERROR: Usage: $0 <backup_s3_path> [recovery_target_time]"
+	echo "ERROR: Usage: $0 <backup_s3_path> [recovery_target_time]" >&2
 	echo "Example: $0 s3://postgres-backups/backup-fitness-20260101_020000.dump.enc"
 	echo "Example: $0 s3://postgres-backups/backup-fitness-20260101_020000.dump.enc '2026-01-01T03:00:00Z'"
 	exit 1
@@ -26,12 +26,12 @@ AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID:-${MINIO_ROOT_USER:-}}"
 AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY:-${MINIO_ROOT_PASSWORD:-}}"
 
 if [[ -z "$BACKUP_KEY" ]]; then
-	echo "ERROR: BACKUP_KEY environment variable must be set for decryption"
+	echo "ERROR: BACKUP_KEY environment variable must be set for decryption" >&2
 	exit 1
 fi
 
 if [[ -z "$AWS_ACCESS_KEY_ID" || -z "$AWS_SECRET_ACCESS_KEY" ]]; then
-	echo "ERROR: AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY must be set"
+	echo "ERROR: AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY must be set" >&2
 	exit 1
 fi
 
@@ -52,7 +52,7 @@ if [[ "$BACKUP_S3" == s3://* ]]; then
 else
 	# Local file
 	if [[ ! -f "$BACKUP_S3" ]]; then
-		echo "ERROR: Backup file not found: $BACKUP_S3"
+		echo "ERROR: Backup file not found: $BACKUP_S3" >&2
 		exit 1
 	fi
 	cp "$BACKUP_S3" "${TEMP_DIR}/${BACKUP_FILENAME}"

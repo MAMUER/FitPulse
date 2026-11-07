@@ -114,7 +114,7 @@
         [data-theme="dark"][data-highcontrast="on"] .splash-logo { border-color:var(--blue); box-shadow:0 0 30px var(--blue),0 0 60px var(--blue); }
         [data-theme="dark"][data-highcontrast="on"] .side-logo { text-shadow:0 0 20px var(--blue); }
         [data-theme="dark"][data-highcontrast="on"] .readiness { border-color:var(--blue); }
-        .fp-story-strip { scroll-snap-type:x mandatory; overscroll-behavior-x:contain; -webkit-overflow-scrolling:touch; display:flex; gap:9px; overflow:hidden; scroll-behavior:smooth; }
+        .fp-story-strip { scroll-snap-type:x mandatory; overscroll-behavior-x:contain; -webkit-overflow-scrolling:touch; display:flex; gap:9px; overflow:hidden; }
         .fp-story-card { scroll-snap-align:start; position:relative; width:108px; height:132px; flex:0 0 auto; display:flex; flex-direction:column; justify-content:flex-end; overflow:hidden; padding:11px; color:#fff; border-radius:17px; background-position:center; background-size:cover; cursor:pointer; }
         .fp-story-viewer, .fp-story-view { touch-action:none; user-select:none; }
         .fp-story-progress i.active { transform:scaleY(1.15); background:#fff; }
@@ -168,7 +168,6 @@
             overscroll-behavior: contain;
             scroll-behavior: auto;
             padding: 24px 17px 108px;
-            animation: pageIn .3s ease;
         }
         .page::-webkit-scrollbar, .horizontal::-webkit-scrollbar, .chips::-webkit-scrollbar { display: none; }
         @keyframes pageIn { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:none; } }
@@ -184,7 +183,6 @@
         .splash-scene {
             position: absolute; inset:0;
             background: linear-gradient(#02060455, #020604f2), url("https://images.unsplash.com/photo-1517836357463-d25dfeac3438?w=1200") center/cover;
-            animation: sceneZoom 5.2s ease;
         }
         .splash-scene::after {
             content: ""; position: absolute; inset:0;
@@ -192,7 +190,7 @@
             background: linear-gradient(#02060455, #020604f2), url("https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=1200") center/cover;
             animation: sceneChange 5.2s 1.5s ease;
         }
-        .splash-content { position: relative; z-index:1; text-align: center; animation: splashIn .9s ease; }
+        .splash-content { position: relative; z-index:1; text-align: center; }
         .splash-logo {
             width: 120px; height: 120px;
             display: block; margin: auto;
@@ -200,7 +198,6 @@
             border: 2px solid var(--blue);
             border-radius: 30px;
             background: #07130d;
-            animation: neonPulse 2.5s ease-in-out infinite, floatLogo 3s ease-in-out infinite;
             box-shadow: var(--neon-glow);
             padding: 4px;
         }
@@ -234,7 +231,6 @@
             letter-spacing:2px;
             pointer-events:none;
             text-shadow: 0 0 15px var(--blue), 0 0 40px var(--blue), 0 0 70px var(--green);
-            animation: neonPulse 2.5s ease-in-out infinite, floatLogo 3s ease-in-out infinite;
         }
         .notification {
             width:32px; height:32px;
@@ -433,7 +429,7 @@
             background:var(--card-2); border-radius:14px; border:1px solid var(--line);
             margin-top:8px;
         }
-        .water-tracker .water-icon { font-size:24px; color:var(--blue); animation:waterDrop 2s ease-in-out infinite; }
+        .water-tracker .water-icon { font-size:24px; color:var(--blue); }
         @keyframes waterDrop { 0%,100% { transform:translateY(0); } 50% { transform:translateY(-4px); } }
         .water-tracker .water-info { flex:1; }
         .water-tracker .water-info strong { display:block; font-size:14px; }
@@ -1041,6 +1037,16 @@
         .fp-copy-value { cursor:pointer; }
         .fp-copy-value:active { transform:scale(.98); }
         .fp-calendar-toolbar .secondary.active { border-color:var(--blue); color:var(--blue); }
+        @media (prefers-reduced-motion: no-preference) {
+            .fp-story-strip { scroll-behavior: smooth; }
+            .page { animation: pageIn .3s ease; }
+            .splash-scene { animation: sceneZoom 5.2s ease; }
+            .splash-scene::after { animation: sceneChange 5.2s 1.5s ease; }
+            .splash-content { animation: splashIn .9s ease; }
+            .splash-logo { animation: neonPulse 2.5s ease-in-out infinite, floatLogo 3s ease-in-out infinite; }
+            .side-logo { animation: neonPulse 2.5s ease-in-out infinite, floatLogo 3s ease-in-out infinite; }
+            .water-tracker .water-icon { animation: waterDrop 2s ease-in-out infinite; }
+        }
         @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration:.01ms; transition-duration:.01ms; scroll-behavior:auto; } }
 </style>
 <meta name="fitpulse-release" content="v11-release-candidate">

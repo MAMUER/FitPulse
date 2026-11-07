@@ -8,12 +8,12 @@ WAL_FILE="${1:-}"
 WAL_FILENAME="${2:-}"
 
 if [[ -z "$WAL_FILE" || -z "$WAL_FILENAME" ]]; then
-	echo "ERROR: Usage: $0 <wal_file> <wal_filename>"
+	echo "ERROR: Usage: $0 <wal_file> <wal_filename>" >&2
 	exit 1
 fi
 
 if [[ ! -f "$WAL_FILE" ]]; then
-	echo "ERROR: WAL file not found: $WAL_FILE"
+	echo "ERROR: WAL file not found: $WAL_FILE" >&2
 	exit 1
 fi
 
@@ -24,7 +24,7 @@ AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID:-${MINIO_ROOT_USER:-}}"
 AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY:-${MINIO_ROOT_PASSWORD:-}}"
 
 if [[ -z "$AWS_ACCESS_KEY_ID" || -z "$AWS_SECRET_ACCESS_KEY" ]]; then
-	echo "ERROR: AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY must be set"
+	echo "ERROR: AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY must be set" >&2
 	exit 1
 fi
 

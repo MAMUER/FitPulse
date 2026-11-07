@@ -5,7 +5,7 @@ BACKUP_KEY="${BACKUP_KEY:-}"
 BACKUP_FILE="${1:-}"
 
 if [[ -z "$BACKUP_KEY" ]]; then
-	echo "ERROR: BACKUP_KEY environment variable must be set"
+	echo "ERROR: BACKUP_KEY environment variable must be set" >&2
 	exit 1
 fi
 
@@ -15,7 +15,7 @@ if [[ -z "$BACKUP_FILE" ]]; then
 fi
 
 if [[ ! -f "$BACKUP_FILE" ]]; then
-	echo "ERROR: backup file not found: $BACKUP_FILE"
+	echo "ERROR: backup file not found: $BACKUP_FILE" >&2
 	exit 1
 fi
 

@@ -18,7 +18,7 @@ min_coverage="${2:-${COVERAGE_THRESHOLD:-80}}"
 EXCLUDE='(^|/)api/gen/'
 
 if [[ ! -f "$coverage_file" ]]; then
-	echo "ERROR: $coverage_file not found. Run 'go test -coverprofile=$coverage_file ./...' first."
+	echo "ERROR: $coverage_file not found. Run 'go test -coverprofile=$coverage_file ./...' first." >&2
 	exit 1
 fi
 
@@ -35,7 +35,7 @@ read -r total covered < <(awk -v exclude="$EXCLUDE" '
 ' "$coverage_file")
 
 if [[ "$total" -eq 0 ]]; then
-	echo "ERROR: no statements found in $coverage_file"
+	echo "ERROR: no statements found in $coverage_file" >&2
 	exit 1
 fi
 
@@ -48,7 +48,7 @@ if [[ "$min_coverage" = "0" ]] || [[ -z "$min_coverage" ]]; then
 fi
 
 if awk -v c="$coverage" -v threshold="$min_coverage" 'BEGIN { exit !(c < threshold) }'; then
-	echo "ERROR: coverage ${coverage}% is below the ${min_coverage}% threshold"
+	echo "ERROR: coverage ${coverage}% is below the ${min_coverage}% threshold" >&2
 	exit 1
 fi
 

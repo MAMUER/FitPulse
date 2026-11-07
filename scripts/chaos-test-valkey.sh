@@ -21,7 +21,7 @@ echo ""
 
 # Check if service exists
 if ! kubectl get service "$SERVICE_NAME" -n "$NAMESPACE" >/dev/null 2>&1; then
-	echo "ERROR: Service $SERVICE_NAME not found in namespace $NAMESPACE"
+	echo "ERROR: Service $SERVICE_NAME not found in namespace $NAMESPACE" >&2
 	exit 1
 fi
 
@@ -49,7 +49,7 @@ for i in $(seq 1 "$RECOVERY_TIMEOUT"); do
 		break
 	fi
 	if [[ "$i" -eq "$RECOVERY_TIMEOUT" ]]; then
-		echo "ERROR: Valkey pod did not recover within ${RECOVERY_TIMEOUT}s"
+		echo "ERROR: Valkey pod did not recover within ${RECOVERY_TIMEOUT}s" >&2
 		exit 1
 	fi
 	sleep 1

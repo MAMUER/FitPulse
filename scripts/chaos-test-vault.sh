@@ -21,7 +21,7 @@ echo ""
 
 # Check if namespace exists
 if ! kubectl get namespace "$NAMESPACE" >/dev/null 2>&1; then
-	echo "ERROR: Namespace $NAMESPACE not found"
+	echo "ERROR: Namespace $NAMESPACE not found" >&2
 	exit 1
 fi
 
@@ -51,7 +51,7 @@ for i in $(seq 1 "$RECOVERY_TIMEOUT"); do
 		break
 	fi
 	if [[ "$i" -eq "$RECOVERY_TIMEOUT" ]]; then
-		echo "ERROR: Vault pod did not recover within ${RECOVERY_TIMEOUT}s"
+		echo "ERROR: Vault pod did not recover within ${RECOVERY_TIMEOUT}s" >&2
 		exit 1
 	fi
 	sleep 1

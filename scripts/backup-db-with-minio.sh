@@ -20,17 +20,17 @@ AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY:-${MINIO_ROOT_PASSWORD:-}}"
 mkdir -p "$BACKUP_DIR"
 
 if [[ -z "${PGDATABASE:-}" ]]; then
-	echo "ERROR: PGDATABASE environment variable must be set"
+	echo "ERROR: PGDATABASE environment variable must be set" >&2
 	exit 1
 fi
 
 if [[ -z "$BACKUP_KEY" ]]; then
-	echo "ERROR: BACKUP_KEY environment variable must be set"
+	echo "ERROR: BACKUP_KEY environment variable must be set" >&2
 	exit 1
 fi
 
 if [[ -z "$AWS_ACCESS_KEY_ID" || -z "$AWS_SECRET_ACCESS_KEY" ]]; then
-	echo "ERROR: AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY must be set for S3 upload"
+	echo "ERROR: AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY must be set for S3 upload" >&2
 	exit 1
 fi
 
@@ -128,7 +128,7 @@ elif [[ "$BACKUP_TYPE" == "wal" ]]; then
 		exit 1
 	fi
 else
-	echo "ERROR: Unknown backup type: $BACKUP_TYPE"
+	echo "ERROR: Unknown backup type: $BACKUP_TYPE" >&2
 	echo "Usage: $0 [full|wal]"
 	exit 1
 fi

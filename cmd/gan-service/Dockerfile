@@ -22,8 +22,22 @@ FROM python:3.14-slim
 WORKDIR /app
 
 COPY cmd/gan-service/requirements.txt /tmp/requirements.txt
-# sonarlint-disable-next-line docker:S8544
-RUN pip install --no-cache-dir --only-binary :all: -r /tmp/requirements.txt --index-url https://download.pytorch.org/whl/cpu --extra-index-url https://pypi.org/simple
+RUN pip install \
+    --extra-index-url https://pypi.org/simple \
+    --index-url https://download.pytorch.org/whl/cpu \
+    --no-cache-dir \
+    --only-binary :all: \
+    filelock==4.2.4 \
+    fsspec==2026.9.0 \
+    jinja2==3.1.6 \
+    markupsafe==3.0.3 \
+    mpmath==1.3.0 \
+    networkx==3.7 \
+    numpy==2.3.5 \
+    setuptools==84.2.1 \
+    sympy==1.14.0 \
+    torch==2.13.0 \
+    typing-extensions==4.16.0
 
 COPY --from=go-builder /app/bin/gan-service /app/gan-service
 COPY cmd/ml_generator/ ./cmd/ml_generator/
