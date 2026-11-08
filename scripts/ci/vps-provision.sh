@@ -281,8 +281,6 @@ echo 'k3s installed successfully'
 }
 
 preload_airgap_images() {
-	local asset="k3s-airgap-images-amd64.tar.gz"
-	local checksum_asset="sha256sum-amd64.txt"
 	local script_file="/tmp/k3s-preload-remote.sh"
 
 	log_info "-> Detecting k3s version on VPS..."
@@ -306,12 +304,14 @@ preload_airgap_images() {
 	# Build a small helper script locally and ship *that* to the VPS (scp of a
 	# few KB is reliable, unlike pushing the 189 MB bundle). The VPS downloads
 	# the bundle itself with resume support, verifies the checksum, imports it.
-	cat > "$script_file" <<'REMOTE_SCRIPT'
+	cat >"$script_file" <<'REMOTE_SCRIPT'
 #!/bin/bash
 set -euo pipefail
 
 ASSET="k3s-airgap-images-amd64.tar.gz"
 SUMS="sha256sum-amd64.txt"
+BUNDLE="/opt/k3s-airgap.tar.gz"
+SUMS_FILE="/opt/sha256sum-amd64.txt"
 BASE_URL="https://github.com/k3s-io/k3s/releases/download/__TAG__"
 
 fetch() {
@@ -326,20 +326,21 @@ fetch() {
 }
 
 echo '-> Downloading airgap bundle on VPS (with resume)...'
-fetch /tmp/k3s-airgap.tar.gz "${BASE_URL}/${ASSET}"
+rm -f "${BUNDLE}" "${SUMS_FILE}"
+fetch "${BUNDLE}" "${BASE_URL}/${ASSET}"
 echo '-> Downloading checksums file...'
-fetch /tmp/sha256sum-amd64.txt "${BASE_URL}/${SUMS}"
+fetch "${SUMS_FILE}" "${BASE_URL}/${SUMS}"
 
 echo '-> Verifying SHA-256 checksum...'
-cd /tmp
-awk -v name="${ASSET}" '$2 == name { print }' /tmp/sha256sum-amd64.txt | sha256sum -c --status -
+cd /opt
+awk -v name="${ASSET}" '$2 == name { print }' "${SUMS_FILE}" | sha256sum -c --status -
 
 echo '-> Validating archive...'
-tar -tzf /tmp/k3s-airgap.tar.gz >/dev/null
+tar -tzf "${BUNDLE}" >/dev/null
 
 echo '-> Importing images into containerd...'
-sudo k3s ctr -n k8s.io images import /tmp/k3s-airgap.tar.gz
-sudo rm -f /tmp/k3s-airgap.tar.gz /tmp/sha256sum-amd64.txt
+sudo k3s ctr -n k8s.io images import "${BUNDLE}"
+sudo rm -f "${BUNDLE}" "${SUMS_FILE}"
 
 for img in $(sudo k3s ctr -n k8s.io images ls -q | grep '^docker.io/' || true); do
 	new_name="${img#docker.io/}"
@@ -349,6 +350,10 @@ done
 sudo systemctl restart k3s
 echo '-> Verifying:'
 sudo k3s crictl images | grep -E 'local-path-provisioner|pause' || true
+
+# Clean up the helper script only on full success (leave it on failure so
+# ssh-retry can re-run it without re-uploading).
+rm -f /tmp/k3s-preload-remote.sh
 REMOTE_SCRIPT
 
 	sed -i "s|__TAG__|${encoded_tag}|g" "$script_file"
@@ -358,7 +363,7 @@ REMOTE_SCRIPT
 
 	log_info "-> Running airgap preload on VPS..."
 	bash scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" \
-		"sudo bash /tmp/k3s-preload-remote.sh; rc=\$?; rm -f /tmp/k3s-preload-remote.sh; exit \$rc"
+		"sudo bash /tmp/k3s-preload-remote.sh"
 
 	rm -f "$script_file"
 	log_info "Airgap images imported successfully"
