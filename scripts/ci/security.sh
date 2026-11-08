@@ -1,6 +1,10 @@
 #!/bin/bash
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib/github.sh
+source "$SCRIPT_DIR/lib/github.sh"
+
 install_gosec() {
 	echo "-> Installing gosec..."
 	go install github.com/securego/gosec/v2/cmd/gosec@v2.30.0
@@ -17,45 +21,67 @@ install_golangci_lint() {
 }
 
 install_cosign() {
-	echo "-> Installing cosign via go install..."
-	go install github.com/sigstore/cosign/v2/cmd/cosign@v2.6.5
+	echo "-> Installing cosign v3.0.6..."
+	local asset="cosign-linux-amd64"
+	github_download_verified sigstore/cosign v3.0.6 "$asset" cosign_checksums.txt /tmp
+	sudo install -m 0755 "/tmp/${asset}" /usr/local/bin/cosign
+	rm -f "/tmp/${asset}" /tmp/cosign_checksums.txt
 }
 
 install_syft() {
-	for attempt in 1 2 3; do
-		echo "-> Installing syft (attempt $attempt/3)..."
-		if curl --proto =https --retry 5 --retry-delay 5 -fsSL https://raw.githubusercontent.com/anchore/syft/main/install.sh -o /tmp/install.sh 2>/dev/null &&
-			bash /tmp/install.sh -b /usr/local/bin 2>/dev/null; then
-			rm -f /tmp/install.sh
-			command -v syft >/dev/null 2>&1 && return 0 || true
-		fi
-		rm -f /tmp/install.sh
-		sleep 15
-	done
-	return 1
+	echo "-> Installing syft v1.57.0..."
+	local asset="syft_1.57.0_linux_amd64.tar.gz"
+	github_download_verified anchore/syft v1.57.0 "$asset" syft_1.57.0_checksums.txt /tmp
+	sudo tar -xzf "/tmp/${asset}" -C /usr/local/bin syft
+	sudo chmod +x /usr/local/bin/syft
+	rm -f "/tmp/${asset}" /tmp/syft_1.57.0_checksums.txt
 }
 
 install_trufflehog() {
-	curl --proto =https --retry 3 --retry-delay 5 -sSfL https://github.com/trufflesecurity/trufflehog/releases/download/v3.82.0/trufflehog_3.82.0_linux_amd64.tar.gz -o /tmp/trufflehog.tar.gz
-	tar -xzf /tmp/trufflehog.tar.gz -C /usr/local/bin trufflehog
-	chmod +x /usr/local/bin/trufflehog
+	echo "-> Installing trufflehog v3.82.0..."
+	local asset="trufflehog_3.82.0_linux_amd64.tar.gz"
+	github_download_verified trufflesecurity/trufflehog v3.82.0 \
+		"$asset" trufflehog_3.82.0_checksums.txt /tmp
+	sudo tar -xzf "/tmp/${asset}" -C /usr/local/bin trufflehog
+	sudo chmod +x /usr/local/bin/trufflehog
+	rm -f "/tmp/${asset}" /tmp/trufflehog_3.82.0_checksums.txt
 }
 
 install_gitleaks() {
-	curl --proto =https --retry 3 --retry-delay 5 -fsSL "https://github.com/gitleaks/gitleaks/releases/download/v8.21.2/gitleaks_8.21.2_linux_x64.tar.gz" -o /tmp/gitleaks.tar.gz
-	sudo tar -xzf /tmp/gitleaks.tar.gz -C /usr/local/bin gitleaks
+	echo "-> Installing gitleaks v8.21.2..."
+	local asset="gitleaks_8.21.2_linux_x64.tar.gz"
+	github_download_verified gitleaks/gitleaks v8.21.2 \
+		"$asset" gitleaks_8.21.2_checksums.txt /tmp
+	sudo tar -xzf "/tmp/${asset}" -C /usr/local/bin gitleaks
 	sudo chmod +x /usr/local/bin/gitleaks
+	rm -f "/tmp/${asset}" /tmp/gitleaks_8.21.2_checksums.txt
+}
+
+# Both secret scanners are installed by the scan-secrets job.
+install_secret_tools() {
+	install_gitleaks
+	install_trufflehog
+}
+
+install_kubescape() {
+	echo "-> Installing kubescape v4.0.17..."
+	local asset="kubescape_4.0.17_linux_amd64"
+	github_download_verified kubescape/kubescape v4.0.17 "$asset" checksums.sha256 /tmp
+	sudo install -m 0755 "/tmp/${asset}" /usr/local/bin/kubescape
+	rm -f "/tmp/${asset}" /tmp/checksums.sha256
 }
 
 install_kube_bench() {
 	command -v kube-bench >/dev/null 2>&1 && return 0
-	echo "-> Installing kube-bench..."
-	curl --proto =https --retry 3 --retry-delay 5 -fsSL "https://github.com/aquasecurity/kube-bench/releases/download/v0.13.0/kube-bench_0.13.0_linux_amd64.tar.gz" -o /tmp/kube-bench.tar.gz
+	echo "-> Installing kube-bench v0.13.0..."
+	local asset="kube-bench_0.13.0_linux_amd64.tar.gz"
+	github_download_verified aquasecurity/kube-bench v0.13.0 \
+		"$asset" kube-bench_0.13.0_checksums.txt /tmp
 	sudo mkdir -p /usr/local/kube-bench
-	sudo tar -xzf /tmp/kube-bench.tar.gz -C /usr/local/kube-bench
+	sudo tar -xzf "/tmp/${asset}" -C /usr/local/kube-bench
 	sudo ln -sf /usr/local/kube-bench/kube-bench /usr/local/bin/kube-bench
 	sudo chmod +x /usr/local/bin/kube-bench /usr/local/kube-bench/kube-bench
-	rm -f /tmp/kube-bench.tar.gz
+	rm -f "/tmp/${asset}" /tmp/kube-bench_0.13.0_checksums.txt
 }
 
 # install_tools ставит всё разом — вызывать один раз на job (см. ci.yml).
@@ -64,7 +90,7 @@ install_tools() {
 	install_gosec
 	install_govulncheck
 	install_golangci_lint
-	install_syft || echo "⚠️ syft install failed, continuing without SBOM tooling"
+	install_syft
 	install_trufflehog
 	install_gitleaks
 	install_cosign
@@ -453,6 +479,16 @@ main() {
 		security_gate
 		;;
 	install_tools) install_tools ;;
+	install_gosec) install_gosec ;;
+	install_govulncheck) install_govulncheck ;;
+	install_golangci_lint) install_golangci_lint ;;
+	install_syft) install_syft ;;
+	install_trufflehog) install_trufflehog ;;
+	install_gitleaks) install_gitleaks ;;
+	install_secret_tools) install_secret_tools ;;
+	install_cosign) install_cosign ;;
+	install_kubescape) install_kubescape ;;
+	install_kube_bench) install_kube_bench ;;
 	run_gosec) run_gosec ;;
 	run_govulncheck) run_govulncheck ;;
 	run_gitleaks) run_gitleaks ;;

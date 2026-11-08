@@ -141,6 +141,9 @@ jobs:
         with:
           fetch-depth: 0
       - name: Validate workflow syntax
+        env:
+          # Authenticates the GitHub API fallback used for the actionlint asset.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: bash scripts/ci/ci-helpers.sh validate_workflow
 
   issue-automation:
@@ -428,10 +431,10 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - name: Install Kubescape
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          curl --proto =https -fsSL https://github.com/kubescape/kubescape/releases/download/v4.0.17/kubescape_4.0.17_linux_amd64 -o /tmp/kubescape
-          chmod +x /tmp/kubescape
-          sudo mv /tmp/kubescape /usr/local/bin/kubescape
+          bash scripts/ci/security.sh install_kubescape
           kubescape version
       - name: Run Kubescape scan
         run: bash scripts/ci/security.sh run_kubescape
@@ -632,8 +635,8 @@ jobs:
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
-      - name: Install security tools
-        run: bash scripts/ci/security.sh install_tools
+      - name: Install gosec
+        run: bash scripts/ci/security.sh install_gosec
       - name: Run gosec SAST scanner
         run: bash scripts/ci/security.sh run_gosec
       - name: Upload gosec results
@@ -660,8 +663,8 @@ jobs:
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
-      - name: Install security tools
-        run: bash scripts/ci/security.sh install_tools
+      - name: Install govulncheck
+        run: bash scripts/ci/security.sh install_govulncheck
       - name: Run govulncheck
         run: bash scripts/ci/security.sh run_govulncheck
 
@@ -736,7 +739,9 @@ jobs:
       - run: git config --global init.defaultBranch main
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - name: Install secret scanning tools
-        run: bash scripts/ci/security.sh install_tools # ← ДОБАВЛЕНО
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bash scripts/ci/security.sh install_secret_tools
       - name: Run Gitleaks secret scan
         run: bash scripts/ci/security.sh run_gitleaks
       - name: Upload Gitleaks results
@@ -760,7 +765,9 @@ jobs:
       - run: git config --global init.defaultBranch main
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - name: Install SBOM tools
-        run: bash scripts/ci/security.sh install_tools # ← ДОБАВЛЕНО
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bash scripts/ci/security.sh install_syft
       - name: Generate SBOM with syft
         run: bash scripts/ci/security.sh generate_sbom
       - name: Upload SBOM artifact
@@ -927,6 +934,7 @@ jobs:
     permissions:
       packages: write
       security-events: write
+      contents: read
     steps:
       - run: git config --global init.defaultBranch main
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -974,7 +982,9 @@ jobs:
           sarif_file: trivy-image.sarif
           category: trivy-docker
       - name: Install cosign
-        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bash scripts/ci/security.sh install_cosign
       - name: Sign Docker images with cosign
         if: github.event_name != 'pull_request'
         env:
@@ -1072,6 +1082,9 @@ jobs:
         run: bash scripts/ci/vps-provision.sh install_k3s
       - name: Preload k3s airgap images (bypasses all containerd network pulls)
         env:
+          # Used only by the API-asset fallback if the direct release URL
+          # is unavailable; also raises the GitHub API rate limit.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VPS_HOST: ${{ secrets.VPS_HOST }}
           VPS_PORT: ${{ secrets.VPS_PORT }}
           VPS_USER: ${{ secrets.VPS_USER }}
@@ -1678,7 +1691,9 @@ jobs:
       - run: git config --global init.defaultBranch main
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - name: Install cosign
-        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bash scripts/ci/security.sh install_cosign
       - name: Download cosign public key
         env:
           COSIGN_PUBLIC_KEY: ${{ secrets.COSIGN_PUBLIC_KEY }}

@@ -4,6 +4,8 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib/utils.sh
 source "$SCRIPT_DIR/lib/utils.sh"
+# shellcheck source=lib/github.sh
+source "$SCRIPT_DIR/lib/github.sh"
 
 configure_swap() {
 	echo "🔄 Проверка доступности VPS по SSH (попыток: 3)..."
@@ -262,9 +264,9 @@ if ! grep -q 'TCPMSS' /etc/rc.local 2>/dev/null; then
 fi
 
 # === 3. Skip install if k3s already present and working ===
-K3S_EXISTING_VERSION=$(/usr/local/bin/k3s --version 2>/dev/null | head -1 || true)
-if [[ -x /usr/local/bin/k3s ]] && [[ -n "$K3S_EXISTING_VERSION" ]]; then
-	echo '-> k3s already installed: '"$K3S_EXISTING_VERSION"
+K3S_EXISTING_VERSION=\$(/usr/local/bin/k3s --version 2>/dev/null | head -1 || true)
+if [[ -x /usr/local/bin/k3s ]] && [[ -n \"\$K3S_EXISTING_VERSION\" ]]; then
+	echo \"-> k3s already installed: \$K3S_EXISTING_VERSION\"
 	echo '-> Skipping re-download/install'
 	exit 0
 fi
@@ -279,27 +281,44 @@ echo 'k3s installed successfully'
 }
 
 preload_airgap_images() {
+	local asset="k3s-airgap-images-amd64.tar.gz"
+	local checksum_asset="sha256sum-amd64.txt"
+	local work_dir="/tmp/k3s-airgap"
+	local local_tar="${work_dir}/${asset}"
+
 	log_info "-> Detecting k3s version on VPS..."
-	K3S_VER=$(bash scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "/usr/local/bin/k3s --version 2>/dev/null | head -1 | awk '{print \$3}'" || echo "")
+	local k3s_ver
+	k3s_ver=$(bash scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" \
+		"/usr/local/bin/k3s --version 2>/dev/null | head -1 | awk '{print \$3}'" |
+		tr -d '\r' | head -1) || true
+	k3s_ver="${k3s_ver//[[:space:]]/}"
 
-	if [[ -z "$K3S_VER" ]]; then
-		log_error "Could not detect k3s version on VPS"
+	# The tag must look like a real k3s version (e.g. v1.37.2+k3s1). Refuse
+	# anything else so a corrupted capture can never build a bogus URL.
+	if [[ ! "$k3s_ver" =~ ^v[0-9]+\.[0-9]+\.[0-9]+[A-Za-z0-9.+-]*$ ]]; then
+		log_error "Could not detect a valid k3s version on VPS (got: '${k3s_ver:-<empty>}')"
 		exit 1
 	fi
-	log_info "-> Detected k3s version: $K3S_VER"
+	log_info "-> Detected k3s version: $k3s_ver"
 
-	BUNDLE_URL="https://github.com/k3s-io/k3s/releases/download/${K3S_VER}/k3s-airgap-images-amd64.tar.gz"
-	LOCAL_TAR="/tmp/k3s-airgap.tar.gz"
+	rm -rf "$work_dir"
+	mkdir -p "$work_dir"
 
-	log_info "-> Downloading airgap bundle on Runner: $BUNDLE_URL"
-	if ! curl --proto "=https" --tlsv1.2 -fsSL --retry 5 --retry-delay 3 -o "$LOCAL_TAR" "$BUNDLE_URL"; then
-		log_error "Failed to download airgap bundle on Runner"
+	log_info "-> Downloading airgap bundle and checksum on Runner..."
+	if ! github_download_verified k3s-io/k3s "$k3s_ver" "$asset" "$checksum_asset" "$work_dir"; then
+		log_error "Failed to download or verify k3s airgap bundle on Runner"
 		exit 1
 	fi
-	log_info "-> Bundle downloaded: $(du -h "$LOCAL_TAR" | cut -f1)"
+	log_info "-> Bundle downloaded: $(du -h "$local_tar" | cut -f1)"
+
+	# Also catches truncation/corruption of the downloaded archive.
+	tar -tzf "$local_tar" >/dev/null || {
+		log_error "Downloaded airgap bundle is not a valid gzip archive"
+		exit 1
+	}
 
 	log_info "-> Uploading bundle to VPS..."
-	bash scripts/ssh-retry.sh scp "$LOCAL_TAR" "${VPS_USER}@${VPS_HOST}:/tmp/k3s-airgap.tar.gz"
+	bash scripts/ssh-retry.sh scp "$local_tar" "${VPS_USER}@${VPS_HOST}:/tmp/k3s-airgap.tar.gz"
 
 	log_info "-> Importing images into containerd on VPS..."
 	bash scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "
@@ -317,7 +336,7 @@ echo '-> Verifying:'
 sudo k3s crictl images | grep -E 'local-path-provisioner|pause' || true
 "
 
-	rm -f "$LOCAL_TAR"
+	rm -rf "$work_dir"
 	log_info "Airgap images imported successfully"
 }
 

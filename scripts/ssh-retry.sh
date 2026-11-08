@@ -5,11 +5,18 @@ MODE="${1:-}"
 shift || true
 
 if [[ -z "$MODE" || ("$MODE" != "ssh" && "$MODE" != "scp") ]]; then
-	echo "Usage: $0 {ssh|scp} [args...]"
-	echo "  ssh:  $0 ssh user@host [command]  (if command omitted, reads from stdin)"
-	echo "  scp:  $0 scp [source...] user@host:/remote/path"
+	echo "Usage: $0 {ssh|scp} [args...]" >&2
+	echo "  ssh:  $0 ssh user@host [command]  (if command omitted, reads from stdin)" >&2
+	echo "  scp:  $0 scp [source...] user@host:/remote/path" >&2
 	exit 1
 fi
+
+# All diagnostics go to stderr: stdout is reserved for remote command output,
+# which callers capture with $(...). Writing logs to stdout corrupted values
+# such as the detected k3s version and long-lived secrets.
+log() {
+	printf '%s\n' "$*" >&2
+}
 
 MAX_ATTEMPTS="${SSH_RETRY_MAX_ATTEMPTS:-5}"
 DELAY="${SSH_RETRY_DELAY_SECONDS:-15}"
@@ -23,10 +30,10 @@ else
 fi
 
 if [[ -n "${BASTION_HOST:-}" && -n "${BASTION_USER:-}" ]]; then
-	echo "-> Using bastion: ${BASTION_USER}@${BASTION_HOST}"
+	log "-> Using bastion: ${BASTION_USER}@${BASTION_HOST}"
 	COMMON_OPTS+=("-o" "ProxyJump=${BASTION_USER}@${BASTION_HOST}")
 elif [[ -n "${SSH_JUMP_HOST:-}" ]]; then
-	echo "-> Using jump host: ${SSH_JUMP_HOST}"
+	log "-> Using jump host: ${SSH_JUMP_HOST}"
 	COMMON_OPTS+=("-o" "ProxyJump=${SSH_JUMP_HOST}")
 fi
 
@@ -50,24 +57,39 @@ if [[ "$MODE" == "ssh" ]]; then
 	COMMAND="${*:-}"
 fi
 
+# When a command is supplied, run it directly instead of feeding it to
+# `bash -s`: this keeps the caller's stdin (e.g. a piped secret) available to
+# the remote command. Buffer that stdin so it can be replayed on retries.
+STDIN_FILE=""
+if [[ "$MODE" == "ssh" && -n "${COMMAND:-}" && ! -t 0 ]]; then
+	STDIN_FILE=$(mktemp)
+	cat >"$STDIN_FILE"
+	trap 'rm -f "$STDIN_FILE"' EXIT
+fi
+
 attempt=1
 while true; do
-	echo "--------------------------------------------------"
-	echo "[$(date '+%H:%M:%S')] Attempt $attempt/$MAX_ATTEMPTS - Mode: $MODE"
+	log "--------------------------------------------------"
+	log "[$(date '+%H:%M:%S')] Attempt $attempt/$MAX_ATTEMPTS - Mode: $MODE"
 
 	if [[ "$MODE" == "ssh" ]]; then
 		if [[ -n "${COMMAND:-}" ]]; then
-			echo "-> Target : $TARGET"
-			echo "-> Command: ${COMMAND:0:200}..."
-			if printf '%s\n' "$COMMAND" | timeout "$TIMEOUT" ssh "${COMMON_OPTS[@]}" "$TARGET" bash -s; then
-				echo "Success on attempt $attempt"
+			log "-> Target : $TARGET"
+			log "-> Command: ${COMMAND:0:200}..."
+			if [[ -n "$STDIN_FILE" ]]; then
+				if timeout "$TIMEOUT" ssh "${COMMON_OPTS[@]}" "$TARGET" "$COMMAND" <"$STDIN_FILE"; then
+					log "Success on attempt $attempt"
+					exit 0
+				fi
+			elif timeout "$TIMEOUT" ssh "${COMMON_OPTS[@]}" "$TARGET" "$COMMAND"; then
+				log "Success on attempt $attempt"
 				exit 0
 			fi
 		else
-			echo "-> Target : $TARGET"
-			echo "-> Reading command from stdin..."
+			log "-> Target : $TARGET"
+			log "-> Reading command from stdin..."
 			if timeout "$TIMEOUT" ssh "${COMMON_OPTS[@]}" "$TARGET" bash -s; then
-				echo "Success on attempt $attempt"
+				log "Success on attempt $attempt"
 				exit 0
 			fi
 		fi
@@ -77,21 +99,21 @@ while true; do
 		NUM_ARGS=$#
 		SOURCES=("${@:1:$((NUM_ARGS - 1))}")
 
-		echo "-> Source : ${SOURCES[*]}"
-		echo "-> Dest   : $DEST"
+		log "-> Source : ${SOURCES[*]}"
+		log "-> Dest   : $DEST"
 
 		if timeout "$TIMEOUT" scp "${COMMON_OPTS[@]}" "${SOURCES[@]}" "$DEST"; then
-			echo "Success on attempt $attempt"
+			log "Success on attempt $attempt"
 			exit 0
 		fi
 	fi
 
 	if [[ $attempt -ge $MAX_ATTEMPTS ]]; then
-		echo "Failed after $MAX_ATTEMPTS attempts" >&2
+		log "Failed after $MAX_ATTEMPTS attempts"
 		exit 1
 	fi
 
-	echo "Retrying in ${DELAY}s..."
+	log "Retrying in ${DELAY}s..."
 	sleep "$DELAY"
 	attempt=$((attempt + 1))
 done

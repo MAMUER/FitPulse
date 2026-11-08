@@ -2,22 +2,27 @@
 readonly FAILURE="failure"
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib/github.sh
+source "$SCRIPT_DIR/lib/github.sh"
+
 validate_workflow() {
 	echo "-> Downloading actionlint..."
-	if ! curl --proto "=https" --tlsv1.2 -sSfL --retry 3 --retry-delay 2 https://github.com/rhysd/actionlint/releases/download/v1.7.12/actionlint_1.7.12_linux_amd64.tar.gz -o /tmp/actionlint.tar.gz; then
-		echo "::warning::Failed to download actionlint after retries, skipping validation"
-		return 0
+	local asset="actionlint_1.7.12_linux_amd64.tar.gz"
+	rm -f "/tmp/${asset}" /tmp/actionlint
+	if ! github_download_verified rhysd/actionlint v1.7.12 \
+		"$asset" actionlint_1.7.12_checksums.txt /tmp; then
+		echo "::error::Failed to download or verify actionlint"
+		return 1
 	fi
 
-	echo "8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8  /tmp/actionlint.tar.gz" | sha256sum --check --status || {
-		echo "::warning::Hash verification failed, skipping validation"
-		return 0
-	}
-
-	tar -xzf /tmp/actionlint.tar.gz -C /tmp actionlint
+	tar -xzf "/tmp/${asset}" -C /tmp actionlint
+	rm -f "/tmp/${asset}" /tmp/actionlint_1.7.12_checksums.txt
 	chmod +x /tmp/actionlint
 
-	/tmp/actionlint -color || true
+	# Do not mask lint errors: this job exists specifically to validate the
+	# workflows, so a broken workflow must fail it.
+	/tmp/actionlint -color
 }
 
 run_hadolint() {
