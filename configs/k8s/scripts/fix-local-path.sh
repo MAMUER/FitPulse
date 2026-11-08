@@ -64,7 +64,7 @@ spec:
   restartPolicy: Never
   containers:
     - name: consumer
-      image: docker.io/library/busybox:1.37.0
+      image: docker.io/rancher/mirrored-library-busybox:1.37.0
       imagePullPolicy: IfNotPresent
       command: ["sleep", "3600"]
       volumeMounts:

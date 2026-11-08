@@ -516,7 +516,7 @@ preload_busybox_image() {
 set -euo pipefail
 BUSYBOX_TARGET="docker.io/library/busybox:1.37.0"
 echo '-> Ensuring BusyBox helper image is available locally...'
-if sudo /usr/local/bin/k3s crictl images 2>/dev/null | grep -E 'busybox[[:space:]]+1\.37\.0' >/dev/null; then
+	if sudo /usr/local/bin/k3s crictl images 2>/dev/null | grep -E 'docker.io/library/busybox[[:space:]]+1\.37\.0' >/dev/null; then
 	echo "BusyBox already present as ${BUSYBOX_TARGET}"
 	exit 0
 fi
