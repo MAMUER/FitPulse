@@ -124,7 +124,10 @@ run_trufflehog() {
 
 generate_sbom() {
 	if ! command -v syft >/dev/null 2>&1; then
-		install_syft || { echo "⚠️ syft unavailable, skipping SBOM generation"; return 0; }
+		install_syft || {
+			echo "⚠️ syft unavailable, skipping SBOM generation"
+			return 0
+		}
 	fi
 	if ! command -v syft >/dev/null 2>&1; then
 		echo "⚠️ syft unavailable, skipping SBOM generation"
