@@ -464,7 +464,21 @@ cleanup_smoke() {
 }
 trap cleanup_smoke EXIT
 
-if ! sudo /usr/local/bin/k3s kubectl wait pvc "${SMOKE_NAME}" -n local-path-storage --for=condition=Bound --timeout=180s; then
+BOUND=false
+for i in $(seq 1 60); do
+	phase=$(sudo /usr/local/bin/k3s kubectl get pvc "${SMOKE_NAME}" -n local-path-storage -o jsonpath='{.status.phase}' 2>/dev/null || echo "")
+	if [[ "$phase" == "Bound" ]]; then
+		BOUND=true
+		echo "  ✅ Smoke PVC became Bound after $((i * 3))s"
+		break
+	fi
+	if ((i % 10 == 0)); then
+		echo "  Still waiting... attempt $i/60, phase=${phase:-NotFound}"
+	fi
+	sleep 3
+done
+
+if [[ "$BOUND" != true ]]; then
 	echo '  ❌ Smoke PVC did not become Bound; local-path provisioner is not functional'
 	sudo /usr/local/bin/k3s kubectl get pvc,pods -n local-path-storage -o wide || true
 	sudo /usr/local/bin/k3s kubectl describe pvc "${SMOKE_NAME}" -n local-path-storage || true

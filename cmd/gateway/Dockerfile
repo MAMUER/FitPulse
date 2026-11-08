@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 # ========== Web builder stage ==========
-FROM node@sha256:ef24c5053d50fdc3e4e56eb4e7ddb7861874ab0fdc797046ba897581deb8e868 AS web-builder
+FROM node:20-alpine AS web-builder
 WORKDIR /app/web
 RUN npm install --ignore-scripts -g npm@12.0.2 && npm --version
 COPY web/package.json web/package-lock.json* ./
@@ -9,10 +9,10 @@ COPY web/ .
 RUN npm run build
 
 # ========== Go builder stage ==========
-FROM golang@sha256:f92b6ef800e499660581efdabdf25d9d817a9d124eaf900924f0504e7e27e12d AS builder
+FROM golang:1.27-alpine AS builder
 # Set Go environment for module downloading
 ENV GOPROXY=https://proxy.golang.org,direct
-ENV GOTOOLCHAIN=auto
+ENV GOTOOLCHAIN=local
 # git and ca-certificates are build-time only and not shipped in the runtime stage
 # hadolint ignore=DL3018
 RUN apk add --no-cache git ca-certificates
@@ -30,14 +30,13 @@ RUN CGO_ENABLED=0 GOOS=linux go build \
   ./cmd/gateway
 
 # ========== Runtime stage ==========
-FROM alpine@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b
+FROM alpine:3.21
 
 ARG APP_UID=1001
 ARG APP_GID=1001
 
 # hadolint ignore=DL3018
-RUN apk upgrade --no-cache && \
-  apk add --no-cache ca-certificates curl tzdata && \
+RUN apk add --no-cache ca-certificates curl tzdata && \
   addgroup -g "${APP_GID}" -S appgroup && \
   adduser -u "${APP_UID}" -S appuser -G appgroup
 WORKDIR /app
