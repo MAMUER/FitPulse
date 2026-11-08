@@ -27,8 +27,8 @@ build_go_services() {
 			esac
 			docker buildx build \
 				--build-arg GOPROXY=https://proxy.golang.org,direct \
-				--cache-from=type=gha,scope=${svc} \
-				--cache-to=type=gha,scope=${svc},mode=max \
+				--cache-from=type=gha,scope="${svc}" \
+				--cache-to=type=gha,scope="${svc}",mode=max \
 				-t "$REGISTRY/mamuer/project/$svc:$SHA" \
 				-t "$REGISTRY/mamuer/project/$svc:latest" \
 				-f "$dockerfile" . \

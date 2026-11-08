@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 # ========== Web builder stage ==========
-FROM node:20-alpine AS web-builder
+FROM node:26-alpine AS web-builder
 WORKDIR /app/web
 RUN npm install --ignore-scripts -g npm@12.0.2 && npm --version
 COPY web/package.json web/package-lock.json* ./
@@ -30,7 +30,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build \
   ./cmd/gateway
 
 # ========== Runtime stage ==========
-FROM alpine:3.21
+FROM alpine:3.24
 
 ARG APP_UID=1001
 ARG APP_GID=1001

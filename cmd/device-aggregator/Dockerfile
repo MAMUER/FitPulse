@@ -12,7 +12,7 @@ COPY internal/ ./internal/
 
 RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s -buildid=" -o /app/bin/device-aggregator ./cmd/device-aggregator
 
-FROM alpine:3.21
+FROM alpine:3.24
 
 ARG APP_UID=1001
 ARG APP_GID=1001
