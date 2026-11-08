@@ -57,7 +57,6 @@ cleanup_disk() {
 		
 		echo '-> Pruning unused Docker/Containerd resources (SAFE: only dangling, not active)...'
 		# Не используем --prune для образов, только чистим висячие (dangling) слои
-		sudo k3s crictl rmi --prune 2>/dev/null | grep -v 'error' || true
 		
 		echo ''
 		echo '=== Disk usage after cleanup ==='
