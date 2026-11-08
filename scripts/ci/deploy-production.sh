@@ -34,14 +34,25 @@ main() {
 	case "$cmd" in
 	all) deploy_all ;;
 	secrets) create_secrets ;;
+	create_secrets) create_secrets ;;
 	cleanup_disk) cleanup_disk ;;
 	images) import_problem_images ;;
+	update_image_tags) update_image_tags ;;
+	pre_pull_images) pre_pull_images ;;
 	manifests) apply_manifests ;;
+	apply_manifests) apply_manifests ;;
 	migrations) run_migrations ;;
+	run_migrations) run_migrations ;;
 	verify) verify_deployment ;;
+	verify_deployment) verify_deployment ;;
 	ensure_service_account) ensure_service_account ;;
 	create_image_pull_secret) create_image_pull_secret ;;
+	wait_for_rabbitmq) wait_for_rabbitmq ;;
+	verify_postgres) verify_postgres ;;
+	run_seed_admin) run_seed_admin ;;
+	check_logs) check_logs ;;
 	debug_pod_status) debug_pod_status ;;
+	deploy_open_wearables) deploy_open_wearables ;;
 	*)
 		log_error "Unknown command: $cmd"
 		exit 1

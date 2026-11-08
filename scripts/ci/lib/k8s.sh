@@ -57,7 +57,7 @@ wait_for_rabbitmq() {
 	done
 	if [[ -z "$POD_NAME" ]]; then
 		echo "::warning::RabbitMQ pod not scheduled. Checking events..."
-		kubectl get events -n fitness-platform-production --sort-by="$LAST_TIMESTAMP_SORT" | grep -i rabbitmq || true
+		kubectl get events -n fitness-platform-production --sort-by=.lastTimestamp | grep -i rabbitmq || true
 		kubectl describe statefulset rabbitmq -n fitness-platform-production || true
 	fi
 	echo "Waiting for RabbitMQ StatefulSet to be ready..."
@@ -246,7 +246,7 @@ debug_pod_status() {
 	kubectl logs statefulset/rabbitmq -n fitness-platform-production --tail=50 || echo "RabbitMQ not running"
 	echo ""
 	echo "=== Recent events ==="
-	kubectl get events -n fitness-platform-production --sort-by="$LAST_TIMESTAMP_SORT" | tail -20 || true
+	kubectl get events -n fitness-platform-production --sort-by=.lastTimestamp | tail -20 || true
 }
 
 check_logs() {

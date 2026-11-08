@@ -1302,7 +1302,7 @@ jobs:
         run: |
           set -e
           IMAGES=(
-            "docker.io/library/rabbitmq:4-management-alpine"
+            "docker.io/library/rabbitmq:4.3-management-alpine"
             "docker.io/valkey/valkey:9-alpine"
             "docker.io/library/postgres:18-alpine"
             "registry.k8s.io/ingress-nginx/controller:v1.11.3"
