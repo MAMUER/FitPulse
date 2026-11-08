@@ -39,6 +39,9 @@ main() {
 	manifests) apply_manifests ;;
 	migrations) run_migrations ;;
 	verify) verify_deployment ;;
+	ensure_service_account) ensure_service_account ;;
+	create_image_pull_secret) create_image_pull_secret ;;
+	debug_pod_status) debug_pod_status ;;
 	*)
 		log_error "Unknown command: $cmd"
 		exit 1
