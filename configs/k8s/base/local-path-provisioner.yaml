@@ -119,7 +119,7 @@ data:
       restartPolicy: Never
       containers:
         - name: helper-pod
-          image: docker.io/library/busybox:1.37.0
+          image: docker.io/rancher/mirrored-library-busybox:1.37.0
           imagePullPolicy: IfNotPresent
           command: ["/bin/sh", "-c"]
           args: ["echo 'Helper pod started'; sleep 3600"]

@@ -446,7 +446,7 @@ spec:
   restartPolicy: Never
   containers:
     - name: consumer
-      image: docker.m.daocloud.io/library/busybox:1.37.0
+      image: docker.io/rancher/mirrored-library-busybox:1.37.0
       imagePullPolicy: IfNotPresent
       command: ["sleep", "3600"]
       volumeMounts:
@@ -514,34 +514,24 @@ EOF
 preload_busybox_image() {
 	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" <<'EOF'
 set -euo pipefail
-BUSYBOX_TARGET="docker.io/library/busybox:1.37.0"
+TARGET="docker.io/rancher/mirrored-library-busybox:1.37.0"
 echo '-> Ensuring BusyBox helper image is available locally...'
-	if sudo /usr/local/bin/k3s crictl images 2>/dev/null | grep -E 'docker.io/library/busybox[[:space:]]+1\.37\.0' >/dev/null; then
-	echo "BusyBox already present as ${BUSYBOX_TARGET}"
+if sudo /usr/local/bin/k3s crictl images 2>/dev/null | grep -E 'rancher/mirrored-library-busybox[[:space:]]+1\.37\.0' >/dev/null; then
+	echo "BusyBox helper image ready: ${TARGET}"
 	exit 0
 fi
-pulled=false
-for src in "mirror.gcr.io/library/busybox:1.37.0" "docker.io/library/busybox:1.37.0"; do
-	echo "-> Trying to pull ${src}"
-	if timeout 180 sudo /usr/local/bin/k3s crictl pull "${src}"; then
-		if [[ "${src}" != "${BUSYBOX_TARGET}" ]]; then
-			echo "-> Retagging ${src} to ${BUSYBOX_TARGET}"
-			sudo /usr/local/bin/k3s ctr -n k8s.io images rm "${BUSYBOX_TARGET}" >/dev/null 2>&1 || true
-			sudo /usr/local/bin/k3s ctr -n k8s.io images tag "${src}" "${BUSYBOX_TARGET}"
-		fi
-		pulled=true
-		break
-	fi
-	echo "Failed to pull ${src}, trying next source..." >&2
-done
-if [[ "${pulled}" != true ]]; then
-	echo "Could not preload BusyBox helper image from any source"
-	sudo /usr/local/bin/k3s crictl images | grep busybox || true
-	exit 1
+# Fallback: reuse any locally available busybox image by retagging it.
+src=$(sudo /usr/local/bin/k3s ctr -n k8s.io images ls -q 2>/dev/null | grep -i busybox | head -1 || true)
+if [[ -n "${src}" ]]; then
+	echo "-> Retagging ${src} to ${TARGET}"
+	sudo /usr/local/bin/k3s ctr -n k8s.io images rm "${TARGET}" >/dev/null 2>&1 || true
+	sudo /usr/local/bin/k3s ctr -n k8s.io images tag "${src}" "${TARGET}" || true
+	echo "BusyBox helper image ready: ${TARGET}"
+	exit 0
 fi
-sudo /usr/local/bin/k3s ctr -n k8s.io images rm "busybox:1.37.0" >/dev/null 2>&1 || true
-sudo /usr/local/bin/k3s ctr -n k8s.io images tag "${BUSYBOX_TARGET}" "busybox:1.37.0" || true
-echo "BusyBox helper image ready: ${BUSYBOX_TARGET}"
+echo "Could not find any BusyBox image locally; airgap import may have failed" >&2
+sudo /usr/local/bin/k3s crictl images | grep -i busybox || true
+exit 1
 EOF
 }
 
