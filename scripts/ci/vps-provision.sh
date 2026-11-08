@@ -157,8 +157,7 @@ SAVED_HASH=\$(sudo cat /etc/rancher/k3s/.config-hash 2>/dev/null || echo 'none')
 
 if [[ \"\$LOCAL_HASH\" != \"\$SAVED_HASH\" ]]; then
 	echo '-> Config changed (or first run), restarting k3s...'
-	sudo sysctl -w net.ipv4.ip_no_pmtu_disc=1
-	sudo touch /etc/sysctl.conf 2>/dev/null
+		sudo touch /etc/sysctl.conf 2>/dev/null
 	grep -q 'net.ipv4.ip_no_pmtu_disc=1' /etc/sysctl.conf || echo 'net.ipv4.ip_no_pmtu_disc=1' | sudo tee -a /etc/sysctl.conf > /dev/null
 	sudo sysctl -p 2>/dev/null
 
@@ -212,7 +211,6 @@ echo '-> Cleaning stuck pods from previous runs BEFORE restart...'
 sudo /usr/local/bin/k3s kubectl delete pods --all -n kube-system --force --grace-period=0 2>/dev/null || true
 sudo /usr/local/bin/k3s kubectl delete pods --all -n local-path-storage --force --grace-period=0 2>/dev/null || true
 
-sudo sysctl -w net.ipv4.ip_no_pmtu_disc=1
 sudo touch /etc/sysctl.conf 2>/dev/null
 grep -q 'net.ipv4.ip_no_pmtu_disc=1' /etc/sysctl.conf || echo 'net.ipv4.ip_no_pmtu_disc=1' | sudo tee -a /etc/sysctl.conf > /dev/null
 sudo sysctl -p 2>/dev/null
@@ -244,55 +242,76 @@ sudo /usr/local/bin/k3s kubectl get pods -A
 install_k3s() {
 	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "
 set -euo pipefail
-echo '-> [CRITICAL] Applying MTU fix BEFORE downloading k3s to prevent TLS drops...'
-sudo sysctl -w net.ipv4.ip_no_pmtu_disc=1
-echo '-> Forcing TLS 1.2 for root curl (fixes curl:35 resets)...'
-printf 'tls-max = 1.2\ntlsv1.2\n' | sudo tee /root/.curlrc > /dev/null
 
-sudo touch /etc/sysctl.conf 2>/dev/null
-grep -q 'net.ipv4.ip_no_pmtu_disc=1' /etc/sysctl.conf || echo 'net.ipv4.ip_no_pmtu_disc=1' | sudo tee -a /etc/sysctl.conf > /dev/null
-sudo sysctl -p 2>/dev/null
+# === 1. Ensure PMTUD is enabled (revert previous harm) ===
+sudo sed -i '/ip_no_pmtu_disc/d' /etc/sysctl.conf 2>/dev/null || true
 
-echo '-> Downloading and installing k3s directly on VPS (much faster and more reliable than scp)...'
-curl -sfL https://get.k3s.io | sudo INSTALL_K3S_BIN_DIR=/usr/local/bin sh -s - server --write-kubeconfig-mode 644
+# === 2. MSS Clamping instead of fixed MTU (safe for WSL2) ===
+sudo iptables -t mangle -F FORWARD 2>/dev/null || true
+sudo iptables -t mangle -A FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu 2>/dev/null || true
+
+if ! grep -q 'TCPMSS' /etc/rc.local 2>/dev/null; then
+	sudo mkdir -p /etc/network/if-pre-up.d
+	echo '#!/bin/sh' | sudo tee /etc/network/if-pre-up.d/mss-clamp > /dev/null
+	echo 'iptables -t mangle -A FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu 2>/dev/null || true' | sudo tee -a /etc/network/if-pre-up.d/mss-clamp > /dev/null
+	sudo chmod +x /etc/network/if-pre-up.d/mss-clamp
+fi
+
+# === 3. Skip install if k3s already present ===
+if command -v /usr/local/bin/k3s >/dev/null 2>&1 && /usr/local/bin/k3s --version >/dev/null 2>&1; then
+	echo '-> k3s already installed: '$(/usr/local/bin/k3s --version | head -1)
+	echo '-> Skipping re-download/install'
+	exit 0
+fi
+
+# === 4. Install k3s ===
+echo '-> Installing k3s from scratch...'
+curl -sfL --retry 3 --retry-delay 5 https://get.k3s.io | sudo INSTALL_K3S_BIN_DIR=/usr/local/bin sh -s - server --write-kubeconfig-mode 644
 echo 'k3s installed successfully'
 "
 }
 
 preload_airgap_images() {
-	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" <<'REMOTE'
-	set -euo pipefail
+	log_info "-> Detecting k3s version on VPS..."
+	K3S_VER=$(bash scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "/usr/local/bin/k3s --version 2>/dev/null | head -1 | awk '{print $3}'" || echo "")
 
-	sudo ip link set eth0 mtu 1350 || true
-	sudo sysctl -w net.ipv4.ip_no_pmtu_disc=1
-
-	K3S_VER=$(k3s --version 2>/dev/null | head -1 | awk '{print $3}')
-	if [[ -z "${K3S_VER}" ]]; then
-		echo "ERROR: Could not detect k3s version. Is k3s installed?"
+	if [[ -z "$K3S_VER" ]]; then
+		log_error "Could not detect k3s version on VPS"
 		exit 1
 	fi
+	log_info "-> Detected k3s version: $K3S_VER"
 
-	echo "-> Detected k3s version: ${K3S_VER}"
+	BUNDLE_URL="https://github.com/k3s-io/k3s/releases/download/${K3S_VER}/k3s-airgap-images-amd64.tar.gz"
+	LOCAL_TAR="/tmp/k3s-airgap.tar.gz"
 
-	IMG_DIR=/var/lib/rancher/k3s/agent/images
-	sudo mkdir -p ${IMG_DIR}
+	log_info "-> Downloading airgap bundle on Runner: $BUNDLE_URL"
+	if ! curl --proto "=https" --tlsv1.2 -fsSL --retry 5 --retry-delay 3 -o "$LOCAL_TAR" "$BUNDLE_URL"; then
+		log_error "Failed to download airgap bundle on Runner"
+		exit 1
+	fi
+	log_info "-> Bundle downloaded: $(du -h "$LOCAL_TAR" | cut -f1)"
 
-	echo '-> Downloading k3s airgap images bundle (contains local-path-provisioner & pause)...'
-	wget -q --tries=5 --timeout=60 -O /tmp/k3s-airgap.tar.gz "https://github.com/k3s-io/k3s/releases/download/${K3S_VER}/k3s-airgap-images-amd64.tar.gz"
+	log_info "-> Uploading bundle to VPS..."
+	bash scripts/ssh-retry.sh scp "$LOCAL_TAR" "${VPS_USER}@${VPS_HOST}:/tmp/k3s-airgap.tar.gz"
 
-	echo '-> Importing airgap images into containerd...'
-	sudo k3s ctr -n k8s.io images import /tmp/k3s-airgap.tar.gz
-	sudo rm -f /tmp/k3s-airgap.tar.gz
+	log_info "-> Importing images into containerd on VPS..."
+	bash scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "
+set -euo pipefail
+sudo k3s ctr -n k8s.io images import /tmp/k3s-airgap.tar.gz
+sudo rm -f /tmp/k3s-airgap.tar.gz
 
-	echo '-> Retagging mirrored-pause for kubelet lookup...'
-	sudo /usr/local/bin/k3s ctr -n k8s.io images tag docker.io/rancher/mirrored-pause:3.10.2 rancher/mirrored-pause:3.10.2 || true
+for img in \$(sudo k3s ctr -n k8s.io images ls -q | grep '^docker.io/' || true); do
+	new_name=\"\${img#docker.io/}\"
+	sudo k3s ctr -n k8s.io images tag \"\$img\" \"\$new_name\" 2>/dev/null || true
+done
 
-	echo '-> Restarting k3s to apply imported images...'
-	sudo systemctl restart k3s
+sudo systemctl restart k3s
+echo '-> Verifying:'
+sudo k3s crictl images | grep -E 'local-path-provisioner|pause' || true
+"
 
-	echo '-> Verifying images are loaded:'
-	sudo k3s crictl images | grep -E "local-path-provisioner|pause" || true
-REMOTE
+	rm -f "$LOCAL_TAR"
+	log_info "Airgap images imported successfully"
 }
 
 wait_for_critical_pods() {
