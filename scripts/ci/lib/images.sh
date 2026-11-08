@@ -16,6 +16,9 @@ PROBLEM_IMAGES=(
 	"docker.elastic.co/logstash/logstash:8.12.0"
 	"docker.io/otel/opentelemetry-collector:0.91.0"
 	"docker.io/rancher/mirrored-pause:3.10.2"
+	"docker.io/library/busybox:1.37.0"
+	"docker.m.daocloud.io/library/postgres:18-alpine"
+	"docker.m.daocloud.io/library/rabbitmq:4-management-alpine"
 )
 
 import_problem_images() {

@@ -263,6 +263,7 @@ preload_airgap_images() {
 	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" <<'REMOTE'
 	set -euo pipefail
 
+	sudo ip link set eth0 mtu 1350 || true
 	sudo sysctl -w net.ipv4.ip_no_pmtu_disc=1
 
 	K3S_VER=$(k3s --version 2>/dev/null | head -1 | awk '{print $3}')
@@ -282,6 +283,9 @@ preload_airgap_images() {
 	echo '-> Importing airgap images into containerd...'
 	sudo k3s ctr -n k8s.io images import /tmp/k3s-airgap.tar.gz
 	sudo rm -f /tmp/k3s-airgap.tar.gz
+
+	echo '-> Retagging mirrored-pause for kubelet lookup...'
+	sudo /usr/local/bin/k3s ctr -n k8s.io images tag docker.io/rancher/mirrored-pause:3.10.2 rancher/mirrored-pause:3.10.2 || true
 
 	echo '-> Restarting k3s to apply imported images...'
 	sudo systemctl restart k3s
