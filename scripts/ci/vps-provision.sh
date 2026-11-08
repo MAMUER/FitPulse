@@ -1,6 +1,10 @@
 #!/bin/bash
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib/utils.sh
+source "$SCRIPT_DIR/lib/utils.sh"
+
 configure_swap() {
 	echo "🔄 Проверка доступности VPS по SSH (попыток: 3)..."
 	local max_attempts=3
@@ -257,12 +261,15 @@ if ! grep -q 'TCPMSS' /etc/rc.local 2>/dev/null; then
 	sudo chmod +x /etc/network/if-pre-up.d/mss-clamp
 fi
 
-# === 3. Skip install if k3s already present ===
-if command -v /usr/local/bin/k3s >/dev/null 2>&1 && /usr/local/bin/k3s --version >/dev/null 2>&1; then
-	echo '-> k3s already installed: '$(/usr/local/bin/k3s --version | head -1)
+# === 3. Skip install if k3s already present and working ===
+K3S_EXISTING_VERSION=$(/usr/local/bin/k3s --version 2>/dev/null | head -1 || true)
+if [[ -x /usr/local/bin/k3s ]] && [[ -n "$K3S_EXISTING_VERSION" ]]; then
+	echo '-> k3s already installed: '"$K3S_EXISTING_VERSION"
 	echo '-> Skipping re-download/install'
 	exit 0
 fi
+# Remove any broken/leftover binary so the installer can replace it cleanly
+rm -f /usr/local/bin/k3s 2>/dev/null || true
 
 # === 4. Install k3s ===
 echo '-> Installing k3s from scratch...'
@@ -273,7 +280,7 @@ echo 'k3s installed successfully'
 
 preload_airgap_images() {
 	log_info "-> Detecting k3s version on VPS..."
-	K3S_VER=$(bash scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "/usr/local/bin/k3s --version 2>/dev/null | head -1 | awk '{print $3}'" || echo "")
+	K3S_VER=$(bash scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "/usr/local/bin/k3s --version 2>/dev/null | head -1 | awk '{print \$3}'" || echo "")
 
 	if [[ -z "$K3S_VER" ]]; then
 		log_error "Could not detect k3s version on VPS"

@@ -22,9 +22,17 @@ install_cosign() {
 }
 
 install_syft() {
-	curl --proto =https --retry 3 --retry-delay 5 -fsSL https://raw.githubusercontent.com/anchore/syft/main/install.sh -o /tmp/install.sh
-	bash /tmp/install.sh -b /usr/local/bin
-	rm -f /tmp/install.sh
+	for attempt in 1 2 3; do
+		echo "-> Installing syft (attempt $attempt/3)..."
+		if curl --proto =https --retry 5 --retry-delay 5 -fsSL https://raw.githubusercontent.com/anchore/syft/main/install.sh -o /tmp/install.sh 2>/dev/null &&
+			bash /tmp/install.sh -b /usr/local/bin 2>/dev/null; then
+			rm -f /tmp/install.sh
+			command -v syft >/dev/null 2>&1 && return 0 || true
+		fi
+		rm -f /tmp/install.sh
+		sleep 15
+	done
+	return 1
 }
 
 install_trufflehog() {
@@ -56,7 +64,7 @@ install_tools() {
 	install_gosec
 	install_govulncheck
 	install_golangci_lint
-	install_syft
+	install_syft || echo "⚠️ syft install failed, continuing without SBOM tooling"
 	install_trufflehog
 	install_gitleaks
 	install_cosign
@@ -89,7 +97,13 @@ run_trufflehog() {
 }
 
 generate_sbom() {
-	command -v syft >/dev/null 2>&1 || install_syft
+	if ! command -v syft >/dev/null 2>&1; then
+		install_syft || { echo "⚠️ syft unavailable, skipping SBOM generation"; return 0; }
+	fi
+	if ! command -v syft >/dev/null 2>&1; then
+		echo "⚠️ syft unavailable, skipping SBOM generation"
+		return 0
+	fi
 	mkdir -p sbom
 	syft . \
 		--source-name fitpulse \
