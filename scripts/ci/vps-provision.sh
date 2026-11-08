@@ -310,7 +310,7 @@ set -euo pipefail
 
 ASSET="k3s-airgap-images-amd64.tar.gz"
 SUMS="sha256sum-amd64.txt"
-BUNDLE="/opt/k3s-airgap.tar.gz"
+BUNDLE="/opt/k3s-airgap-images-amd64.tar.gz"
 SUMS_FILE="/opt/sha256sum-amd64.txt"
 BASE_URL="https://github.com/k3s-io/k3s/releases/download/__TAG__"
 
