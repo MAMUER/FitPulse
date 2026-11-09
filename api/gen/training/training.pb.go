@@ -630,7 +630,6 @@ func (x *GetProgressResponse) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use GetProgressResponse.ProtoReflect.Descriptor instead.
 func (*GetProgressResponse) Descriptor() ([]byte, []int) {
 	return file_training_proto_rawDescGZIP(), []int{9}
 }
