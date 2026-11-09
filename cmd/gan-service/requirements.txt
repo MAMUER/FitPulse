@@ -10,5 +10,5 @@ networkx==3.7
 numpy==2.3.5
 setuptools==84.2.1
 sympy==1.14.0
-torch==2.13.0
+torch==2.15.0
 typing-extensions==4.16.0
