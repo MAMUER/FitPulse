@@ -94,6 +94,9 @@ create_secrets() {
 	echo "Ensuring app-secrets contains OPEN_WEARABLES_WEBHOOK_SECRET..."
 	kubectl patch secret app-secrets -n fitness-platform-production --type=merge -p "{\"stringData\":{\"OPEN_WEARABLES_WEBHOOK_SECRET\":\"${OPEN_WEARABLES_WEBHOOK_SECRET:-}\"}}" >/dev/null 2>&1 || true
 
+	# Ensure SEED_ADMIN_EMAIL and SEED_ADMIN_PASSWORD exist in app-secrets (required by seed-admin job)
+	kubectl patch secret app-secrets -n fitness-platform-production --type=merge -p "{\"stringData\":{\"SEED_ADMIN_EMAIL\":\"${SEED_ADMIN_EMAIL:-admin@fittpulse.duckdns.org}\",\"SEED_ADMIN_PASSWORD\":\"${SEED_ADMIN_PASSWORD:-FitPulseAdmin2026!}\"}}" >/dev/null 2>&1 || true
+
 	echo "Creating per-service DB credentials (fallback)..."
 	for svc in user-service training-service biometric-service data-processor; do
 		sec="${svc}-db-credentials"

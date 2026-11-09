@@ -63,6 +63,8 @@ spec:
       volumes:
         - name: tmp
           emptyDir: {}
+        - name: rabbitmq-etc
+          emptyDir: {}
         - name: rabbitmq-tls
           secret:
             secretName: rabbitmq-tls
@@ -114,6 +116,8 @@ spec:
               mountPath: /var/lib/rabbitmq
             - name: tmp
               mountPath: /tmp
+            - name: rabbitmq-etc
+              mountPath: /etc/rabbitmq
             - name: rabbitmq-tls
               mountPath: /etc/rabbitmq-tls
               readOnly: true

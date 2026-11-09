@@ -64,6 +64,8 @@ spec:
           secret:
             secretName: app-secrets
             items:
+              - key: JWT_PRIVATE_KEY_PEM
+                path: JWT_PRIVATE_KEY_PEM
               - key: JWT_PUBLIC_KEY_PEM
                 path: JWT_PUBLIC_KEY_PEM
               - key: RABBITMQ_URL
