@@ -1,13 +1,21 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# === НАСТРОЙКА SSH known_hosts ===
+VPS_IP="${VPS_IP:-$(bash scripts/ci/ci-helpers.sh resolve_vps_hostname 2>/dev/null || echo '')}"
+if [ -n "$VPS_IP" ]; then
+    ssh-keygen -R "[$VPS_IP]:22" 2>/dev/null || true
+    ssh-keyscan -H "$VPS_IP" >> ~/.ssh/known_hosts 2>/dev/null || true
+    ssh-keyscan -H "fittpulse.duckdns.org" >> ~/.ssh/known_hosts 2>/dev/null || true
+    echo "✅ SSH known_hosts configured"
+fi
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/lib/utils.sh"
 source "$SCRIPT_DIR/lib/secrets.sh"
 source "$SCRIPT_DIR/lib/images.sh"
 source "$SCRIPT_DIR/lib/k8s.sh"
 source "$SCRIPT_DIR/lib/network.sh"
-
 deploy_all() {
 	log_info "Starting production deployment"
 	ensure_service_account
