@@ -408,7 +408,7 @@ type ganPlanParams struct {
 	GenerationMethod string
 }
 
-func (s *trainingServer) callGANService(classIndex int, prof userProfile, numSamples int) (*ganPlanResponse, error) {
+func (s *trainingServer) callGANService(classIndex int, prof userProfile) (*ganPlanResponse, error) {
 	if s.ganURL == "" {
 		return nil, errors.New("gan service url not configured")
 	}
@@ -419,7 +419,7 @@ func (s *trainingServer) callGANService(classIndex int, prof userProfile, numSam
 		"weight":      prof.Weight,
 		"height":      prof.Height,
 		"goal":        prof.Goal,
-		"num_samples": numSamples,
+		"num_samples": 1,
 	}
 	body, err := json.Marshal(reqBody)
 	if err != nil {
@@ -497,7 +497,7 @@ func (s *trainingServer) resolveGANParams(ctx context.Context, userID string, cl
 	}
 	prof := s.loadUserProfile(ctx, userID)
 	ganIdx := classToGANIndex(classificationClass)
-	ganResp, ganErr := s.callGANService(ganIdx, prof, 1)
+	ganResp, ganErr := s.callGANService(ganIdx, prof)
 	if ganErr != nil {
 		s.log.Warn("GAN-сервис недоступен, используются шаблоны",
 			zap.String("user_id", sanitize.LogString(userID)), zap.Error(ganErr))

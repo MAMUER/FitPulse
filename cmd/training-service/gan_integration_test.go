@@ -93,7 +93,7 @@ func TestVectorToGANParamsEdgeCases(t *testing.T) {
 
 func TestCallGANServiceEmptyURL(t *testing.T) {
 	s := &trainingServer{ganURL: ""}
-	resp, err := s.callGANService(1, userProfile{Age: 30}, 1)
+	resp, err := s.callGANService(1, userProfile{Age: 30})
 	assert.Error(t, err)
 	assert.EqualError(t, err, "gan service url not configured")
 	assert.Nil(t, resp)
@@ -125,7 +125,7 @@ func TestCallGANServiceSuccess(t *testing.T) {
 	defer mockServer.Close()
 
 	s := &trainingServer{ganURL: mockServer.URL}
-	resp, err := s.callGANService(2, userProfile{Age: 25, Gender: 1, Weight: 70.0, Height: 175.0, Goal: 0}, 1)
+	resp, err := s.callGANService(2, userProfile{Age: 25, Gender: 1, Weight: 70.0, Height: 175.0, Goal: 0})
 
 	require.NoError(t, err)
 	require.NotNil(t, resp)
@@ -146,7 +146,7 @@ func TestCallGANServiceNon200(t *testing.T) {
 	defer mockServer.Close()
 
 	s := &trainingServer{ganURL: mockServer.URL}
-	resp, err := s.callGANService(1, userProfile{Age: 30}, 1)
+	resp, err := s.callGANService(1, userProfile{Age: 30})
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "gan service returned status 503")
@@ -155,7 +155,7 @@ func TestCallGANServiceNon200(t *testing.T) {
 
 func TestCallGANServiceConnectionError(t *testing.T) {
 	s := &trainingServer{ganURL: "http://127.0.0.1:1/gan/generate"}
-	resp, err := s.callGANService(1, userProfile{Age: 30}, 1)
+	resp, err := s.callGANService(1, userProfile{Age: 30})
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "gan request failed")
