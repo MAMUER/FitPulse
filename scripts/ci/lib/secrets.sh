@@ -52,7 +52,9 @@ create_secrets() {
 		POSTGRES_USER_VAL="${POSTGRES_USER:-fitpulse}"
 		POSTGRES_PASS_VAL="${POSTGRES_PASSWORD:-fitpulse-$(date +%s)}"
 		POSTGRES_DB_VAL="${POSTGRES_DB:-fitpulse}"
-		RABBITMQ_URL_VAL="${RABBITMQ_URL:-amqp://rabbitmq:5672}"
+		RABBITMQ_USER_VAL="${RABBITMQ_DEFAULT_USER:-fitpulse}"
+		RABBITMQ_PASS_VAL="${RABBITMQ_DEFAULT_PASS:-$(openssl rand -base64 32 2>/dev/null || echo 'change-me-rabbitmq')}"
+		RABBITMQ_URL_VAL="amqp://${RABBITMQ_USER_VAL}:${RABBITMQ_PASS_VAL}@rabbitmq:5672"
 		VALKEY_PASS_VAL="${VALKEY_PASSWORD:-valkey-$(date +%s)}"
 		APP_BASE_URL_VAL="${APP_BASE_URL:-https://fittpulse.duckdns.org}"
 
@@ -70,10 +72,13 @@ create_secrets() {
 			--from-literal=SMTP_USER="${SMTP_USER:-}" \
 			--from-literal=SMTP_PASSWORD="${SMTP_PASSWORD:-}" \
 			--from-literal=SMTP_FROM="${SMTP_FROM:-noreply@fittpulse.duckdns.org}" \
+			--from-literal=RABBITMQ_DEFAULT_USER="${RABBITMQ_DEFAULT_USER:-fitpulse}" \
+			--from-literal=RABBITMQ_DEFAULT_PASS="${RABBITMQ_DEFAULT_PASS:-$(openssl rand -base64 32 2>/dev/null || echo 'change-me-rabbitmq')}" \
 			--from-literal=YANDEX_CLIENT_ID="${YANDEX_CLIENT_ID:-}" \
 			--from-literal=YANDEX_CLIENT_SECRET="${YANDEX_CLIENT_SECRET:-}" \
 			--from-literal=YANDEX_REDIRECT_URL="${YANDEX_REDIRECT_URL:-}" \
 			--from-literal=TOTP_ENCRYPTION_KEY="${TOTP_ENCRYPTION_KEY:-$(openssl rand -base64 32 2>/dev/null || echo 'changeme')}" \
+			--from-literal=DB_ENCRYPTION_KEY="${DB_ENCRYPTION_KEY:-$(openssl rand -hex 32 2>/dev/null || echo 'dev-encryption-key-change-me')}" \
 			--from-literal=OPEN_WEARABLES_WEBHOOK_SECRET="${OPEN_WEARABLES_WEBHOOK_SECRET:-}" \
 			--dry-run=client -o yaml | kubectl apply -f -
 		echo "✅ app-secrets created (fallback)"
@@ -96,6 +101,9 @@ create_secrets() {
 
 	# Ensure SEED_ADMIN_EMAIL and SEED_ADMIN_PASSWORD exist in app-secrets (required by seed-admin job)
 	kubectl patch secret app-secrets -n fitness-platform-production --type=merge -p "{\"stringData\":{\"SEED_ADMIN_EMAIL\":\"${SEED_ADMIN_EMAIL:-admin@fittpulse.duckdns.org}\",\"SEED_ADMIN_PASSWORD\":\"${SEED_ADMIN_PASSWORD:-FitPulseAdmin2026!}\"}}" >/dev/null 2>&1 || true
+
+	# Ensure DB_ENCRYPTION_KEY exists in app-secrets (required by user-service pgsodium keyring)
+	kubectl patch secret app-secrets -n fitness-platform-production --type=merge -p "{\"stringData\":{\"DB_ENCRYPTION_KEY\":\"${DB_ENCRYPTION_KEY:-$(openssl rand -hex 32 2>/dev/null || echo 'dev-encryption-key-change-me')}\"}}" >/dev/null 2>&1 || true
 
 	echo "Creating per-service DB credentials (fallback)..."
 	for svc in user-service training-service biometric-service data-processor; do

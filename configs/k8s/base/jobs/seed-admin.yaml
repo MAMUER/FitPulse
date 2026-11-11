@@ -58,6 +58,15 @@ spec:
             readOnlyRootFilesystem: true
             seccompProfile:
               type: RuntimeDefault
+          resources:
+            requests:
+              cpu: "25m"
+              memory: "64Mi"
+              ephemeral-storage: "128Mi"
+            limits:
+              cpu: "200m"
+              memory: "256Mi"
+              ephemeral-storage: "256Mi"
           command: ["/bin/sh", "-c"]
           args:
             - |
@@ -160,12 +169,12 @@ spec:
             periodSeconds: 10
             timeoutSeconds: 5
             failureThreshold: 6
-          resources:
-            requests:
-              memory: "32Mi"
-              cpu: "15m"
-              ephemeral-storage: "64Mi"
-            limits:
-              memory: "96Mi"
-              cpu: "100m"
-              ephemeral-storage: "128Mi"
+            resources:
+              requests:
+                memory: "64Mi"
+                cpu: "25m"
+                ephemeral-storage: "128Mi"
+              limits:
+                memory: "256Mi"
+                cpu: "200m"
+                ephemeral-storage: "256Mi"

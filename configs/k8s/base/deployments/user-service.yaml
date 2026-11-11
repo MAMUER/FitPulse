@@ -90,6 +90,8 @@ spec:
                 path: YANDEX_REDIRECT_URL
               - key: TOTP_ENCRYPTION_KEY
                 path: TOTP_ENCRYPTION_KEY
+              - key: DB_ENCRYPTION_KEY
+                path: DB_ENCRYPTION_KEY
         - name: grpc-tls
           secret:
             secretName: grpc-server-tls
@@ -180,6 +182,13 @@ spec:
               value: "/etc/secrets/YANDEX_REDIRECT_URL"
             - name: TOTP_ENCRYPTION_KEY_FILE
               value: "/etc/secrets/TOTP_ENCRYPTION_KEY"
+            - name: DB_ENCRYPTION_KEY_FILE
+              value: "/etc/secrets/DB_ENCRYPTION_KEY"
+            - name: DB_ENCRYPTION_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: DB_ENCRYPTION_KEY
             - name: OTEL_EXPORTER_OTLP_ENDPOINT
               value: "opentelemetry-collector.monitoring.svc.cluster.local:4317"
             - name: OTEL_SERVICE_NAME

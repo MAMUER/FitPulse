@@ -77,6 +77,15 @@ spec:
           # checkov:skip=CKV_K8S_43: Known public image; digest pinned for reproducibility
           image: docker.io/library/rabbitmq:4.3-management-alpine
           imagePullPolicy: IfNotPresent
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "128Mi"
+              ephemeral-storage: "256Mi"
+            limits:
+              cpu: "200m"
+              memory: "256Mi"
+              ephemeral-storage: "512Mi"
           ports:
             - containerPort: 5672
               name: amqp
@@ -98,6 +107,18 @@ spec:
               value: "-rabbit log_levels [{connection,error},{default,error}] +S 2:2"
             - name: RABBITMQ_ENABLED_PLUGINS
               value: "rabbitmq_prometheus"
+            - name: RABBITMQ_DEFAULT_USER
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: RABBITMQ_DEFAULT_USER
+                  optional: true
+            - name: RABBITMQ_DEFAULT_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: RABBITMQ_DEFAULT_PASS
+                  optional: true
           volumeMounts:
             - name: rabbitmq-storage
               mountPath: /var/lib/rabbitmq
@@ -117,31 +138,22 @@ spec:
           livenessProbe:
             tcpSocket:
               port: 5672
-            initialDelaySeconds: 120
+            initialDelaySeconds: 180
             periodSeconds: 20
             timeoutSeconds: 5
-            failureThreshold: 5
+            failureThreshold: 10
           readinessProbe:
             tcpSocket:
               port: 5672
             initialDelaySeconds: 20
             periodSeconds: 10
             timeoutSeconds: 5
-          resources:
-            requests:
-              cpu: "50m"
-              memory: "64Mi"
-              ephemeral-storage: "256Mi"
-            limits:
-              cpu: "100m"
-              memory: "192Mi"
-              ephemeral-storage: "512Mi"
-  volumeClaimTemplates:
-    - metadata:
-        name: rabbitmq-storage
-      spec:
-        accessModes: ["ReadWriteOnce"]
-        storageClassName: local-path
-        resources:
-          requests:
-            storage: 256Mi
+          volumeClaimTemplates:
+            - metadata:
+                name: rabbitmq-storage
+              spec:
+                accessModes: ["ReadWriteOnce"]
+                storageClassName: local-path
+                resources:
+                  requests:
+                    storage: 256Mi
