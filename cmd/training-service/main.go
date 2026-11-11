@@ -1,12 +1,15 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math"
 	"net"
+	"net/http"
 	"os/signal"
 	"strings"
 	"sync"
@@ -78,6 +81,7 @@ type trainingServer struct {
 	rabbitQueue queue.Publisher
 	surveyRepo  *pgx.SurveyRepositoryPGX
 	bioRepo     *pgx.BiometricRepositoryPGX
+	ganURL      string
 }
 
 func (s *trainingServer) GeneratePlan(ctx context.Context, req *pb.GeneratePlanRequest) (*pb.GeneratePlanResponse, error) {
@@ -114,13 +118,11 @@ func (s *trainingServer) GeneratePlan(ctx context.Context, req *pb.GeneratePlanR
 
 	survey, _, _, _ := s.loadSurveyForUser(ctx, req.UserId)
 	biometrics := s.loadBiometricsForUser(ctx, req.UserId)
-	availableDays := make([]int, len(req.AvailableDays))
-	for i, d := range req.AvailableDays {
-		availableDays[i] = int(d)
-	}
-	if len(availableDays) == 0 {
-		availableDays = []int{1, 3, 5}
-	}
+	availableDays := prepareAvailableDays(req.AvailableDays)
+
+	// --- Интеграция GAN: классификатор уже определил класс состояния (classificationClass).
+	// Запрашиваем у gan-service персонализированный вектор плана (condition = класс + демография).
+	ganParams := s.resolveGANParams(ctx, req.UserId, classificationClass)
 
 	plan, weeks, err := planner.GeneratePlanFromTemplate(
 		classificationClass,
@@ -136,6 +138,9 @@ func (s *trainingServer) GeneratePlan(ctx context.Context, req *pb.GeneratePlanR
 		s.log.Error("Не удалось сгенерировать план через planner", zap.Error(err))
 		return nil, status.Error(codes.Internal, "failed to generate plan")
 	}
+
+	// Наложить GAN-интенсивность на упражнения плана (если GAN был использован).
+	applyGANIntensity(weeks, ganParams)
 
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -168,19 +173,58 @@ func (s *trainingServer) GeneratePlan(ctx context.Context, req *pb.GeneratePlanR
 
 	s.publishPlanEvent(ctx, req.UserId, planID, classificationClass)
 
-	planData := map[string]interface{}{
-		"name":           plan.PlanData["name"],
-		"class":          plan.Classification,
-		"duration_weeks": int(req.DurationWeeks),
-		"training_goal":  trainingGoal,
-		"weeks":          weeks,
-	}
+	planData := buildPlanData(plan, req, trainingGoal, weeks, ganParams)
 	planStruct, err := structpb.NewStruct(planData)
 	if err != nil {
 		s.log.Error("Не удалось сериализовать план", zap.Error(err))
 		return nil, status.Error(codes.Internal, "failed to serialize plan data")
 	}
 	return &pb.GeneratePlanResponse{PlanId: planID, PlanData: planStruct}, nil
+}
+
+// prepareAvailableDays конвертирует []int32 в []int, подставляя значения по умолчанию при пустом списке.
+func prepareAvailableDays(days []int32) []int {
+	availableDays := make([]int, len(days))
+	for i, d := range days {
+		availableDays[i] = int(d)
+	}
+	if len(availableDays) == 0 {
+		availableDays = []int{1, 3, 5}
+	}
+	return availableDays
+}
+
+// applyGANIntensity накладывает интенсивность GAN на все упражнения всех недель плана.
+func applyGANIntensity(weeks []*entity.PlanWeek, ganParams ganPlanParams) {
+	if ganParams.GenerationMethod != "gan" {
+		return
+	}
+	for _, week := range weeks {
+		for _, day := range week.Days {
+			for _, ex := range day.Exercises {
+				ex.Intensity = ganParams.Intensity
+			}
+		}
+	}
+}
+
+// buildPlanData формирует карту данных плана для ответа.
+func buildPlanData(plan *entity.TrainingPlan, req *pb.GeneratePlanRequest, trainingGoal string, weeks []*entity.PlanWeek, ganParams ganPlanParams) map[string]interface{} {
+	planData := map[string]interface{}{
+		"name":                 plan.PlanData["name"],
+		"class":                plan.Classification,
+		"duration_weeks":       int(req.DurationWeeks),
+		"training_goal":        trainingGoal,
+		"weeks":                weeks,
+		"generation_method":    ganParams.GenerationMethod,
+		"gan_intensity":        ganParams.Intensity,
+		"gan_duration_minutes": ganParams.DurationMinutes,
+		"gan_sessions":         ganParams.SessionsPerWeek,
+	}
+	if len(ganParams.RawVector) > 0 {
+		planData["gan_vector"] = ganParams.RawVector
+	}
+	return planData
 }
 
 // buildPlanSummaries сериализует доменные планы в protobuf-структуры для ListPlans.
@@ -253,6 +297,223 @@ func (s *trainingServer) loadBiometricsForUser(ctx context.Context, userID strin
 		SystolicBP:  metrics["systolic_pressure"],
 		DiastolicBP: metrics["diastolic_pressure"],
 	}
+}
+
+// userProfile хранит демографические признаки пользователя для кондиционирования GAN.
+type userProfile struct {
+	Age    float64
+	Gender float64 // 0 female, 1 male
+	Weight float64
+	Height float64
+	Goal   float64
+}
+
+func (s *trainingServer) loadUserProfile(ctx context.Context, userID string) userProfile {
+	// Значения по умолчанию (среднестатистический пользователь).
+	prof := userProfile{Age: 30, Gender: 1, Weight: 75.0, Height: 180.0, Goal: 1}
+	if s.db == nil {
+		return prof
+	}
+	var age, height sql.NullInt32
+	var weight sql.NullFloat64
+	var gender sql.NullString
+	err := s.db.QueryRowContext(ctx, `
+		SELECT age, gender, height_cm, weight_kg FROM users WHERE id = $1
+	`, userID).Scan(&age, &gender, &height, &weight)
+	if err != nil {
+		s.log.Debug("Не удалось загрузить профиль пользователя, используются значения по умолчанию",
+			zap.String("user_id", sanitize.LogString(userID)), zap.Error(err))
+		return prof
+	}
+	if age.Valid {
+		prof.Age = float64(age.Int32)
+	}
+	if gender.Valid {
+		switch strings.ToLower(gender.String) {
+		case "female":
+			prof.Gender = 0
+		case "male":
+			prof.Gender = 1
+		default:
+			prof.Gender = 1
+		}
+	}
+	if height.Valid {
+		prof.Height = float64(height.Int32)
+	}
+	if weight.Valid {
+		prof.Weight = weight.Float64
+	}
+	// Цель: берем первую цель из user_goals, иначе дефолт 1 (general fitness).
+	var goal sql.NullString
+	gErr := s.db.QueryRowContext(ctx, `
+		SELECT goal FROM user_goals WHERE user_id = $1 ORDER BY id LIMIT 1
+	`, userID).Scan(&goal)
+	if gErr == nil && goal.Valid {
+		switch strings.ToLower(goal.String) {
+		case "weight_loss":
+			prof.Goal = 0
+		case "endurance":
+			prof.Goal = 1
+		case "strength":
+			prof.Goal = 2
+		case "general_health":
+			prof.Goal = 3
+		default:
+			prof.Goal = 1
+		}
+	}
+	return prof
+}
+
+// classToGANIndex отображает имя класса состояния на индекс класса для GAN (0-5).
+func classToGANIndex(classification string) int {
+	switch classification {
+	case "recovery":
+		return 0
+	case "endurance_basic":
+		return 1
+	case "endurance_threshold":
+		return 2
+	case "power_hiit":
+		return 3
+	case "overtraining":
+		return 4
+	case "illness":
+		return 5
+	default:
+		return 1
+	}
+}
+
+// ganPlanResponse — ответ от gan-service.
+type ganPlanResponse struct {
+	Status     string          `json:"status"`
+	ClassIndex int             `json:"class_index"`
+	Plans      []generatedPlan `json:"plans"`
+	Model      string          `json:"model"`
+}
+
+type generatedPlan struct {
+	Sample int       `json:"sample"`
+	Plan   []float64 `json:"plan"`
+}
+
+// ganPlanParams — параметры плана, выведенные из 19-мерного вектора GAN.
+type ganPlanParams struct {
+	Intensity        float64
+	DurationMinutes  int
+	SessionsPerWeek  int
+	RawVector        []float64
+	GenerationMethod string
+}
+
+func (s *trainingServer) callGANService(classIndex int, prof userProfile, numSamples int) (*ganPlanResponse, error) {
+	if s.ganURL == "" {
+		return nil, errors.New("gan service url not configured")
+	}
+	reqBody := map[string]interface{}{
+		"class_index": classIndex,
+		"age":         prof.Age,
+		"gender":      prof.Gender,
+		"weight":      prof.Weight,
+		"height":      prof.Height,
+		"goal":        prof.Goal,
+		"num_samples": numSamples,
+	}
+	body, err := json.Marshal(reqBody)
+	if err != nil {
+		return nil, fmt.Errorf("marshal gan request: %w", err)
+	}
+	req, err := http.NewRequest(http.MethodPost, s.ganURL+"/gan/generate", bytes.NewReader(body))
+	if err != nil {
+		return nil, fmt.Errorf("create gan request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("gan request failed: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("gan service returned status %d", resp.StatusCode)
+	}
+	var gr ganPlanResponse
+	if err := json.NewDecoder(resp.Body).Decode(&gr); err != nil {
+		return nil, fmt.Errorf("decode gan response: %w", err)
+	}
+	return &gr, nil
+}
+
+// vectorToGANParams преобразует 19-мерный вектор GAN в параметры плана.
+func vectorToGANParams(vec []float64) ganPlanParams {
+	params := ganPlanParams{
+		Intensity:        0.5,
+		DurationMinutes:  45,
+		SessionsPerWeek:  3,
+		RawVector:        vec,
+		GenerationMethod: "template",
+	}
+	if len(vec) == 0 {
+		return params
+	}
+	// dim0: интенсивность (0-1)
+	intensity := vec[0]
+	if intensity < 0 {
+		intensity = 0
+	}
+	if intensity > 1 {
+		intensity = 1
+	}
+	params.Intensity = intensity
+	// dim1: коэффициент длительности (0-1) -> 30..90 мин
+	if len(vec) > 1 {
+		params.DurationMinutes = 30 + int(vec[1]*60)
+	}
+	// dim2: частота занятий (0-1) -> 1..7 раз в неделю
+	if len(vec) > 2 {
+		params.SessionsPerWeek = 1 + int(vec[2]*6)
+		if params.SessionsPerWeek > 7 {
+			params.SessionsPerWeek = 7
+		}
+		if params.SessionsPerWeek < 1 {
+			params.SessionsPerWeek = 1
+		}
+	}
+	params.GenerationMethod = "gan"
+	return params
+}
+
+// resolveGANParams вызывает GAN-сервис и возвращает параметры плана.
+// При недоступности GAN возвращает параметры шаблона (template).
+func (s *trainingServer) resolveGANParams(ctx context.Context, userID string, classificationClass string) ganPlanParams {
+	params := ganPlanParams{
+		Intensity:        0.5,
+		DurationMinutes:  45,
+		SessionsPerWeek:  3,
+		RawVector:        nil,
+		GenerationMethod: "template",
+	}
+	prof := s.loadUserProfile(ctx, userID)
+	ganIdx := classToGANIndex(classificationClass)
+	ganResp, ganErr := s.callGANService(ganIdx, prof, 1)
+	if ganErr != nil {
+		s.log.Warn("GAN-сервис недоступен, используются шаблоны",
+			zap.String("user_id", sanitize.LogString(userID)), zap.Error(ganErr))
+		return params
+	}
+	if len(ganResp.Plans) > 0 && len(ganResp.Plans[0].Plan) > 0 {
+		params = vectorToGANParams(ganResp.Plans[0].Plan)
+		s.log.Info("План сгенерирован через GAN",
+			zap.String("user_id", sanitize.LogString(userID)),
+			zap.Float64("intensity", params.Intensity),
+			zap.Int("duration_min", params.DurationMinutes),
+			zap.Int("sessions_per_week", params.SessionsPerWeek),
+			zap.String("model", ganResp.Model),
+		)
+	}
+	return params
 }
 
 type savePlannerPlanOptions struct {
@@ -1137,7 +1398,7 @@ func createRabbitQueue(rabbitURL, queueName string, log *logger.Logger) queue.Pu
 	return rabbitQueue
 }
 
-func setupGRPCServer(log *logger.Logger, db *sql.DB, trainingSvc service.TrainingService, rabbitQueue queue.Publisher, jwtPublicKeyPEM string, surveyRepo *pgx.SurveyRepositoryPGX, bioRepo *pgx.BiometricRepositoryPGX) *grpc.Server {
+func setupGRPCServer(log *logger.Logger, db *sql.DB, trainingSvc service.TrainingService, rabbitQueue queue.Publisher, jwtPublicKeyPEM string, surveyRepo *pgx.SurveyRepositoryPGX, bioRepo *pgx.BiometricRepositoryPGX) (*grpc.Server, *trainingServer) {
 	serverOpts := []grpc.ServerOption{grpc.ChainUnaryInterceptor(
 		middleware.RecoveryGRPC(log.Logger),
 		middleware.CorrelationIDGRPC(),
@@ -1145,16 +1406,17 @@ func setupGRPCServer(log *logger.Logger, db *sql.DB, trainingSvc service.Trainin
 		metrics.UnaryServerInterceptor(serviceName),
 	), telemetry.ServerHandlerOption()}
 	s := grpctls.NewServer(serverOpts...)
-	pb.RegisterTrainingServiceServer(s, &trainingServer{
+	ts := &trainingServer{
 		db:          db,
 		trainingSvc: trainingSvc,
 		log:         log,
 		rabbitQueue: rabbitQueue,
 		surveyRepo:  surveyRepo,
 		bioRepo:     bioRepo,
-	})
+	}
+	pb.RegisterTrainingServiceServer(s, ts)
 
-	return s
+	return s, ts
 }
 
 func main() {
@@ -1168,7 +1430,7 @@ func main() {
 		}
 	}()
 
-	port, metricsPort, jwtPublicKeyPEM, dbCfg := loadTrainingConfig()
+	port, metricsPort, jwtPublicKeyPEM, dbCfg, ganServiceURL := loadTrainingConfig()
 	metricsSrv := server.CreateMetricsServer(metricsPort)
 	database, pgxPool, trainingSvc, rabbitQueue, surveyRepo, bioRepo := initTrainingServices(dbCfg, log)
 
@@ -1181,7 +1443,8 @@ func main() {
 		pgxPool.Close()
 	}()
 
-	s := setupGRPCServer(log, database, trainingSvc, rabbitQueue, jwtPublicKeyPEM, surveyRepo, bioRepo)
+	s, ts := setupGRPCServer(log, database, trainingSvc, rabbitQueue, jwtPublicKeyPEM, surveyRepo, bioRepo)
+	ts.ganURL = ganServiceURL
 
 	lis, err := net.Listen("tcp", ":"+port) // #nosec G102
 	if err != nil {
@@ -1248,11 +1511,12 @@ func float64Value(nf sql.NullFloat64) float64 {
 	return 0
 }
 
-func loadTrainingConfig() (port, metricsPort, jwtPublicKeyPEM string, dbCfg db.Config) {
+func loadTrainingConfig() (port, metricsPort, jwtPublicKeyPEM string, dbCfg db.Config, ganServiceURL string) {
 	config.InitViper(serviceName)
 	port = config.GetEnv("TRAINING_SERVICE_PORT", "50053")
 	metricsPort = config.GetEnv("TRAINING_SERVICE_METRICS_PORT", "9095")
 	jwtPublicKeyPEM = config.GetEnv("JWT_PUBLIC_KEY_PEM")
+	ganServiceURL = config.GetEnv("GAN_SERVICE_URL", "")
 	dbCfg = db.Config{
 		Host:     config.GetEnv("DB_HOST"),
 		Port:     config.GetEnv("DB_PORT"),
@@ -1261,7 +1525,7 @@ func loadTrainingConfig() (port, metricsPort, jwtPublicKeyPEM string, dbCfg db.C
 		DBName:   config.GetEnv("POSTGRES_DB"),
 		SSLMode:  config.GetEnv("DB_SSLMODE"),
 	}
-	return port, metricsPort, jwtPublicKeyPEM, dbCfg
+	return port, metricsPort, jwtPublicKeyPEM, dbCfg, ganServiceURL
 }
 
 func initTrainingServices(dbCfg db.Config, log *logger.Logger) (*sql.DB, *pgxpool.Pool, service.TrainingService, queue.Publisher, *pgx.SurveyRepositoryPGX, *pgx.BiometricRepositoryPGX) {

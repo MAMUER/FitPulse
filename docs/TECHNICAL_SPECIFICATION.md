@@ -57,7 +57,7 @@
 |Training Service|CRUD тренировочных планов, история, достижения|
 |Device Aggregator|Webhook-forwarder для Open Wearables|
 |Classifier|Классификация состояния (7 классов, Go-алгоритм, Phase 1)|
-|ML Generator|Генерация планов (Conditional Diffusion Model, Python/FastAPI, Phase 1 production)|
+|ML Generator|Генерация планов (Conditional GAN, Python, Phase 1 production)|
 |Data Processor|Фоновая обработка событий биометрии (RabbitMQ consumer, Phase 1)|
 |Admin CLI|CLI-инструмент для администрирования (Vault, PostgreSQL, invites)|
 |Gateway|Единая точка входа (REST → gRPC). Не имеет прямого доступа к БД; делегирует пользовательские/админ-операции в user-service|

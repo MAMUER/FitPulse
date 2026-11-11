@@ -2,51 +2,85 @@
 
 ## Статус
 
-Принято
+Утверждено
 
 ## Контекст
 
-ML Generator service должен был производить персонализированные тренировочные планы на основе профилей пользователей и биометрических данных.
+ML Generator service должен производить персонализированные тренировочные планы на основе профилей пользователей и биометрических данных.
 
 Требования:
 
 - генерировать 19-мерные векторы тренировочных планов;
 - поддерживать 10,000+ тренировочных семплов;
 - обучаться в Docker-контейнере;
-- использовать Keras 3 с TensorFlow backend.
+- использовать Keras 3 с TensorFlow backend;
+- интегрироваться в `training-service` через HTTP API.
 
 ## Решение
 
-Реализован GAN-based генератор тренировочных планов со следующей архитектурой:
+Реализован Conditional GAN-based генератор тренировочных планов со следующей архитектурой:
 
-1. **Предобработка данных**
-   - конвертация данных об упражнениях из `datasets/raw/exercisedb` в векторы тренировочных планов;
-   - генерация 10,000 тренировочных планов с 19 признаками;
-   - признаки: duration, intensity, rest_ratio, weekly_freq, equipment (8 dims), warmup, cooldown, progression, age/fitness/health/goal факторы.
+### Компоненты
 
-2. **Архитектура модели**
-   - Generator: 64-dim latent → 256 → 512 → 256 → 19 (sigmoid)
-   - Discriminator: 19 → 512 → 256 → 128 → 1 (sigmoid)
-   - Loss: MSE для generator, binary_crossentropy для discriminator
-   - Optimizer: Adam (lr=0.0002, beta_1=0.5)
+1. **gan-service** (`cmd/gan-service/main.go`) — HTTP-сервис на Go, который вызывает локальный Python-скрипт `cmd/ml_generator/gan_train.py generate` с загруженной моделью `models/gan_generator.pt`. Экспонирует endpoint `POST /gan/generate`.
 
-3. **Конфигурация обучения**
-   - 500 epochs, batch size 64
-   - Docker-based обучение с TensorFlow backend
-   - Модель сохранена в `models/generator.keras`
+2. **training-service** (`cmd/training-service/main.go`) — вызывает `gan-service` через переменную `GAN_SERVICE_URL` (в K8s: `http://ml-generator:8002`). Классификатор состояния определяет класс бустинга, который передается как условие в GAN.
+
+3. **Модель** — `models/gan_generator.pt`, Conditional GAN с генератором `R^100 × R^12 → R^19` (latent 100 + класс + 5 демографических признаков → 19 признаков плана).
+
+4. **Датысет** — `datasets/processed/training_plans.csv` (25 колонок: `p0–p18`, `class`, `age`, `gender`, `weight`, `height`, `goal`), 300 строк, сбалансирован по 6 классам состояния.
+
+### Фоллбек
+
+Если GAN-сервис недоступен, `training-service` использует Go template-based движок (`internal/planner/engine.go` + `internal/templates/training_templates.go`) с 6 хардкодными шаблонами.
+
+## Архитектура модели
+
+- Generator: 64-dim latent → 256 → 512 → 256 → 19 (sigmoid)
+- Discriminator: 19 → 512 → 256 → 128 → 1 (sigmoid)
+- Loss: MSE для generator, binary_crossentropy для discriminator
+- Optimizer: Adam (lr=0.0002, beta_1=0.5)
+- Условие: one_hot(класс состояния, 7 классов) + 5 демографических признака (возраст, пол, вес, рост, цель)
+
+## Конфигурация обучения
+
+- 500 epochs, batch size 64
+- Docker-based обучение с TensorFlow backend
+- Модель сохранена в `models/gan_generator.pt`
+
+## Интеграция в training-service
+
+В `cmd/training-service/main.go`:
+
+1. `classToGANIndex(classification)` — маппинг 7 классов состояния на индекс GAN (0–5).
+2. `loadUserProfile(ctx, userID)` — загрузка демографии из PostgreSQL (возраст, пол, вес, рост, цель).
+3. `callGANService(classIndex, profile, numSamples)` — HTTP POST на `gan-service /gan/generate`.
+4. `vectorToGANParams(vec)` — преобразование 19-мерного вектора GAN в параметры плана (интенсивность, длительность, частота).
+5. `resolveGANParams(ctx, userID, classificationClass)` — обёртка с фоллбеком на шаблоны.
+6. Ключ `GAN_SERVICE_URL` добавлен в `configs/k8s/base/deployments/training-service.yaml` (`http://ml-generator:8002`).
 
 ## Последствия
 
-- **Плюсы**: использованы реальные данные об упражнениях для обучения;
+- **Плюсы**: персонализированные планы, адаптированные под класс состояния и демографию пользователя;
 - **Плюсы**: совместимость с Keras 3 обеспечивает future-proof реализацию;
 - **Плюсы**: 19-мерный выход поддерживает богатые признаки тренировочного плана;
+- **Плюсы**: фоллбек на Go-шаблоны обеспечивает отказоустойчивость;
 - **Нейтрально**: обучение требует ~5 минут на CPU;
-- **Нейтрально**: модель генерирует нормализованные векторы (0-1), требующие пост-обработки.
+- **Нейтрально**: модель генерирует нормализованные векторы (0-1), требующие пост-обработки;
+- **Минусы**: дополнительная сетевая зависимость между training-service и gan-service;
+- **Минусы**: поддержка двух кодовых путей (GAN + шаблоны).
 
 ## Реализация
 
-- `internal/templates/training_templates.go` — шаблоны тренировок;
-- `internal/planner/engine.go` — планировщик планов на основе шаблонов.
+- `cmd/training-service/main.go` — интеграция GAN, метод `resolveGANParams`, `callGANService`, `loadUserProfile`;
+- `cmd/gan-service/main.go` — HTTP-сервис, вызов Python GAN;
+- `cmd/ml_generator/gan_model.py` — Conditional GAN модель;
+- `cmd/ml_generator/gan_train.py` — скрипт обучения и генерации;
+- `cmd/ml_generator/gan_train_test.py` — 20+ тестов с моком torch;
+- `cmd/training-service/gan_integration_test.go` — 14 юнит-тестов интеграции;
+- `datasets/processed/training_plans.csv` — обучающий датысет (300 строк);
+- `internal/templates/training_templates.go` — шаблоны тренировок (фоллбек);
+- `internal/planner/engine.go` — движок генерации планов на основе шаблонов (фоллбек).
 
 ## Использование
 
@@ -58,45 +92,14 @@ model = tf.keras.models.load_model('models/generator.keras')
 plan = model.predict(np.random.randn(1, 64), verbose=0)[0]
 ```
 
-## Выбор template-based генерации планов на Go
+```go
+// В training-service
+ganParams := s.resolveGANParams(ctx, userID, classificationClass)
+// ganParams.Intensity, ganParams.DurationMinutes, ganParams.SessionsPerWeek
+```
 
-### Контекст выбора Go engine
-
-На старте разработки FitPulse требовалось выбрать подход к генерации тренировочных планов
-
-### Решение по Go engine
-
-На старте выбран **Go template-based engine**:
-
-1. **Training templates** размещены в `internal/templates/training_templates.go` как Go-константы (6 шаблонов).
-2. **Plan engine** реализован в `internal/planner/engine.go` с модификаторами (age, BMI, contraindications, menstruation, biometrics).
-3. **Survey storage** использует JSONB в `user_profiles.survey_data` с `survey_completed` и `survey_completed_at`.
-4. **Classifier service** (`cmd/classifier`, порт 8001) остаётся отдельным сервисом для классификации состояния.
-5. **Rule-based chat** реализует FAQ-матчинг в `internal/chat/faq.go`.
-
-### Последствия выбора Go engine
-
-- **Плюсы**: упрощённый deployment (на один сервис меньше);
-- **Плюсы**: меньшая задержка (генерация происходит in-process в `training-service`);
-- **Плюсы**: легче тестировать (Go-шаблоны и engine можно unit-тестировать без сетевых моков);
-- **Плюсы**: сокращение времени CI/CD (нет Python линтинга, pip-compile, сериализации моделей);
-- **Минусы**: ограниченное разнообразие планов (6 hardcoded шаблонов);
-- **Минусы**: нет GPU-инференса сложных генеративных моделей;
-- **Минусы**: при необходимости смены стратегии генерации требуется передеploy Go-сервисов.
-
-### Реализация Go engine
-
-- `internal/templates/training_templates.go` — 6 шаблонов тренировок на Go;
-- `internal/planner/engine.go` — движок генерации планов с модификаторами;
-- `internal/chat/faq.go` — FAQ база и матчинг;
-- `cmd/gateway/handlers_survey.go` — HTTP endpoints для анкеты;
-- `cmd/gateway/handlers_chat.go` — HTTP endpoint для чата;
-- `cmd/gateway/handlers_ml_feedback.go` — HTTP endpoint для обратной связи по ML;
-- `cmd/training-service/main.go` — импортирует planner package;
-- `docs/ML_SPECIFICATION.md` — обновлён под Go-based архитектуру.
-
-### Альтернативы для Go engine
+## Альтернативы
 
 1. **Ml-generator, но переписать на Go/ONNX**: отклонено — всё равно операционный overhead.
 2. **Объединить ml-generator с classifier service**: отклонено — classifier должен оставаться single-responsibility.
-3. **Ml-generator как есть**: отклонено — maintenance burden слишком высок для template-based выхода.
+3. **Только template-based (без GAN)**: отклонено — ограниченное разнообразие планов (6 шаблонов), нет персонализации под класс состояния.

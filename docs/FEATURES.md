@@ -9,7 +9,7 @@
 |Biometric Service|Приём и хранение биометрических данных|
 |Training Service|Управление тренировочными планами, достижения|
 |Classifier|Классификация состояния (rule-based, 7 классов)|
-|ML Generator|Генерация планов (Conditional Diffusion Model, DDPM)|
+|ML Generator|Генерация планов (Conditional GAN)|
 |Data Processor|Фоновая обработка событий биометрии (RabbitMQ consumer)|
 |Device Aggregator|Webhook-forwarder для Open Wearables|
 |Admin CLI|CLI-инструмент для администрирования|
