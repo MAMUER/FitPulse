@@ -11,7 +11,11 @@ export default defineConfig({
     globals: true,
     setupFiles: './src/test/setup.js',
     include: ['src/**/*.{test,spec}.{js,jsx}'],
-    maxWorkers: process.env.CI ? 2 : 1,
+    // 4 vCPU runner: 4 workers instead of 2 roughly halves the wall time.
+    // NOTE: pool 'vmThreads' would reuse the jsdom environment across files, but
+    // window.location is non-configurable there, which breaks tests that stub it
+    // (src/hooks/useAuth.test.js, src/screens/TwoFAVerify.test.jsx).
+    maxWorkers: process.env.CI ? 4 : 1,
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html', 'lcov'],

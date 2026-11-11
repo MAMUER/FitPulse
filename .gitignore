@@ -56,6 +56,13 @@ web/coverage/
 coverage/
 internal/webhook/coverage
 
+# Python coverage reports (must never sit next to the sources: SonarCloud
+# tries to blame untracked files and warns "Missing blame information")
+cmd/ml_generator/coverage.xml
+cmd/ml_generator/.coverage
+cmd/**/coverage.xml
+cmd/**/.coverage
+
 # Playwright reports
 web/playwright-report/
 playwright-report/

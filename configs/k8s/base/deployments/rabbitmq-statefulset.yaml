@@ -148,12 +148,12 @@ spec:
             initialDelaySeconds: 20
             periodSeconds: 10
             timeoutSeconds: 5
-      volumeClaimTemplates:
-        - metadata:
-            name: rabbitmq-storage
-          spec:
-            accessModes: ["ReadWriteOnce"]
-            storageClassName: local-path
-            resources:
-              requests:
-                storage: 256Mi
+  volumeClaimTemplates:
+    - metadata:
+        name: rabbitmq-storage
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: local-path
+        resources:
+          requests:
+            storage: 256Mi

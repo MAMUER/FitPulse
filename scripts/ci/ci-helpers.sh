@@ -63,7 +63,11 @@ install_golangci_lint() {
 
 install_python_deps() {
 	python -m pip install --only-binary :all: --upgrade pip==25.0
-	python -m pip install --only-binary :all: -r cmd/gan-service/requirements.txt
+	# The CPU wheel index keeps torch from pulling the full CUDA stack
+	# (nvidia-cudnn/cublas/cusparse/nccl/triton, ~2.5 GB of downloads per run).
+	python -m pip install --only-binary :all: \
+		--extra-index-url https://download.pytorch.org/whl/cpu \
+		-r cmd/gan-service/requirements.txt
 }
 
 run_coverage() {
@@ -82,17 +86,20 @@ run_coverage() {
 
 	echo "-> Running Python tests with coverage..."
 	python -m pip install --only-binary :all: coverage 2>/dev/null || python -m pip install --only-binary :all: coverage
-	python -m pip install --only-binary :all: -r cmd/gan-service/requirements.txt 2>/dev/null || true
+	python -m pip install --only-binary :all: \
+		--extra-index-url https://download.pytorch.org/whl/cpu \
+		-r cmd/gan-service/requirements.txt 2>/dev/null || true
 	cd cmd/ml_generator
 	python -m coverage run --source=. -m unittest gan_train_test 2>&1
 	PY_TEST_EXIT=$?
-	python -m coverage xml -o coverage.xml 2>&1
+	# Write the report straight into bin/: leaving it next to the sources makes
+	# SonarCloud try to blame an untracked file ("Missing blame information").
+	python -m coverage xml -o ../../bin/coverage.xml 2>&1
 	# Fix paths so SonarCloud can match sources (project-root relative).
-	sed -i 's|<source>.*</source>|<source>.</source>|' coverage.xml
-	sed -i 's|filename="gan_model.py"|filename="cmd/ml_generator/gan_model.py"|g' coverage.xml
-	sed -i 's|filename="gan_train.py"|filename="cmd/ml_generator/gan_train.py"|g' coverage.xml
-	sed -i 's|filename="gan_train_test.py"|filename="cmd/ml_generator/gan_train_test.py"|g' coverage.xml
-	cp coverage.xml ../../bin/coverage.xml
+	sed -i 's|<source>.*</source>|<source>.</source>|' ../../bin/coverage.xml
+	sed -i 's|filename="gan_model.py"|filename="cmd/ml_generator/gan_model.py"|g' ../../bin/coverage.xml
+	sed -i 's|filename="gan_train.py"|filename="cmd/ml_generator/gan_train.py"|g' ../../bin/coverage.xml
+	sed -i 's|filename="gan_train_test.py"|filename="cmd/ml_generator/gan_train_test.py"|g' ../../bin/coverage.xml
 	cd ../..
 	set -e
 
