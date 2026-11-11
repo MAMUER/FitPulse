@@ -41,10 +41,6 @@ spec:
         runAsUser: 10001
         runAsGroup: 10001
         fsGroup: 10001
-        readOnlyRootFilesystem: true
-        allowPrivilegeEscalation: false
-        capabilities:
-          drop: ["ALL"]
         seccompProfile:
           type: RuntimeDefault
       topologySpreadConstraints:
@@ -106,15 +102,30 @@ spec:
             - name: DATA_PROCESSOR_METRICS_PORT
               value: "9092"
             - name: DB_HOST
-              value: "postgres"
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: DB_HOST
             - name: DB_PORT
-              value: "5432"
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: DB_PORT
+            - name: DB_SSLMODE
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: DB_SSLMODE
             - name: VALKEY_ADDR
               value: "valkey:6379"
             - name: RABBITMQ_URL_FILE
               value: "/etc/secrets/RABBITMQ_URL"
+            - name: POSTGRES_USER_FILE
+              value: "/etc/db-credentials/POSTGRES_USER"
             - name: POSTGRES_PASSWORD_FILE
               value: "/etc/db-credentials/POSTGRES_PASSWORD"
+            - name: POSTGRES_DB_FILE
+              value: "/etc/db-credentials/POSTGRES_DB"
             - name: OTEL_EXPORTER_OTLP_ENDPOINT
               value: "opentelemetry-collector.monitoring.svc.cluster.local:4317"
             - name: OTEL_SERVICE_NAME

@@ -43,10 +43,6 @@ spec:
         runAsGroup: 10001
         fsGroup: 10001
         fsGroupChangePolicy: "OnRootMismatch"
-        readOnlyRootFilesystem: true
-        allowPrivilegeEscalation: false
-        capabilities:
-          drop: ["ALL"]
         seccompProfile:
           type: RuntimeDefault
       topologySpreadConstraints:

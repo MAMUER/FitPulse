@@ -24,7 +24,7 @@ cache:
   db: 0
 
 rabbitmq:
-  url: "amqps://rabbitmq:5671/"
+  url: "amqp://rabbitmq:5672/"
   exchange: "fitpulse.events"
   queue_prefix: "fitpulse."
 

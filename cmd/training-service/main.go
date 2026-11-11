@@ -18,8 +18,6 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/health"
-	"google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -1155,11 +1153,6 @@ func setupGRPCServer(log *logger.Logger, db *sql.DB, trainingSvc service.Trainin
 		surveyRepo:  surveyRepo,
 		bioRepo:     bioRepo,
 	})
-
-	healthServer := health.NewServer()
-	grpc_health_v1.RegisterHealthServer(s, healthServer)
-	healthServer.SetServingStatus("", grpc_health_v1.HealthCheckResponse_SERVING)
-	healthServer.SetServingStatus("training.TrainingService", grpc_health_v1.HealthCheckResponse_SERVING)
 
 	return s
 }

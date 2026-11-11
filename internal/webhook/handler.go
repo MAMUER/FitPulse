@@ -10,13 +10,13 @@ import (
 	"log"
 	"net"
 	"net/http"
-	"os"
 	"sync"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/zap"
 
+	"github.com/MAMUER/project/internal/config"
 	"github.com/MAMUER/project/internal/metrics"
 	"github.com/MAMUER/project/internal/sanitize"
 )
@@ -44,7 +44,7 @@ type Server struct {
 
 func NewServer(port string, db DB, log *zap.Logger) *Server {
 
-	secret := []byte(os.Getenv("OPEN_WEARABLES_WEBHOOK_SECRET"))
+	secret := []byte(config.GetEnv("OPEN_WEARABLES_WEBHOOK_SECRET"))
 
 	if len(secret) == 0 {
 

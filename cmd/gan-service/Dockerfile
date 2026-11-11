@@ -4,6 +4,7 @@ FROM golang@sha256:f92b6ef800e499660581efdabdf25d9d817a9d124eaf900924f0504e7e27e
 ENV GOPROXY=https://proxy.golang.org,direct
 ENV GOTOOLCHAIN=auto
 
+# hadolint ignore=DL3018
 RUN apk add --no-cache git ca-certificates
 
 WORKDIR /app

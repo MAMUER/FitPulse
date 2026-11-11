@@ -37,10 +37,6 @@ spec:
         runAsUser: 10001
         runAsGroup: 10001
         fsGroup: 10001
-        readOnlyRootFilesystem: true
-        allowPrivilegeEscalation: false
-        capabilities:
-          drop: ["ALL"]
         seccompProfile:
           type: RuntimeDefault
       topologySpreadConstraints:
@@ -79,11 +75,10 @@ spec:
             - name: tmp
               mountPath: /tmp
           env:
-            - name: ML_GENERATOR_PORT
-              valueFrom:
-                configMapKeyRef:
-                  name: app-config
-                  key: ML_GENERATOR_PORT
+            - name: GAN_SERVICE_PORT
+              value: "8002"
+            - name: GAN_SERVICE_METRICS_PORT
+              value: "9094"
             - name: MPLCONFIGDIR
               value: "/tmp/matplotlib"
             - name: TF_CPP_MIN_LOG_LEVEL

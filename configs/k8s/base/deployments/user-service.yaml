@@ -41,10 +41,6 @@ spec:
         runAsUser: 1000
         runAsGroup: 1000
         fsGroup: 1000
-        readOnlyRootFilesystem: true
-        allowPrivilegeEscalation: false
-        capabilities:
-          drop: ["ALL"]
         seccompProfile:
           type: RuntimeDefault
       topologySpreadConstraints:
@@ -68,6 +64,8 @@ spec:
                 path: POSTGRES_DB
               - key: JWT_PRIVATE_KEY_PEM
                 path: JWT_PRIVATE_KEY_PEM
+              - key: JWT_PUBLIC_KEY_PEM
+                path: JWT_PUBLIC_KEY_PEM
               - key: RABBITMQ_URL
                 path: RABBITMQ_URL
               - key: VALKEY_PASSWORD
@@ -154,6 +152,8 @@ spec:
                   key: DB_SSLMODE
             - name: JWT_PRIVATE_KEY_PEM_FILE
               value: "/etc/secrets/JWT_PRIVATE_KEY_PEM"
+            - name: JWT_PUBLIC_KEY_PEM_FILE
+              value: "/etc/secrets/JWT_PUBLIC_KEY_PEM"
             - name: RABBITMQ_URL_FILE
               value: "/etc/secrets/RABBITMQ_URL"
             - name: VALKEY_ADDR

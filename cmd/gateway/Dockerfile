@@ -2,7 +2,7 @@
 # ========== Web builder stage ==========
 FROM node:26-alpine AS web-builder
 WORKDIR /app/web
-RUN npm install --ignore-scripts -g npm@12.0.2 && npm --version
+RUN npm install --ignore-scripts -g npm@12.2.2 && npm --version
 COPY web/package.json web/package-lock.json* ./
 RUN npm ci --ignore-scripts --no-audit --no-fund
 COPY web/ .

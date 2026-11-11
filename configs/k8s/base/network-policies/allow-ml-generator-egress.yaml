@@ -23,7 +23,7 @@ spec:
               app: rabbitmq
       ports:
         - protocol: TCP
-          port: 5671
+          port: 5672
     - to:
         - namespaceSelector:
             matchLabels:
