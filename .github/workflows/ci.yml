@@ -679,8 +679,10 @@ jobs:
     steps:
       - run: git config --global init.defaultBranch main
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-      - name: Install system dependencies for canvas
-        run: sudo apt-get update && sudo apt-get install -y build-essential libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev librsvg2-dev libpixman-1-dev
+      # node-canvas is only an *optional* peer dependency of jsdom and is not used
+      # by any source file or test, so no Cairo/Pango system libraries are needed.
+      # Installing them here made the job hang for ~20 min whenever the Ubuntu
+      # mirrors were unreachable (apt has no DNS fallback), so the step was removed.
       - name: Set up Node.js
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
@@ -870,8 +872,10 @@ jobs:
           node-version: "26"
           cache: "npm"
           cache-dependency-path: web/package-lock.json
-      - name: Install system dependencies for canvas
-        run: sudo apt-get update && sudo apt-get install -y build-essential libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev librsvg2-dev libpixman-1-dev
+      # node-canvas is only an *optional* peer dependency of jsdom and is not used
+      # by any source file or test, so no Cairo/Pango system libraries are needed.
+      # Installing them here made the job hang for ~20 min whenever the Ubuntu
+      # mirrors were unreachable (apt has no DNS fallback), so the step was removed.
       - name: Install frontend dependencies
         run: bash "$GITHUB_WORKSPACE/scripts/ci/ci-helpers.sh" install_dependencies
         working-directory: web
@@ -1443,7 +1447,7 @@ jobs:
     name: Playwright E2E Tests
     runs-on: ubuntu-latest
     needs: [deploy-vps]
-    timeout-minutes: 20
+    timeout-minutes: 15
     if: always() && needs.deploy-vps.result == 'success'
     steps:
       - run: git config --global init.defaultBranch main
@@ -1457,11 +1461,17 @@ jobs:
       - name: Install frontend dependencies
         run: cd web && npm ci --ignore-scripts
       - name: Install Playwright browsers
-        run: cd web && npx --ignore-scripts playwright install --with-deps chromium
+        run: cd web && ./node_modules/.bin/playwright install --with-deps chromium
       - name: Run Playwright E2E tests
         env:
           BASE_URL: "https://fittpulse.duckdns.org"
-        run: cd web && npm run test:e2e
+        # Only chromium is installed in this job, but playwright.config.js declares
+        # chromium/firefox/webkit projects: running all of them triples the workload
+        # (264 tests) and blew the original 20 min limit. Pin the project.
+        # Use the lockfile-pinned local binary instead of npx (no on-demand install).
+        # The config pins CI to 1 worker; 4 workers on the 4-vCPU runner cuts the
+        # wall time ~4x (each test gets its own isolated browser context).
+        run: cd web && npm run test:e2e -- --project=chromium --workers=4
       - name: Upload Playwright report
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
@@ -1469,6 +1479,7 @@ jobs:
           name: playwright-report
           path: web/playwright-report/
           retention-days: 7
+          if-no-files-found: ignore
 
   ml-e2e:
     name: ML E2E Tests

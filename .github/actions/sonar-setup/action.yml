@@ -25,8 +25,9 @@ runs:
         node-version: ${{ inputs.node-version }}
         cache: "npm"
         cache-dependency-path: web/package-lock.json
-    - run: sudo apt-get install -y build-essential libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev librsvg2-dev libpixman-1-dev
-      shell: bash
+    # node-canvas is only an optional peer dependency of jsdom and is unused here,
+    # so the Cairo/Pango apt install was dropped: it hung the job whenever the
+    # Ubuntu mirrors were unreachable.
     - run: |
         npm config set registry https://registry.npmjs.org
         NPM_CONFIG_MIN_RELEASE_AGE=0 npm ci --ignore-scripts
