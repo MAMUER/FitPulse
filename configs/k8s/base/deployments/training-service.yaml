@@ -142,6 +142,8 @@ spec:
                 configMapKeyRef:
                   name: app-config
                   key: ML_GENERATOR_PORT
+            - name: GAN_SERVICE_URL
+              value: "http://ml-generator:8002"
             - name: GRPC_SERVER_ADDRESS
               value: "0.0.0.0:50053"
             - name: OTEL_EXPORTER_OTLP_ENDPOINT
