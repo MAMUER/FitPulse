@@ -79,13 +79,16 @@ spec:
           imagePullPolicy: IfNotPresent
           resources:
             requests:
-              cpu: "50m"
-              memory: "128Mi"
-              ephemeral-storage: "256Mi"
-            limits:
-              cpu: "200m"
-              memory: "256Mi"
+              cpu: "100m"
+              memory: "512Mi"
               ephemeral-storage: "512Mi"
+            limits:
+              cpu: "500m"
+              # 256Mi was below the Erlang VM idle footprint: vm_memory_high_watermark
+              # (0.4 of the limit) sat under the baseline RSS, so the broker spent its
+              # life in flow control / OOM-kill territory.
+              memory: "1Gi"
+              ephemeral-storage: "1Gi"
           ports:
             - containerPort: 5672
               name: amqp
@@ -135,6 +138,14 @@ spec:
               mountPath: /etc/rabbitmq/rabbitmq.conf
               subPath: rabbitmq.conf
               readOnly: true
+          # RabbitMQ 4.x can take a while to open the AMQP listener; a startupProbe
+          # keeps the liveness probe from restarting a merely-slow broker.
+          startupProbe:
+            tcpSocket:
+              port: 5672
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 30
           livenessProbe:
             tcpSocket:
               port: 5672

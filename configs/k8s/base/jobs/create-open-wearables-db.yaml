@@ -3,8 +3,18 @@ kind: Job
 metadata:
   name: create-open-wearables-db
   namespace: fitness-platform-production
+  labels:
+    app: create-open-wearables-db
+    zone: app-zone
+    app.kubernetes.io/name: create-open-wearables-db
+    app.kubernetes.io/part-of: fitness-platform
+    app.kubernetes.io/managed-by: kustomize
 spec:
   template:
+    metadata:
+      labels:
+        app: create-open-wearables-db
+        zone: app-zone
     spec:
       restartPolicy: Never
       automountServiceAccountToken: false
@@ -33,13 +43,21 @@ spec:
             - /bin/sh
             - -c
             - |
-              PGPASSWORD=$(cat "$PGPASSWORD_FILE") psql \
-                -h postgres-service \
-                -U $(cat /etc/secrets/POSTGRES_USER) \
-                -tc "SELECT 1 FROM pg_database WHERE datname = 'open_wearables'" | grep -q 1 || \
-              psql -h postgres-service \
-                -U $(cat /etc/secrets/POSTGRES_USER) \
-                -c "CREATE DATABASE open_wearables"
+              set -euo pipefail
+              export PGPASSWORD=$(cat /etc/secrets/POSTGRES_PASSWORD)
+              DB_USER=$(cat /etc/secrets/POSTGRES_USER)
+              # -d postgres: CREATE DATABASE cannot run inside a transaction and the
+              # default database would otherwise be a per-user DB that initdb never
+              # created (POSTGRES_USER=fitness_admin), so psql failed with
+              # 'database "fitness_admin" does not exist'.
+              if psql -h postgres-service -U "$DB_USER" -d postgres \
+                -tAc "SELECT 1 FROM pg_database WHERE datname = 'open_wearables'" | grep -q 1; then
+                echo "Database open_wearables already exists"
+              else
+                psql -h postgres-service -U "$DB_USER" -d postgres \
+                  -c "CREATE DATABASE open_wearables"
+                echo "Database open_wearables created"
+              fi
           env:
             - name: PGPASSWORD_FILE
               value: "/etc/secrets/POSTGRES_PASSWORD"

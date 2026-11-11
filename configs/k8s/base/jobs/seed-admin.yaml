@@ -65,8 +65,6 @@ spec:
               drop:
                 - ALL
             readOnlyRootFilesystem: true
-          seccompProfile:
-            type: RuntimeDefault
           command: ["/bin/sh", "-c"]
           args:
             - |

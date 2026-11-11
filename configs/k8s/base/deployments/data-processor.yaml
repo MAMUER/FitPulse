@@ -134,6 +134,10 @@ spec:
               value: "traceidratio"
             - name: OTEL_TRACES_SAMPLER_ARG
               value: "0.01"
+            # Keep the Go heap below the 256Mi cgroup limit so the kernel does not
+            # OOM-kill the container (it was OOMKilled at the previous 64Mi limit).
+            - name: GOMEMLIMIT
+              value: "230MiB"
           livenessProbe:
             httpGet:
               path: /health
@@ -152,9 +156,9 @@ spec:
           resources:
             requests:
               cpu: "15m"
-              memory: "32Mi"
+              memory: "128Mi"
               ephemeral-storage: "100Mi"
             limits:
               cpu: "100m"
-              memory: "64Mi"
+              memory: "256Mi"
               ephemeral-storage: "200Mi"

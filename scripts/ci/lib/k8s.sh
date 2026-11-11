@@ -34,14 +34,20 @@ apply_manifests() {
 	fi
 	echo "Production overlay applied successfully"
 
+	echo "Waiting for ConfigMaps to propagate..."
+	sleep 15
+	cd - >/dev/null
+}
+
+# Kept separate from apply_manifests on purpose: app pods must not be restarted
+# before the database schema exists, otherwise user-service crash-loops on
+# "relation pgsodium.key does not exist" and burns its restart budget while
+# migrate-db is still running.
+restart_app_deployments() {
 	echo "Rolling restart of application deployments..."
 	for deploy in user-service biometric-service training-service gateway classifier ml-generator device-aggregator data-processor open-wearables open-wearables-frontend; do
 		kubectl rollout restart deployment/"$deploy" -n fitness-platform-production 2>/dev/null || true
 	done
-
-	echo "Waiting for ConfigMaps to propagate..."
-	sleep 15
-	cd - >/dev/null
 }
 
 restart_rabbitmq_pod() {
@@ -75,7 +81,11 @@ wait_for_rabbitmq() {
 	if kubectl rollout status statefulset/rabbitmq -n fitness-platform-production --timeout=180s; then
 		echo "✅ RabbitMQ is ready"
 	else
-		echo "::warning::RabbitMQ not ready, continuing deployment"
+		echo "::error::RabbitMQ is not ready — every backend service depends on it" >&2
+		kubectl get pods -n fitness-platform-production -l app=rabbitmq -o wide >&2 || true
+		kubectl describe statefulset rabbitmq -n fitness-platform-production >&2 || true
+		kubectl get events -n fitness-platform-production --field-selector involvedObject.name=rabbitmq-0 --sort-by=.lastTimestamp 2>/dev/null | tail -20 >&2 || true
+		return 1
 	fi
 }
 
@@ -97,14 +107,21 @@ verify_postgres() {
 }
 
 run_migrations() {
-	echo "Running database migrations via Flyway..."
+	echo "Running database migrations (V1__full_schema.sql)..."
 	kubectl delete job migrate-db -n fitness-platform-production --ignore-not-found=true || true
 	kubectl apply -f configs/k8s/base/jobs/migrate-db.yaml -n fitness-platform-production
 	echo "Waiting for migrate-db job to complete..."
 	if kubectl wait --for=condition=complete job/migrate-db -n fitness-platform-production --timeout=300s; then
 		echo "✅ Database migrations completed successfully"
 	else
-		echo "::warning::migrate-db job did not complete; continuing"
+		# A failed migration used to only warn, which let the deploy continue with
+		# an empty schema: every service then crash-looped (user-service fatal on
+		# "relation pgsodium.key does not exist"). Surface the reason and stop.
+		echo "::error::migrate-db job did not complete — dumping diagnostics" >&2
+		kubectl describe job migrate-db -n fitness-platform-production || true
+		kubectl logs job/migrate-db -n fitness-platform-production --all-containers --tail=100 || true
+		kubectl get pods -n fitness-platform-production -l app=migrate-db -o wide || true
+		return 1
 	fi
 	echo "Verifying tables were created..."
 	kubectl exec -n fitness-platform-production postgres-0 -- \

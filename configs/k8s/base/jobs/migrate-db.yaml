@@ -70,7 +70,26 @@ spec:
               value: "5432"
           command: ["/bin/sh", "-c"]
           args:
-            - "PGPASSWORD=\"$(cat /etc/secrets/POSTGRES_PASSWORD)\" psql -h postgres-service -U \"$(cat /etc/secrets/POSTGRES_USER)\" -d \"$(cat /etc/secrets/POSTGRES_DB)\" -v ON_ERROR_STOP=1 -f /migrations/V1__full_schema.sql"
+            - |
+              set -euo pipefail
+              export PGPASSWORD="$(cat /etc/secrets/POSTGRES_PASSWORD)"
+              DB_USER="$(cat /etc/secrets/POSTGRES_USER)"
+              DB_NAME="$(cat /etc/secrets/POSTGRES_DB)"
+              # Fail fast with an actionable message instead of letting
+              # CREATE EXTENSION pgsodium abort V1 mid-file (ON_ERROR_STOP=1),
+              # which used to leave the schema empty and only surface later as
+              # "timed out waiting for the condition" plus a user-service crash
+              # on "relation pgsodium.key does not exist".
+              AVAILABLE="$(psql -h postgres-service -U "$DB_USER" -d "$DB_NAME" -tAc \
+                "SELECT count(*) FROM pg_available_extensions WHERE name = 'pgsodium'")"
+              if [ "${AVAILABLE:-0}" != "1" ]; then
+                echo "::error::PostgreSQL image does not provide the 'pgsodium' extension."
+                echo "::error::user-service requires the pgsodium keyring (pgsodium.key);"
+                echo "::error::use the pgsodium-enabled server image (docker/postgres-pgsodium/Dockerfile)."
+                exit 1
+              fi
+              psql -h postgres-service -U "$DB_USER" -d "$DB_NAME" -v ON_ERROR_STOP=1 \
+                -f /migrations/V1__full_schema.sql
           volumeMounts:
             - name: migrations
               mountPath: /migrations

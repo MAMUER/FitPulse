@@ -24,6 +24,7 @@ deploy_all() {
 	verify_postgres
 	run_migrations
 	run_seed_admin
+	restart_app_deployments
 	check_logs 2>/dev/null || true
 	verify_deployment
 	deploy_open_wearables
@@ -51,6 +52,7 @@ main() {
 	wait_for_rabbitmq) wait_for_rabbitmq ;;
 	verify_postgres) verify_postgres ;;
 	run_seed_admin) run_seed_admin ;;
+	restart_app_deployments) restart_app_deployments ;;
 	check_logs) check_logs ;;
 	debug_pod_status) debug_pod_status ;;
 	deploy_open_wearables) deploy_open_wearables ;;
