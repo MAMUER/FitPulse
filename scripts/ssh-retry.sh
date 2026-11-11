@@ -18,9 +18,18 @@ log() {
 	printf '%s\n' "$*" >&2
 }
 
-MAX_ATTEMPTS="${SSH_RETRY_MAX_ATTEMPTS:-5}"
+# Uploads (scp) are the fragile case: a degraded link makes them stall instead of
+# failing, so they get a much shorter per-attempt budget and fewer attempts.
+# A 600 s scp timeout x 5 attempts meant a single image could burn ~51 minutes
+# before the job finally failed. Env vars still win when explicitly set.
+if [[ "$MODE" == "scp" ]]; then
+	MAX_ATTEMPTS="${SSH_RETRY_SCP_MAX_ATTEMPTS:-${SSH_RETRY_MAX_ATTEMPTS:-3}}"
+	TIMEOUT="${SSH_RETRY_SCP_TIMEOUT:-${SSH_RETRY_TIMEOUT:-180}}"
+else
+	MAX_ATTEMPTS="${SSH_RETRY_MAX_ATTEMPTS:-5}"
+	TIMEOUT="${SSH_RETRY_TIMEOUT:-600}"
+fi
 DELAY="${SSH_RETRY_DELAY_SECONDS:-15}"
-TIMEOUT="${SSH_RETRY_TIMEOUT:-600}"
 SSH_STRICT_HOST_KEY_CHECKING="${SSH_STRICT_HOST_KEY_CHECKING:-yes}"
 
 if [[ "$SSH_STRICT_HOST_KEY_CHECKING" == "yes" || "$SSH_STRICT_HOST_KEY_CHECKING" == "true" ]]; then
