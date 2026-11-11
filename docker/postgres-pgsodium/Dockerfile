@@ -16,7 +16,7 @@ RUN apk add --no-cache --virtual .build-deps \
     postgresql-dev \
     && git clone https://github.com/michelp/pgsodium.git pgsodium \
     && cd pgsodium \
-    && ln -sf $(which clang) /usr/bin/clang-21 \
+    && ln -sf "$(which clang)" /usr/bin/clang-21 \
     && mkdir -p /usr/lib/llvm21/bin \
     && echo '#!/bin/sh' > /usr/lib/llvm21/bin/llvm-lto \
     && echo 'exit 0' >> /usr/lib/llvm21/bin/llvm-lto \
