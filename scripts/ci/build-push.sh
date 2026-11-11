@@ -168,6 +168,18 @@ build_go_binaries() {
 	ls -lh bin/
 }
 
+build_pgsodium_image() {
+	SHA=$(git rev-parse --short HEAD)
+	echo "Building pgsodium image..."
+	docker buildx build \
+		--cache-from=type=local \
+		--cache-to=type=local,mode=max \
+		-t "$REGISTRY/mamuer/project/postgres-pgsodium:$SHA" \
+		-t "$REGISTRY/mamuer/project/postgres-pgsodium:latest" \
+		-f docker/postgres-pgsodium/Dockerfile . \
+		--push
+}
+
 main() {
 	local cmd="${1:-all}"
 	case "$cmd" in
@@ -176,12 +188,14 @@ main() {
 		build_ml_images
 		build_crs_updater
 		build_open_wearables
+		build_pgsodium_image
 		build_go_binaries
 		;;
 	build_go_services) build_go_services ;;
 	build_ml_images) build_ml_images ;;
 	build_crs_updater) build_crs_updater ;;
 	build_open_wearables) build_open_wearables ;;
+	build_pgsodium_image) build_pgsodium_image ;;
 	build_go_binaries) build_go_binaries ;;
 	*)
 		echo "Unknown function: $cmd"

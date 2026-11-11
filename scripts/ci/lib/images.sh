@@ -19,6 +19,7 @@ PROBLEM_IMAGES=(
 	"docker.io/library/busybox:1.37.0"
 	"docker.m.daocloud.io/library/postgres:18-alpine"
 	"docker.m.daocloud.io/library/rabbitmq:4-management-alpine"
+	"ghcr.io/mamuer/project/postgres-pgsodium:pg18"
 )
 
 import_problem_images() {
@@ -65,7 +66,8 @@ pre_pull_images() {
 			\\\"ghcr.io/mamuer/project/ml-generator:latest\\\" \\
 			\\\"ghcr.io/mamuer/project/open-wearables-backend:latest\\\" \\
 			\\\"ghcr.io/mamuer/project/open-wearables-frontend:latest\\\" \\
-			\\\"ghcr.io/mamuer/project/data-processor:latest\\\"; do
+			\\\"ghcr.io/mamuer/project/data-processor:latest\\\" \\
+			\\\"ghcr.io/mamuer/project/postgres-pgsodium:pg18\\\"; do
 
 			echo \\\"Pulling \\\$img...\\\"
 			sudo k3s ctr images pull --user \"${GITHUB_ACTOR}:${GHCR_TOKEN}\" \"\\\$img\" >/dev/null 2>&1 || \\
