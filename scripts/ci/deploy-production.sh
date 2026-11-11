@@ -19,6 +19,7 @@ deploy_all() {
 	install_ingress_nginx 2>/dev/null || true
 	cleanup_traefik 2>/dev/null || true
 	apply_manifests
+	restart_rabbitmq_pod
 	wait_for_rabbitmq
 	verify_postgres
 	run_migrations

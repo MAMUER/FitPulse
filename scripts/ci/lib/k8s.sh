@@ -44,6 +44,17 @@ apply_manifests() {
 	cd - >/dev/null
 }
 
+restart_rabbitmq_pod() {
+	echo '-> Refreshing RabbitMQ pod to pick up updated StatefulSet spec/volumes...'
+	if kubectl get pod rabbitmq-0 -n fitness-platform-production --ignore-not-found=true >/dev/null 2>&1; then
+		kubectl delete pod rabbitmq-0 -n fitness-platform-production --request-timeout=20s --wait=false >/dev/null 2>&1 || true
+		sleep 15
+		echo '-> RabbitMQ pod deleted; StatefulSet will recreate it with the current spec'
+	else
+		echo '-> RabbitMQ pod not present yet, skipping refresh'
+	fi
+}
+
 wait_for_rabbitmq() {
 	echo "Waiting for RabbitMQ pod to be scheduled..."
 	for i in {1..60}; do
@@ -212,9 +223,9 @@ verify_deployment() {
 
 deploy_open_wearables() {
 	echo "=== Deploying Open Wearables ==="
-	kubectl apply -k configs/k8s/base/ -n fitness-platform-production --validate=false || true
+	kubectl apply -k configs/k8s/base/ --validate=false || true
 	kubectl apply -f configs/k8s/base/jobs/create-open-wearables-db.yaml -n fitness-platform-production
-	kubectl apply -k configs/k8s/overlays/production/ -n fitness-platform-production --validate=false || true
+	kubectl apply -k configs/k8s/overlays/production/ --validate=false || true
 	echo "Waiting for Open Wearables pods to be ready..."
 	kubectl wait --for=condition=ready pod -l app=open-wearables -n fitness-platform-production --timeout=300s || echo "::warning::Open Wearables backend not ready yet"
 	kubectl wait --for=condition=ready pod -l app=open-wearables-frontend -n fitness-platform-production --timeout=300s || echo "::warning::Open Wearables frontend not ready yet"
