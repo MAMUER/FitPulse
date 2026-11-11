@@ -102,7 +102,7 @@ spec:
                       key: root-password
               securityContext:
                 allowPrivilegeEscalation: false
-                readOnlyRootFilesystem: true
+                readOnlyRootFilesystem: false
                 capabilities:
                   drop: ["ALL"]
                 seccompProfile:

@@ -363,7 +363,7 @@ func loadGatewayConfig(log *logger.Logger) gatewayConfig {
 		dbSSLMode: config.GetEnv("DB_SSLMODE", "require"),
 	}
 
-	cfg.rabbitmqURL = config.GetEnv("RABBITMQ_URL", "amqps://rabbitmq:5671/")
+	cfg.rabbitmqURL = config.GetEnv("RABBITMQ_URL", "")
 
 	cfg.publicHost = extractPublicHost(cfg.appBaseURL)
 

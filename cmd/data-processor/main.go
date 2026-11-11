@@ -95,7 +95,7 @@ func run(ctx context.Context, log *logger.Logger) error {
 		}
 	}()
 
-	rabbitURL := config.GetEnv("RABBITMQ_URL", "amqps://rabbitmq:5671/")
+	rabbitURL := config.GetEnv("RABBITMQ_URL", "")
 	if rabbitURL == "" {
 		return errors.New("RABBITMQ_URL is required")
 	}

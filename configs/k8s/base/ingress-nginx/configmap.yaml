@@ -58,13 +58,8 @@ data:
             "id:1000004,phase:1,deny,status:400,log"
 
         # ===== Load OWASP CRS v4 =====
-        # Include the CRS setup configuration if present
-        <IfFile /etc/nginx/modsecurity-crs/crs-setup.conf>
-            Include /etc/nginx/modsecurity-crs/crs-setup.conf
-        </IfFile>
+        # CRS setup is provided via mounted ConfigMap modsecurity-crs
+        Include /etc/nginx/modsecurity-crs/crs-setup.conf
 
-        # Include all CRS rules if the directory exists
-        <IfDirectory /etc/nginx/modsecurity-crs/rules>
-            Include /etc/nginx/modsecurity-crs/rules/*.conf
-        </IfDirectory>
-    modsecurity-crs-rules-path: "/etc/nginx/modsecurity-crs/rules"
+        # Include all CRS rules from the mounted ConfigMap
+        Include /etc/nginx/modsecurity-crs/rules/*.conf

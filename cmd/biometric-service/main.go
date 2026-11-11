@@ -771,7 +771,7 @@ func initBiometricDependencies(dbCfg db.Config, log *logger.Logger) (*sql.DB, *p
 	biometricRepo := pgx.NewBiometricRepositoryPGX(pgxPool)
 	biometricSvc := service.NewBiometricService(biometricRepo)
 
-	rabbitURL := config.GetEnv("RABBITMQ_URL", "amqps://rabbitmq:5671/")
+	rabbitURL := config.GetEnv("RABBITMQ_URL", "")
 	queueName := config.GetEnv("BIOMETRIC_QUEUE_NAME", "biometric_events")
 	var rabbitQueue queue.Publisher
 	if rabbitURL != "" {

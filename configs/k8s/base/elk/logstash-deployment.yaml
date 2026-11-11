@@ -42,6 +42,8 @@ spec:
                 secretKeyRef:
                   name: elk-credentials
                   key: elasticsearch-password
+            - name: LS_JAVA_OPTS
+              value: "-Xmx512m"
           volumeMounts:
             - name: logstash-config
               mountPath: /usr/share/logstash/pipeline
@@ -75,12 +77,12 @@ spec:
           resources:
             requests:
               cpu: "200m"
-              memory: "512Mi"
+              memory: "1Gi"
               ephemeral-storage: "1Gi"
             limits:
               cpu: "500m"
-              memory: "512Mi"
-              ephemeral-storage: "2Gi"
+              memory: "2Gi"
+              ephemeral-storage: "4Gi"
       volumes:
         - name: logstash-config
           configMap:
