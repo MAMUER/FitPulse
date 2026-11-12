@@ -6,6 +6,7 @@ resources:
   - clusterrolebinding.yaml
   - configmap.yaml
   - deployment.yaml
+  - ingressclass.yaml
   - limit-range.yaml
   - modsecurity/crs-configmap.yaml
   - namespace.yaml

@@ -156,6 +156,11 @@ spec:
         - podSelector:
             matchLabels:
               zone: dmz
+        # open-wearables runs in the internal zone but needs PostgreSQL and
+        # Valkey. Without this it gets ECONNREFUSED from postgres-service.
+        - podSelector:
+            matchLabels:
+              zone: internal
       ports:
         - protocol: TCP
           port: 5432
@@ -271,8 +276,52 @@ spec:
           port: 53
         - protocol: TCP
           port: 53
+    # Kubernetes API server: the controller must list/watch Ingress resources.
+    # NetworkPolicy is evaluated after service DNAT for ClusterIP traffic, so
+    # allow both the service CIDR (10.43.0.0/16) and the node/host network used
+    # by the API endpoint (172.16.0.0/12).
     - to:
-        - podSelector:
+        - ipBlock:
+            cidr: 10.43.0.0/16
+      ports:
+        - protocol: TCP
+          port: 443
+    - to:
+        - ipBlock:
+            cidr: 172.16.0.0/12
+      ports:
+        - protocol: TCP
+          port: 6443
+    # Backends live in fitness-platform-production. A bare podSelector would
+    # only match pods in the ingress-nginx namespace, so the namespaceSelector
+    # is required for these rules to have any effect.
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: fitness-platform-production
+          podSelector:
+            matchLabels:
+              zone: dmz
+      ports:
+        - protocol: TCP
+          port: 8080
+        - protocol: TCP
+          port: 3000
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: fitness-platform-production
+          podSelector:
+            matchLabels:
+              zone: internal
+      ports:
+        - protocol: TCP
+          port: 8000
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: fitness-platform-production
+          podSelector:
             matchLabels:
               zone: app-zone
       ports:
@@ -290,17 +339,6 @@ spec:
           port: 8002
         - protocol: TCP
           port: 8082
-    - to:
-        - podSelector:
-            matchLabels:
-              zone: data-zone
-      ports:
-        - protocol: TCP
-          port: 5432
-        - protocol: TCP
-          port: 6379
-        - protocol: TCP
-          port: 5672
 ---
 # Open Wearables app policy
 apiVersion: networking.k8s.io/v1

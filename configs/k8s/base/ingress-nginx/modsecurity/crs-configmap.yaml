@@ -24,9 +24,9 @@ data:
     SecDebugLog /var/log/nginx/modsecurity_debug.log
     SecDebugLogLevel 0
 
-    # Exclude health check endpoint from WAF rules
-    SecRule REQUEST_URI "@beginsWith /health" \
-        "id:1000001,phase:1,allow,ctl:ruleEngine=Off"
+    # NOTE: rule id 1000001 (health-check exemption) is defined once in the
+    # ingress-nginx-controller ConfigMap's modsecurity-snippet. Defining it here
+    # as well makes `nginx -t` fail with "Rule id: 1000001 is duplicated".
 
     # Include request body in ARGS
     SecRuleUpdateTargetById 100001 ARGS

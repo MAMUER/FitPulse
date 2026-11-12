@@ -45,17 +45,14 @@ spec:
       volumes:
         - name: tmp
           emptyDir: {}
-        - name: secrets
-          secret:
-            secretName: app-secrets
-            items:
-              - key: OPEN_WEARABLES_WEBHOOK_SECRET
-                path: OPEN_WEARABLES_WEBHOOK_SECRET
       containers:
         - name: backend
           # checkov:skip=CKV_K8S_43: CI-built image; digest resolved in deployment pipeline
           image: ghcr.io/mamuer/project/open-wearables-backend:0.0.0-dev
           imagePullPolicy: IfNotPresent
+          # The upstream image has no CMD/ENTRYPOINT. Without this the
+          # container exits immediately with code 0.
+          command: ["/bin/bash", "scripts/start/app.sh"]
           securityContext:
             runAsNonRoot: true
             runAsUser: 10001
@@ -72,20 +69,63 @@ spec:
           volumeMounts:
             - name: tmp
               mountPath: /tmp
-            - name: secrets
-              mountPath: /etc/secrets
-              readOnly: true
           env:
-            - name: POSTGRES_USER_FILE
-              value: "/etc/secrets/POSTGRES_USER"
-            - name: POSTGRES_PASSWORD_FILE
-              value: "/etc/secrets/POSTGRES_PASSWORD"
-            - name: VALKEY_PASSWORD_FILE
-              value: "/etc/secrets/VALKEY_PASSWORD"
-            - name: OPEN_WEARABLES_WEBHOOK_SECRET_FILE
-              value: "/etc/secrets/OPEN_WEARABLES_WEBHOOK_SECRET"
+            # Upstream settings are plain pydantic fields (case-insensitive), so
+            # the generic POSTGRES_*_FILE names used elsewhere in this repo do
+            # not work here. DB_* must be provided directly.
+            - name: ENVIRONMENT
+              value: "production"
+            - name: API_PORT
+              value: "8000"
+            - name: SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: OPEN_WEARABLES_SECRET_KEY
+            - name: DB_HOST
+              value: "postgres-service"
+            - name: DB_PORT
+              value: "5432"
+            - name: DB_NAME
+              value: "open_wearables"
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: POSTGRES_USER
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: POSTGRES_PASSWORD
+            - name: REDIS_HOST
+              value: "valkey"
+            - name: REDIS_PORT
+              value: "6379"
+            - name: ADMIN_EMAIL
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: SEED_ADMIN_EMAIL
+            - name: ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: SEED_ADMIN_PASSWORD
             - name: API_BASE_URL
               value: "https://fittpulse.duckdns.org"
+            - name: FRONTEND_URL
+              value: "https://fittpulse.duckdns.org"
+            - name: CORS_ORIGINS
+              value: '["https://fittpulse.duckdns.org"]'
+            # The root filesystem is read-only. Keep uv's cache and Python
+            # bytecode out of /root_project.
+            - name: PYTHONPYCACHEPREFIX
+              value: "/tmp/pycache"
+            - name: UV_CACHE_DIR
+              value: "/tmp/uv-cache"
+            - name: UV_NO_SYNC
+              value: "1"
           livenessProbe:
             httpGet:
               path: /health

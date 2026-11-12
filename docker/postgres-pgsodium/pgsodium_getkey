@@ -1,0 +1,32 @@
+#!/bin/sh
+# FitPulse pgsodium root key provider.
+#
+# pgsodium executes this script at server start (shared_preload_libraries) and
+# expects exactly 64 hexadecimal characters on stdout. The key is stored in the
+# app-secrets Secret and mounted into the postgres pod at /etc/secrets.
+#
+# Override the location with PGSODIUM_KEY_FILE if the mount path ever changes.
+set -eu
+
+key_file="${PGSODIUM_KEY_FILE:-/etc/secrets/DB_ENCRYPTION_KEY}"
+
+if [ ! -r "$key_file" ]; then
+	echo "pgsodium_getkey: cannot read $key_file" >&2
+	exit 1
+fi
+
+key=$(tr -d '[:space:]' <"$key_file")
+
+if [ "${#key}" -ne 64 ]; then
+	echo "pgsodium_getkey: key in $key_file must be 64 hex characters (got ${#key})" >&2
+	exit 1
+fi
+
+case "$key" in
+*[!0-9a-fA-F]*)
+	echo "pgsodium_getkey: key in $key_file contains non-hex characters" >&2
+	exit 1
+	;;
+esac
+
+printf '%s' "$key"

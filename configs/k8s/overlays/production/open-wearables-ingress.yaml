@@ -4,7 +4,8 @@ metadata:
   name: open-wearables-ingress
   namespace: fitness-platform-production
   annotations:
-    nginx.ingress.kubernetes.io/rewrite-target: /$2
+    # The backend serves routes under /api/v1 (settings.api_v1). Do not strip
+    # the /api prefix: path /api with pathType Prefix forwards /api/v1/... as-is.
     cert-manager.io/cluster-issuer: letsencrypt-prod
     nginx.ingress.kubernetes.io/ssl-redirect: "true"
     nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
@@ -18,7 +19,7 @@ spec:
     - host: fittpulse.duckdns.org
       http:
         paths:
-          - path: /api(/|$)(.*)
+          - path: /api
             pathType: Prefix
             backend:
               service:

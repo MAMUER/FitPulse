@@ -6,8 +6,6 @@ import (
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
-	"google.golang.org/grpc/health"
-	"google.golang.org/grpc/health/grpc_health_v1"
 
 	"github.com/MAMUER/project/internal/config"
 )
@@ -52,9 +50,10 @@ func NewServer(opts ...grpc.ServerOption) *grpc.Server {
 		serverOpts = append(serverOpts, grpc.Creds(creds))
 	}
 	serverOpts = append(serverOpts, opts...)
-	s := grpc.NewServer(serverOpts...)
-	grpc_health_v1.RegisterHealthServer(s, health.NewServer())
-	return s
+	// Health registration is deliberately left to each service. Registering it
+	// here made every service that owns a health server (user, biometric) crash
+	// with "duplicate service registration for grpc.health.v1.Health".
+	return grpc.NewServer(serverOpts...)
 }
 
 // NewClient creates a gRPC client connection with optional TLS.

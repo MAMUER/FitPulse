@@ -737,7 +737,7 @@ func checkHealth(db *sql.DB, rq queue.Publisher, hs *health.Server, log *logger.
 	}
 
 	hs.SetServingStatus("", status)
-	hs.SetServingStatus("biometric.BiometricService", status)
+	hs.SetServingStatus("biometric.v1.BiometricService", status)
 }
 
 func loadBiometricConfig() (port, metricsPort, webhookPort, jwtPublicKeyPEM string, dbCfg db.Config) {

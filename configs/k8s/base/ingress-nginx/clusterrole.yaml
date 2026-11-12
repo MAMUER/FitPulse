@@ -5,11 +5,25 @@ metadata:
 rules:
   - apiGroups: [""]
     resources:
-      ["configmaps", "endpoints", "nodes", "pods", "namespaces", "services"]
+      [
+        "configmaps",
+        "endpoints",
+        "nodes",
+        "pods",
+        "secrets",
+        "namespaces",
+        "services",
+      ]
     verbs: ["get", "list", "watch"]
   - apiGroups: [""]
     resources: ["events"]
     verbs: ["create", "patch"]
+  # ingress-nginx v1.11 watches EndpointSlices instead of Endpoints to resolve
+  # backends. Without this rule it never syncs its informer cache and /healthz
+  # returns 500 until the liveness probe kills the controller.
+  - apiGroups: ["discovery.k8s.io"]
+    resources: ["endpointslices"]
+    verbs: ["get", "list", "watch"]
   - apiGroups: ["networking.k8s.io"]
     resources: ["ingresses"]
     verbs: ["get", "list", "watch"]

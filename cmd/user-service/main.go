@@ -3484,7 +3484,7 @@ func setupGRPCServer(log *logger.Logger, svc *userServer) *grpc.Server {
 
 	healthServer.SetServingStatus("", grpc_health_v1.HealthCheckResponse_SERVING)
 
-	healthServer.SetServingStatus("user.UserService", grpc_health_v1.HealthCheckResponse_SERVING)
+	healthServer.SetServingStatus("user.v1.UserService", grpc_health_v1.HealthCheckResponse_SERVING)
 
 	reflection.Register(s)
 

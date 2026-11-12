@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"database/sql"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"github.com/MAMUER/project/internal/sanitize"
@@ -29,8 +28,15 @@ func ensurePgsodiumKey(ctx context.Context, database *sql.DB, log *logger.Logger
 		return errors.New("DB_ENCRYPTION_KEY not set; pgsodium keyring cannot be initialized")
 	}
 
+	// pgsodium 3.x stores a UUID in key.id and the numeric key identifier in
+	// key.key_id. The server root key is provided by the pgsodium_getkey script,
+	// so a named derived key is enough; importing raw key material is neither
+	// required nor supported (there is no pgsodium.import_key in 3.x).
 	var id int64
-	err := database.QueryRowContext(ctx, `SELECT id FROM pgsodium.key WHERE name = $1`, db.PgsodiumKeyringName()).Scan(&id)
+	err := database.QueryRowContext(ctx,
+		`SELECT key_id FROM pgsodium.key WHERE name = $1 AND key_type = 'aead-det'`,
+		db.PgsodiumKeyringName(),
+	).Scan(&id)
 	if err == nil {
 		_setPgsodiumKeyID(id)
 		return nil
@@ -39,10 +45,9 @@ func ensurePgsodiumKey(ctx context.Context, database *sql.DB, log *logger.Logger
 		return fmt.Errorf("query pgsodium key: %w", err)
 	}
 
-	hexKey := hex.EncodeToString(key)
 	err = database.QueryRowContext(ctx,
-		`SELECT pgsodium.import_key(CASE WHEN $1 ~ '^[0-9a-fA-F]{64}$' THEN decode($1, 'hex') ELSE convert_to($1, 'UTF8') END, $2)`,
-		hexKey, db.PgsodiumKeyringName(),
+		`SELECT (pgsodium.create_key('aead-det'::pgsodium.key_type, $1)).key_id`,
+		db.PgsodiumKeyringName(),
 	).Scan(&id)
 	if err != nil {
 		return fmt.Errorf("import pgsodium key: %w", err)

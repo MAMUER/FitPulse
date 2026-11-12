@@ -21,6 +21,8 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/health"
+	"google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -1415,6 +1417,14 @@ func setupGRPCServer(log *logger.Logger, db *sql.DB, trainingSvc service.Trainin
 		bioRepo:     bioRepo,
 	}
 	pb.RegisterTrainingServiceServer(s, ts)
+
+	// The shared server constructor no longer registers the standard health
+	// service, so each service owns its health state. The empty service name
+	// covers generic probes; the fully qualified name covers gRPC clients.
+	healthServer := health.NewServer()
+	grpc_health_v1.RegisterHealthServer(s, healthServer)
+	healthServer.SetServingStatus("", grpc_health_v1.HealthCheckResponse_SERVING)
+	healthServer.SetServingStatus("training.v1.TrainingService", grpc_health_v1.HealthCheckResponse_SERVING)
 
 	return s, ts
 }

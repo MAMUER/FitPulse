@@ -7,8 +7,12 @@ LABEL description="PostgreSQL with pgsodium extension for FitPulse"
 # Работаем в /tmp, чтобы безопасно удалить папку потом
 WORKDIR /tmp
 
+# Keep the libsodium runtime library: pgsodium.so links against it at runtime.
+# Installing only libsodium-dev as a virtual build dependency removed the shared
+# library again during `apk del .build-deps`, leaving pgsodium unusable at runtime.
 # hadolint ignore=DL3003,DL3018
-RUN apk add --no-cache --virtual .build-deps \
+RUN apk add --no-cache libsodium \
+    && apk add --no-cache --virtual .build-deps \
     build-base \
     clang \
     git \
@@ -26,6 +30,12 @@ RUN apk add --no-cache --virtual .build-deps \
     && cd /tmp \
     && rm -rf pgsodium \
     && apk del .build-deps
+
+# pgsodium refuses to start when shared_preload_libraries includes it but this
+# script is missing. It must print exactly 64 hex characters (the DB_ENCRYPTION_KEY
+# from app-secrets, mounted at /etc/secrets in Kubernetes).
+COPY docker/postgres-pgsodium/pgsodium_getkey /usr/local/share/postgresql/extension/pgsodium_getkey
+RUN chmod 0755 /usr/local/share/postgresql/extension/pgsodium_getkey
 
 HEALTHCHECK CMD ["pg_isready", "-U", "postgres"]
 

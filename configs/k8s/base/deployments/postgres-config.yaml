@@ -8,6 +8,10 @@ metadata:
 data:
   postgresql.conf: |
     # Optimized for 2GB RAM server
+    # pgsodium registers its GUCs (pgsodium.enable_event_trigger, ...) from a
+    # shared_preload_libraries hook. Without this the extension can be created but
+    # its triggers fail with "unrecognized configuration parameter".
+    shared_preload_libraries = 'pgsodium'
     max_connections = 50
     shared_buffers = 48MB
     effective_cache_size = 128MB

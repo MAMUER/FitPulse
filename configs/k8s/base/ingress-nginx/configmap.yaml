@@ -58,8 +58,12 @@ data:
             "id:1000004,phase:1,deny,status:400,log"
 
         # ===== Load OWASP CRS v4 =====
-        # CRS setup is provided via mounted ConfigMap modsecurity-crs
+        # CRS setup is provided via mounted ConfigMap modsecurity-crs.
         Include /etc/nginx/modsecurity-crs/crs-setup.conf
 
-        # Include all CRS rules from the mounted ConfigMap
-        Include /etc/nginx/modsecurity-crs/rules/*.conf
+        # NOTE: the CRS rule bundle is not part of this repository. The
+        # update-modsecurity-crs CronJob is responsible for publishing it.
+        # ModSecurity fails nginx -t when `Include` points at a glob with no
+        # matches, so the rules are only included once the CronJob mounts a
+        # populated rules directory. See the CronJob before re-enabling:
+        # Include /etc/nginx/modsecurity-crs/rules/*.conf

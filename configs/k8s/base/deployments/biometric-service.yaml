@@ -153,8 +153,14 @@ spec:
               value: "/etc/secrets/RABBITMQ_URL"
             - name: GRPC_SERVER_ADDRESS
               value: "0.0.0.0:50052"
-            - name: OPEN_WEARABLES_WEBHOOK_SECRET_FILE
-              value: "/etc/secrets/OPEN_WEARABLES_WEBHOOK_SECRET"
+            # Direct reference rather than the _FILE form: older biometric
+            # images in the cluster read the variable directly with os.Getenv
+            # and exited with "OPEN_WEARABLES_WEBHOOK_SECRET is required".
+            - name: OPEN_WEARABLES_WEBHOOK_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: OPEN_WEARABLES_WEBHOOK_SECRET
             - name: OTEL_EXPORTER_OTLP_ENDPOINT
               value: "opentelemetry-collector.monitoring.svc.cluster.local:4317"
             - name: OTEL_SERVICE_NAME

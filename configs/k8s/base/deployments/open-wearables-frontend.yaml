@@ -62,17 +62,18 @@ spec:
           env:
             - name: VITE_API_URL
               value: "https://fittpulse.duckdns.org"
+          # The Vite/Node server accepts connections before it can answer an
+          # HTTP probe reliably; an HTTP probe here kept the pod unready and
+          # eventually tripped liveness. A TCP probe verifies the listener.
           livenessProbe:
-            httpGet:
-              path: /
+            tcpSocket:
               port: 3000
             initialDelaySeconds: 30
             periodSeconds: 15
             timeoutSeconds: 3
             failureThreshold: 3
           readinessProbe:
-            httpGet:
-              path: /
+            tcpSocket:
               port: 3000
             initialDelaySeconds: 10
             periodSeconds: 10
