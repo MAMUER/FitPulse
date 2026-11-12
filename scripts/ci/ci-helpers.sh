@@ -242,20 +242,27 @@ check_connectivity() {
 }
 
 add_vps_to_known_hosts() {
+	if [[ -z "${VPS_HOST:-}" ]]; then
+		echo "::error::VPS_HOST is required to configure SSH known_hosts" >&2
+		return 1
+	fi
+
 	mkdir -p ~/.ssh
 	chmod 700 ~/.ssh
 
-	if [[ -n "${VPS_PORT:-}" ]]; then
-		echo "Scanning host: ${VPS_HOST} on custom port: ${VPS_PORT}"
-		# Сканируем с явным указанием порта
-		ssh-keyscan -H -p "${VPS_PORT}" "${VPS_HOST}" >>~/.ssh/known_hosts 2>/dev/null || true
-		# Добавляем также в формате [IP]:PORT, который иногда требует строгий SSH-клиент
-		ssh-keyscan -H -p "${VPS_PORT}" "[${VPS_HOST}]:${VPS_PORT}" >>~/.ssh/known_hosts 2>/dev/null || true
-	else
-		echo "Scanning host: ${VPS_HOST} on default port 22"
-		ssh-keyscan -H "${VPS_HOST}" >>~/.ssh/known_hosts 2>/dev/null || true
+	local port="${VPS_PORT:-22}"
+	local scanned_keys
+	scanned_keys=$(ssh-keyscan -H -p "$port" "$VPS_HOST" 2>/dev/null) || {
+		echo "::error::Could not scan SSH host key for VPS_HOST on port ${port}" >&2
+		return 1
+	}
+	if [[ -z "$scanned_keys" ]]; then
+		echo "::error::No SSH host keys returned for VPS_HOST on port ${port}" >&2
+		return 1
 	fi
 
+	printf '%s\n' "$scanned_keys" >>~/.ssh/known_hosts
+	chmod 600 ~/.ssh/known_hosts
 	echo "✅ SSH known_hosts configured"
 }
 
