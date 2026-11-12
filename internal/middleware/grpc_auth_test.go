@@ -76,6 +76,22 @@ func TestGRPCAuthInterceptor_ValidToken(t *testing.T) {
 	assert.True(t, handlerCalled)
 }
 
+func TestGRPCAuthInterceptor_AllowsHealthChecksWithoutToken(t *testing.T) {
+	interceptor := GRPCAuthInterceptor(testPublicKeyPEMGRPC, zap.NewNop())
+	handlerCalled := false
+	handler := func(context.Context, interface{}) (interface{}, error) {
+		handlerCalled = true
+		return "ok", nil
+	}
+
+	resp, err := interceptor(context.Background(), nil, &grpc.UnaryServerInfo{
+		FullMethod: "/grpc.health.v1.Health/Check",
+	}, handler)
+	assert.NoError(t, err)
+	assert.Equal(t, "ok", resp)
+	assert.True(t, handlerCalled)
+}
+
 func TestGRPCAuthInterceptor_MissingMetadata(t *testing.T) {
 	log := zap.NewNop()
 	interceptor := GRPCAuthInterceptor(testPublicKeyPEMGRPC, log)

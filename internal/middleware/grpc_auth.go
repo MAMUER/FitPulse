@@ -18,6 +18,10 @@ const authMetadataKey = "authorization"
 
 func GRPCAuthInterceptor(publicKeyPEM string, log *zap.Logger) grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+		if strings.HasPrefix(info.FullMethod, "/grpc.health.v1.Health/") {
+			return handler(ctx, req)
+		}
+
 		md, ok := metadata.FromIncomingContext(ctx)
 		if !ok {
 			log.Warn("Missing gRPC metadata", zap.String("method", sanitize.LogString(info.FullMethod)))

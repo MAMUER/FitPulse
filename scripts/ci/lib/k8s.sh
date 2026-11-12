@@ -129,6 +129,39 @@ run_migrations() {
 		psql -U "${POSTGRES_USER:-fitness_admin}" -d "${POSTGRES_DB:-fitness}" -c "SELECT table_name FROM information_schema.tables WHERE table_schema='public' ORDER BY table_name;" || echo "::warning::table verification failed" >&2
 }
 
+diagnose_job() {
+	local namespace="$1"
+	local job="$2"
+	local pods pod containers restart_status container restart_count
+
+	echo "=== Job diagnostics: $namespace/$job ==="
+	kubectl describe job "$job" -n "$namespace" 2>&1 || true
+	pods=$(kubectl get pods -n "$namespace" -l "job-name=$job" -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' 2>/dev/null || true)
+	if [[ -z "$pods" ]]; then
+		echo "No pods found for job $job"
+	else
+		while IFS= read -r pod; do
+			[[ -z "$pod" ]] && continue
+			echo "--- Pod: $pod ---"
+			kubectl describe pod "$pod" -n "$namespace" 2>&1 || true
+			containers=$(kubectl get pod "$pod" -n "$namespace" -o jsonpath='{range .spec.initContainers[*]}{.name}{"\n"}{end}{range .spec.containers[*]}{.name}{"\n"}{end}' 2>/dev/null || true)
+			restart_status=$(kubectl get pod "$pod" -n "$namespace" -o jsonpath='{range .status.initContainerStatuses[*]}{.name}={.restartCount}{"\n"}{end}{range .status.containerStatuses[*]}{.name}={.restartCount}{"\n"}{end}' 2>/dev/null || true)
+			while IFS= read -r container; do
+				[[ -z "$container" ]] && continue
+				echo "--- Current logs: $container ---"
+				kubectl logs "$pod" -n "$namespace" -c "$container" --timestamps --tail=200 2>&1 || true
+				restart_count=$(printf '%s\n' "$restart_status" | awk -F= -v name="$container" '$1 == name {print $2; exit}')
+				if [[ "$restart_count" =~ ^[0-9]+$ ]] && ((restart_count > 0)); then
+					echo "--- Previous logs: $container (restart count: $restart_count) ---"
+					kubectl logs "$pod" -n "$namespace" -c "$container" --previous --timestamps --tail=200 2>&1 || true
+				fi
+			done <<<"$containers"
+			echo "--- Events for pod $pod ---"
+			kubectl get events -n "$namespace" --field-selector "involvedObject.name=$pod" --sort-by=.lastTimestamp 2>&1 || true
+		done <<<"$pods"
+	fi
+}
+
 run_seed_admin() {
 	echo "=== Running seed-admin job ==="
 	echo "Timestamp: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
@@ -147,77 +180,59 @@ run_seed_admin() {
 	sleep 5
 	echo "-> Applying seed-admin Job from YAML..."
 	kubectl apply -f configs/k8s/base/jobs/seed-admin.yaml -n fitness-platform-production 2>&1
-	echo "-> Waiting for seed-admin pod to be scheduled..."
-	POD_NAME=""
-	for i in {1..30}; do
-		POD_NAME=$(kubectl get pods -n fitness-platform-production -l app=seed-admin -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo "")
-		if [[ -n "$POD_NAME" ]]; then
-			echo "✅ Pod found: $POD_NAME"
-			echo "-> Pod status: $(kubectl get pod "$POD_NAME" -n fitness-platform-production -o jsonpath='{.status.phase}' 2>/dev/null || echo 'unknown')"
-			break
-		fi
-		echo "  Attempt $i/30: waiting for pod... (5s)"
-		sleep 5
-	done
-	if [[ -z "$POD_NAME" ]]; then
-		echo "::warning::Failed to find seed-admin pod after 150s" >&2
-		kubectl get pods -n fitness-platform-production -o wide 2>&1 || true
-		return 0
-	fi
-	echo "-> Starting background log streaming for pod $POD_NAME..."
-	kubectl logs -f -n fitness-platform-production "$POD_NAME" --tail=100 2>&1 &
-	LOG_STREAM_PID=$!
 	echo "-> Monitoring pod status..."
 	MONITOR_START=$(date +%s)
-	while true; do
-		CURRENT_PHASE=$(kubectl get pod "$POD_NAME" -n fitness-platform-production -o jsonpath='{.status.phase}' 2>/dev/null || echo "NotFound")
-		RESTART_COUNT=$(kubectl get pod "$POD_NAME" -n fitness-platform-production -o jsonpath='{.status.containerStatuses[0].restartCount}' 2>/dev/null || echo "0")
-		echo "  [$(date +%H:%M:%S)] Phase: $CURRENT_PHASE, Restarts: $RESTART_COUNT"
-		if [[ "$CURRENT_PHASE" == "Failed" || "$CURRENT_PHASE" == "CrashLoopBackOff" || "$RESTART_COUNT" -gt 2 ]]; then
-			echo "::warning::Pod is in error state, fetching diagnostics..." >&2
-			kubectl describe pod "$POD_NAME" -n fitness-platform-production 2>&1 || true
-			kubectl logs "$POD_NAME" -n fitness-platform-production --tail=200 2>&1 || true
-			break
-		fi
-		if kubectl wait --for=condition=complete job/seed-admin -n fitness-platform-production --timeout=10s 2>/dev/null; then
+	JOB_COMPLETE=false
+	for i in {1..30}; do
+		JOB_CONDITIONS=$(kubectl get job seed-admin -n fitness-platform-production -o jsonpath='{range .status.conditions[*]}{.type}={.status}{"\n"}{end}' 2>/dev/null || echo "NotFound")
+		if grep -q '^Complete=True$' <<<"$JOB_CONDITIONS"; then
 			echo "✅ Job completed successfully"
+			JOB_COMPLETE=true
 			break
 		fi
-		ELAPSED=$(($(date +%s) - MONITOR_START))
-		if [[ "$ELAPSED" -ge 300 ]]; then
-			echo "⏱️  Monitoring timeout reached (300s)"
+		if grep -q '^Failed=True$' <<<"$JOB_CONDITIONS" || [[ "$JOB_CONDITIONS" == "NotFound" ]]; then
+			echo "::error::seed-admin job failed before completion" >&2
+			break
+		fi
+		POD_NAME=$(kubectl get pods -n fitness-platform-production -l app=seed-admin -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)
+		if [[ -n "$POD_NAME" ]]; then
+			POD_STATE=$(kubectl get pod "$POD_NAME" -n fitness-platform-production -o jsonpath='{.status.phase}{" "}{range .status.containerStatuses[*]}{.state.waiting.reason}{.state.terminated.reason} restarts={.restartCount}{" "}{end}' 2>/dev/null || echo "Unknown")
+			echo "  [$(date +%H:%M:%S)] Pod $POD_NAME: ${POD_STATE:-status pending}"
+		else
+			echo "  [$(date +%H:%M:%S)] Waiting for seed-admin pod..."
+		fi
+		if [[ "$(( $(date +%s) - MONITOR_START ))" -ge 300 ]]; then
+			echo "::error::Timed out waiting for seed-admin job after 300 seconds" >&2
 			break
 		fi
 		sleep 10
 	done
-	if [[ -n "$LOG_STREAM_PID" ]]; then
-		kill $LOG_STREAM_PID 2>/dev/null || true
-		wait $LOG_STREAM_PID 2>/dev/null || true
-	fi
-	echo "-> Final job status check..."
-	if kubectl wait --for=condition=complete job/seed-admin -n fitness-platform-production --timeout=30s 2>/dev/null; then
-		echo "✅ Admin user seeded successfully"
-		kubectl logs job/seed-admin -n fitness-platform-production --tail=100 2>&1 || true
+
+	SEED_STATUS=0
+	if [[ "$JOB_COMPLETE" == "true" ]]; then
+		kubectl logs job/seed-admin -n fitness-platform-production --all-containers --timestamps --tail=200 2>&1 || true
 	else
-		echo "::warning::Job did not complete successfully, detailed diagnostics..."
-		POD_NAME=$(kubectl get pods -n fitness-platform-production -l app=seed-admin -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo "unknown")
-		if [[ "$POD_NAME" != "unknown" ]] && [[ -n "$POD_NAME" ]]; then
-			kubectl describe pod "$POD_NAME" -n fitness-platform-production 2>&1 || true
-			kubectl logs "$POD_NAME" -n fitness-platform-production --tail=300 2>&1 || true
-		fi
-		echo "::warning::Checking if admin exists in database (idempotent check)..."
+		echo "::error::seed-admin job did not complete; collecting diagnostics before cleanup" >&2
+		diagnose_job fitness-platform-production seed-admin
+		echo "-> Checking whether admin exists using the encrypted-email hash..."
 		DB_CHECK=$(kubectl exec -n fitness-platform-production postgres-0 -- \
-			psql -U postgres -d fitness -tAc \
-			"SELECT COUNT(*) FROM users WHERE email='${SEED_ADMIN_EMAIL}'" 2>/dev/null || echo "0")
-		if [[ "$DB_CHECK" = "1" ]]; then
-			echo "✅ Admin user already exists in database (idempotent check passed)"
+			psql -U "${POSTGRES_USER:-postgres}" -d "${POSTGRES_DB:-fitness}" -v ON_ERROR_STOP=1 \
+			-v email="${SEED_ADMIN_EMAIL}" -tAc \
+			"SELECT EXISTS (SELECT 1 FROM users WHERE email_hash = encode(digest(:'email', 'sha256'), 'hex'))" 2>&1) || {
+				echo "::error::Could not verify whether the admin user exists: $DB_CHECK" >&2
+				SEED_STATUS=1
+			}
+		if [[ "$DB_CHECK" == "t" ]]; then
+			echo "✅ Admin user exists in database (idempotent check passed)"
 		else
-			echo "::warning::seed-admin job failed AND admin user not found in database" >&2
+			echo "::error::seed-admin job failed and admin user was not found in database" >&2
+			SEED_STATUS=1
 		fi
 	fi
 	echo "-> Cleaning up completed job..."
 	kubectl delete job seed-admin -n fitness-platform-production --ignore-not-found=true 2>&1 || true
 	echo "✅ seed-admin step completed"
+	return "$SEED_STATUS"
 }
 
 verify_deployment() {
@@ -241,7 +256,7 @@ verify_deployment() {
 
 diagnose_unready_pods() {
 	local namespace="$1"
-	local pods pod phase ready container_names restart_status container restart_count
+	local pods pod phase ready container_names restart_status container restart_count state_summary
 
 	echo "=== Resource status in namespace $namespace ==="
 	kubectl get deploy,statefulset,job,pods -n "$namespace" -o wide 2>&1 || true
@@ -256,10 +271,17 @@ diagnose_unready_pods() {
 			continue
 		fi
 
-		echo "::group::Pod diagnostics: $namespace/$pod (phase=$phase, ready=$ready)"
+		echo "=== Pod diagnostics: $namespace/$pod (phase=$phase, ready=$ready) ==="
 		kubectl describe pod "$pod" -n "$namespace" 2>&1 || true
 		container_names=$(kubectl get pod "$pod" -n "$namespace" -o jsonpath='{range .spec.initContainers[*]}{.name}{"\n"}{end}{range .spec.containers[*]}{.name}{"\n"}{end}' 2>/dev/null || true)
 		restart_status=$(kubectl get pod "$pod" -n "$namespace" -o jsonpath='{range .status.initContainerStatuses[*]}{.name}={.restartCount}{"\n"}{end}{range .status.containerStatuses[*]}{.name}={.restartCount}{"\n"}{end}' 2>/dev/null || true)
+		state_summary=$(kubectl get pod "$pod" -n "$namespace" -o jsonpath='{range .status.initContainerStatuses[*]}init/{.name}: waiting={.state.waiting.reason} terminated={.state.terminated.reason} last={.lastState.terminated.reason} exit={.lastState.terminated.exitCode} message={.lastState.terminated.message} restarts={.restartCount}{"\n"}{end}{range .status.containerStatuses[*]}{.name}: waiting={.state.waiting.reason} terminated={.state.terminated.reason} last={.lastState.terminated.reason} exit={.lastState.terminated.exitCode} message={.lastState.terminated.message} restarts={.restartCount}{"\n"}{end}' 2>/dev/null || true)
+		echo "--- Container states ---"
+		if [[ -n "$state_summary" ]]; then
+			printf '%s\n' "$state_summary"
+		else
+			echo "No container status has been reported yet"
+		fi
 		while IFS= read -r container; do
 			[[ -z "$container" ]] && continue
 			echo "--- Current logs: $container ---"
@@ -272,7 +294,6 @@ diagnose_unready_pods() {
 		done <<<"$container_names"
 		echo "--- Pod events ---"
 		kubectl get events -n "$namespace" --field-selector "involvedObject.name=$pod" --sort-by=.lastTimestamp 2>&1 || true
-		echo "::endgroup::"
 	done <<<"$pods"
 
 	echo "=== Recent events in namespace $namespace ==="
@@ -281,11 +302,28 @@ diagnose_unready_pods() {
 
 deploy_open_wearables() {
 	echo "=== Deploying Open Wearables ==="
+	kubectl delete job create-open-wearables-db -n fitness-platform-production --ignore-not-found=true --wait=true
 	kubectl apply -f configs/k8s/base/jobs/create-open-wearables-db.yaml -n fitness-platform-production
-	kubectl apply -k configs/k8s/overlays/production/ --validate=false || true
+	echo "Waiting for Open Wearables database job..."
+	if ! kubectl wait --for=condition=complete job/create-open-wearables-db -n fitness-platform-production --timeout=180s; then
+		echo "::error::Open Wearables database job failed; collecting diagnostics" >&2
+		diagnose_job fitness-platform-production create-open-wearables-db
+		return 1
+	fi
+	kubectl logs job/create-open-wearables-db -n fitness-platform-production --all-containers --timestamps --tail=100 2>&1 || true
+	echo "Applying Open Wearables manifests..."
+	kubectl apply -k configs/k8s/overlays/production/ --validate=false
 	echo "Waiting for Open Wearables pods to be ready..."
-	kubectl wait --for=condition=ready pod -l app=open-wearables -n fitness-platform-production --timeout=300s || echo "::warning::Open Wearables backend not ready yet"
-	kubectl wait --for=condition=ready pod -l app=open-wearables-frontend -n fitness-platform-production --timeout=300s || echo "::warning::Open Wearables frontend not ready yet"
+	if ! kubectl wait --for=condition=ready pod -l app=open-wearables -n fitness-platform-production --timeout=300s; then
+		echo "::error::Open Wearables backend not ready; collecting pod diagnostics" >&2
+		diagnose_unready_pods fitness-platform-production
+		return 1
+	fi
+	if ! kubectl wait --for=condition=ready pod -l app=open-wearables-frontend -n fitness-platform-production --timeout=300s; then
+		echo "::error::Open Wearables frontend not ready; collecting pod diagnostics" >&2
+		diagnose_unready_pods fitness-platform-production
+		return 1
+	fi
 	echo "✅ Open Wearables deployed"
 }
 
@@ -341,7 +379,7 @@ check_logs() {
 		UNREADY_FOUND=1
 	fi
 	if [[ $ERROR_FOUND -eq 1 ]]; then
-		echo "::warning::Critical errors detected, continuing deployment" >&2
+		echo "::warning::Critical errors detected during readiness checks" >&2
 	else
 		echo "✅ No critical errors found, all services are healthy" >&2
 	fi
