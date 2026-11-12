@@ -8,7 +8,7 @@ spec:
     requests.cpu: "4000m"
     requests.memory: "6Gi"
     limits.cpu: "12000m"
-    limits.memory: "8Gi"
+    limits.memory: "10Gi"
     pods: "100"
     services: "40"
     secrets: "100"

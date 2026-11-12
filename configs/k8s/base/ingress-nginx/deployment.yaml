@@ -31,6 +31,9 @@ spec:
         runAsUser: 101
         runAsGroup: 101
         fsGroup: 101
+        sysctls:
+          - name: net.ipv4.ip_unprivileged_port_start
+            value: "0"
         seccompProfile:
           type: RuntimeDefault
       containers:
@@ -84,11 +87,6 @@ spec:
             readOnlyRootFilesystem: false
             capabilities:
               drop: ["ALL"]
-              # nginx runs as UID 101 (non-root) and must bind ports 80/443 inside the
-              # container. NET_BIND_SERVICE is the MINIMUM capability required.
-              # Running as root instead would be worse security-wise.
-              # NOSONAR: pgsodium needs NET_BIND_SERVICE to bind ports 80/443 as non-root
-              add: ["NET_BIND_SERVICE"] # NOSONAR
             seccompProfile:
               type: RuntimeDefault
           readinessProbe:

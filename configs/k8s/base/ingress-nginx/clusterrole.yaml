@@ -10,11 +10,14 @@ rules:
         "endpoints",
         "nodes",
         "pods",
-        "secrets",
         "namespaces",
         "services",
       ]
     verbs: ["get", "list", "watch"]
+  # NOTE: 'secrets' access is intentionally NOT granted cluster-wide here.
+  # ingress-nginx reads TLS secrets via a namespace-scoped Role
+  # (see overlays/*/ingress-nginx-tls-role.yaml) so a compromised controller
+  # cannot read every Secret in the cluster (KSV-0041).
   - apiGroups: [""]
     resources: ["events"]
     verbs: ["create", "patch"]

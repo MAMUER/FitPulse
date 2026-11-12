@@ -34,10 +34,12 @@ create_image_pull_secret() {
 }
 
 update_image_tags() {
-	echo "Updating image tags to :latest"
+	local image_tag
+	image_tag=$(git rev-parse --short HEAD)
+	echo "Updating image tags to :$image_tag"
 	cd configs/k8s/overlays/production
 	for svc in user-service biometric-service training-service gateway classifier ml-generator open-wearables-backend open-wearables-frontend device-aggregator data-processor; do
-		kustomize edit set image "ghcr.io/mamuer/project/$svc=ghcr.io/mamuer/project/$svc:latest" || true
+		kustomize edit set image "ghcr.io/mamuer/project/$svc=ghcr.io/mamuer/project/$svc:$image_tag"
 	done
 }
 

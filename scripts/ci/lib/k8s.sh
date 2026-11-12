@@ -240,7 +240,6 @@ verify_deployment() {
 
 deploy_open_wearables() {
 	echo "=== Deploying Open Wearables ==="
-	kubectl apply -k configs/k8s/base/ --validate=false || true
 	kubectl apply -f configs/k8s/base/jobs/create-open-wearables-db.yaml -n fitness-platform-production
 	kubectl apply -k configs/k8s/overlays/production/ --validate=false || true
 	echo "Waiting for Open Wearables pods to be ready..."

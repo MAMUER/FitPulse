@@ -1,0 +1,8 @@
+# JSON6902 patch: append --watch-namespace so the controller reads TLS
+# secrets only from fitness-platform-production (where the namespace-scoped
+# Role ingress-nginx-tls-reader grants access). This replaces the earlier
+# strategic-merge partial Deployment, which SonarLint misread as a standalone
+# resource missing requests/limits.
+- op: add
+  path: /spec/template/spec/containers/0/args/-
+  value: --watch-namespace=fitness-platform-production

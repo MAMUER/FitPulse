@@ -7,6 +7,13 @@ resources:
   - ingress.yaml
   - jaeger-ingress.yaml
   - open-wearables-ingress.yaml
+
+patches:
+  - path: ingress-nginx-watch-namespace-patch.yaml
+    target:
+      kind: Deployment
+      name: ingress-nginx-controller
+      namespace: ingress-nginx
 images:
   - name: ghcr.io/mamuer/project/user-service
     newTag: latest
@@ -23,4 +30,8 @@ images:
   - name: ghcr.io/mamuer/project/open-wearables-backend
     newTag: latest
   - name: ghcr.io/mamuer/project/open-wearables-frontend
+    newTag: latest
+  - name: ghcr.io/mamuer/project/device-aggregator
+    newTag: latest
+  - name: ghcr.io/mamuer/project/data-processor
     newTag: latest
