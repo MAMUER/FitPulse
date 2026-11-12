@@ -23,13 +23,13 @@ if [ "${#key}" -ne 64 ]; then
 fi
 
 case "$key" in
-	*[!0-9a-fA-F]*)
-		echo "pgsodium_getkey: key in $key_file contains non-hex characters" >&2
-		exit 1
-		;;
-	*)
-		# Key contains only hex characters, proceed
-		;;
-	esac
+*[!0-9a-fA-F]*)
+	echo "pgsodium_getkey: key in $key_file contains non-hex characters" >&2
+	exit 1
+	;;
+*)
+	# Key contains only hex characters, proceed
+	;;
+esac
 
 printf '%s' "$key"

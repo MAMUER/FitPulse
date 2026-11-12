@@ -81,11 +81,11 @@ spec:
           resources:
             requests:
               cpu: "500m"
-              memory: "2Gi"
+              memory: "1Gi"
               ephemeral-storage: "2Gi"
             limits:
               cpu: "1000m"
-              memory: "2Gi"
+              memory: "1Gi"
               ephemeral-storage: "4Gi"
   volumeClaimTemplates:
     - metadata:
