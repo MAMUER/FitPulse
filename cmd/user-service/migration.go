@@ -258,23 +258,70 @@ func backfillEncryptedPII(ctx context.Context, database *sql.DB, log *logger.Log
 		return
 	}
 
-	usersQuery := buildUsersBackfillQuery(id)
-	res, err := database.ExecContext(ctx, usersQuery) // NOSONAR go:S2077
-	if err != nil {
-		log.Error("Failed to backfill PII in users", zap.Error(err))
+	usersColumns := []string{"email", "email_encrypted", "email_hash", "full_name", "full_name_encrypted", "full_name_hash", "nickname", "nickname_encrypted", "nickname_hash"}
+	if hasColumns, err := tableHasColumns(ctx, database, "users", usersColumns); err != nil {
+		log.Error("Failed to inspect users columns for PII backfill", zap.Error(err))
+	} else if !hasColumns {
+		log.Info("Skipping legacy PII backfill for users: required legacy columns are absent")
 	} else {
-		rows, rowsErr := res.RowsAffected()
-		if rowsErr != nil {
-			log.Warn("Failed to count backfilled PII rows in users", zap.Error(rowsErr))
+		usersQuery := buildUsersBackfillQuery(id)
+		res, execErr := database.ExecContext(ctx, usersQuery) // NOSONAR go:S2077
+		if execErr != nil {
+			log.Error("Failed to backfill PII in users", zap.Error(execErr))
+		} else {
+			rows, rowsErr := res.RowsAffected()
+			if rowsErr != nil {
+				log.Warn("Failed to count backfilled PII rows in users", zap.Error(rowsErr))
+			}
+			log.Info("PII backfill complete for users", zap.Int64("updated", rows))
 		}
-		log.Info("PII backfill complete for users", zap.Int64("updated", rows))
 	}
 
-	emailVerificationsQuery := buildEmailVerificationsBackfillQuery(id)
-	_, err = database.ExecContext(ctx, emailVerificationsQuery) // NOSONAR go:S2077
-	if err != nil {
-		log.Error("Failed to backfill PII in email_verifications", zap.Error(err))
+	emailVerificationColumns := []string{"email", "email_encrypted", "email_hash", "token", "token_encrypted"}
+	if hasColumns, err := tableHasColumns(ctx, database, "email_verifications", emailVerificationColumns); err != nil {
+		log.Error("Failed to inspect email_verifications columns for PII backfill", zap.Error(err))
+	} else if !hasColumns {
+		log.Info("Skipping legacy PII backfill for email_verifications: required legacy columns are absent")
+	} else {
+		emailVerificationsQuery := buildEmailVerificationsBackfillQuery(id)
+		if _, execErr := database.ExecContext(ctx, emailVerificationsQuery); execErr != nil { // NOSONAR go:S2077
+			log.Error("Failed to backfill PII in email_verifications", zap.Error(execErr))
+		}
 	}
+}
+
+func tableHasColumns(ctx context.Context, database *sql.DB, table string, required []string) (hasColumns bool, err error) {
+	rows, err := database.QueryContext(ctx,
+		"SELECT column_name FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = $1",
+		table,
+	)
+	if err != nil {
+		return false, err
+	}
+	defer func() {
+		if closeErr := rows.Close(); err == nil {
+			err = closeErr
+		}
+	}()
+
+	columns := make(map[string]struct{}, len(required))
+	for rows.Next() {
+		var column string
+		if err := rows.Scan(&column); err != nil {
+			return false, err
+		}
+		columns[column] = struct{}{}
+	}
+	if err := rows.Err(); err != nil {
+		return false, err
+	}
+
+	for _, column := range required {
+		if _, ok := columns[column]; !ok {
+			return false, nil
+		}
+	}
+	return true, nil
 }
 
 func buildUsersBackfillQuery(id int64) string {

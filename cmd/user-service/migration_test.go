@@ -506,6 +506,33 @@ var usersBackfillPattern = `^UPDATE users SET email_encrypted = pgsodium\.crypto
 // evBackfillPattern matches the SQL produced by buildEmailVerificationsBackfillQuery(id).
 var evBackfillPattern = `^UPDATE email_verifications SET email_encrypted = pgsodium\.crypto_aead_det_encrypt\(email::text, '', \d+\), token_encrypted = pgsodium\.crypto_aead_det_encrypt\(token::text, '', \d+\)\s+WHERE email_encrypted IS NULL$`
 
+func expectColumnListing(mock sqlmock.Sqlmock, table string, columns ...string) {
+	rows := sqlmock.NewRows([]string{"column_name"})
+	for _, column := range columns {
+		rows.AddRow(column)
+	}
+	mock.ExpectQuery("SELECT column_name FROM information_schema.columns").
+		WithArgs(table).
+		WillReturnRows(rows)
+}
+
+func TestBackfillEncryptedPII_SkipsWhenLegacyColumnsMissing(t *testing.T) {
+	resetTestEnv(t)
+	db.SetTestEncryptionKey([]byte(testEncryptionKeyHex))
+	db.SetPgsodiumKeyID(11)
+	defer resetTestEnv(t)
+
+	mockDB, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer func() { _ = mockDB.Close() }()
+
+	expectColumnListing(mock, "users", "id", "email_encrypted")
+	expectColumnListing(mock, "email_verifications", "id", "email_encrypted")
+
+	backfillEncryptedPII(context.Background(), mockDB, newTestLogger(t))
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
 func TestBackfillEncryptedPII_ExecutesQueries(t *testing.T) {
 	resetTestEnv(t)
 	db.SetTestEncryptionKey([]byte(testEncryptionKeyHex))
@@ -521,7 +548,9 @@ func TestBackfillEncryptedPII_ExecutesQueries(t *testing.T) {
 		}
 	}()
 
+	expectColumnListing(mock, "users", "email", "email_encrypted", "email_hash", "full_name", "full_name_encrypted", "full_name_hash", "nickname", "nickname_encrypted", "nickname_hash")
 	mock.ExpectExec(usersBackfillPattern).WillReturnResult(sqlmock.NewResult(0, 3))
+	expectColumnListing(mock, "email_verifications", "email", "email_encrypted", "email_hash", "token", "token_encrypted")
 	mock.ExpectExec(evBackfillPattern).WillReturnResult(sqlmock.NewResult(0, 1))
 
 	log := newTestLogger(t)
@@ -544,7 +573,10 @@ func TestBackfillEncryptedPII_HandlesExecError(t *testing.T) {
 		}
 	}()
 
+	expectColumnListing(mock, "users", "email", "email_encrypted", "email_hash", "full_name", "full_name_encrypted", "full_name_hash", "nickname", "nickname_encrypted", "nickname_hash")
 	mock.ExpectExec(usersBackfillPattern).WillReturnError(errors.New("query failed"))
+	expectColumnListing(mock, "email_verifications", "email", "email_encrypted", "email_hash", "token", "token_encrypted")
+	mock.ExpectExec(evBackfillPattern).WillReturnResult(sqlmock.NewResult(0, 0))
 
 	log := newTestLogger(t)
 	assert.NotPanics(t, func() {
@@ -568,7 +600,9 @@ func TestBackfillEncryptedPII_RowsAffectedError(t *testing.T) {
 		}
 	}()
 
+	expectColumnListing(mock, "users", "email", "email_encrypted", "email_hash", "full_name", "full_name_encrypted", "full_name_hash", "nickname", "nickname_encrypted", "nickname_hash")
 	mock.ExpectExec(usersBackfillPattern).WillReturnResult(sqlmock.NewErrorResult(errors.New("rows affected error")))
+	expectColumnListing(mock, "email_verifications", "email", "email_encrypted", "email_hash", "token", "token_encrypted")
 	mock.ExpectExec(evBackfillPattern).WillReturnResult(sqlmock.NewResult(0, 0))
 
 	log := newTestLogger(t)
@@ -593,7 +627,9 @@ func TestBackfillEncryptedPII_EmailVerificationsError(t *testing.T) {
 		}
 	}()
 
+	expectColumnListing(mock, "users", "email", "email_encrypted", "email_hash", "full_name", "full_name_encrypted", "full_name_hash", "nickname", "nickname_encrypted", "nickname_hash")
 	mock.ExpectExec(usersBackfillPattern).WillReturnResult(sqlmock.NewResult(0, 1))
+	expectColumnListing(mock, "email_verifications", "email", "email_encrypted", "email_hash", "token", "token_encrypted")
 	mock.ExpectExec(evBackfillPattern).WillReturnError(errors.New("ev failed"))
 
 	log := newTestLogger(t)

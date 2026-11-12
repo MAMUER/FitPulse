@@ -55,7 +55,32 @@ sudo k3s kubectl wait --namespace ingress-nginx \
 	--selector=app.kubernetes.io/name=ingress-nginx \
 	--timeout=120s || {
 	echo 'ingress-nginx not ready (image may not be available). Skipping.'
-	sudo k3s kubectl -n ingress-nginx get pods,deploy,svc || true
+	sudo k3s kubectl -n ingress-nginx get deploy,rs,pods,svc -o wide || true
+	while IFS= read -r pod; do
+		[ -n "$pod" ] || continue
+		phase=$(sudo k3s kubectl -n ingress-nginx get pod "$pod" -o jsonpath='{.status.phase}' 2>/dev/null || echo Unknown)
+		ready=$(sudo k3s kubectl -n ingress-nginx get pod "$pod" -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}' 2>/dev/null || echo Unknown)
+		[ "$ready" = True ] && [ "$phase" != Failed ] && continue
+		echo "::group::Pod diagnostics: ingress-nginx/$pod (phase=$phase, ready=$ready)"
+		sudo k3s kubectl -n ingress-nginx describe pod "$pod" || true
+		containers=$(sudo k3s kubectl -n ingress-nginx get pod "$pod" -o jsonpath='{range .spec.initContainers[*]}{.name}{"\n"}{end}{range .spec.containers[*]}{.name}{"\n"}{end}' 2>/dev/null || true)
+		restarts=$(sudo k3s kubectl -n ingress-nginx get pod "$pod" -o jsonpath='{range .status.initContainerStatuses[*]}{.name}={.restartCount}{"\n"}{end}{range .status.containerStatuses[*]}{.name}={.restartCount}{"\n"}{end}' 2>/dev/null || true)
+		while IFS= read -r container; do
+			[ -n "$container" ] || continue
+			echo "--- Current logs: $container ---"
+			sudo k3s kubectl -n ingress-nginx logs "$pod" -c "$container" --timestamps --tail=150 2>&1 || true
+			restart_count=$(printf '%s\n' "$restarts" | awk -F= -v name="$container" '$1 == name {print $2; exit}')
+			if [ -n "$restart_count" ] && [ "$restart_count" -gt 0 ] 2>/dev/null; then
+				echo "--- Previous logs: $container (restart count: $restart_count) ---"
+				sudo k3s kubectl -n ingress-nginx logs "$pod" -c "$container" --previous --timestamps --tail=150 2>&1 || true
+			fi
+		done <<<"$containers"
+		echo "--- Pod events ---"
+		sudo k3s kubectl -n ingress-nginx get events --field-selector "involvedObject.name=$pod" --sort-by=.lastTimestamp || true
+		echo "::endgroup::"
+	done < <(sudo k3s kubectl -n ingress-nginx get pods -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' 2>/dev/null || true)
+	echo '=== Recent ingress-nginx events ==='
+	sudo k3s kubectl -n ingress-nginx get events --sort-by=.lastTimestamp | tail -50 || true
 	exit 0
 }
 echo 'ingress-nginx is ready'

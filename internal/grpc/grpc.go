@@ -46,6 +46,13 @@ func LoadConfig() Config {
 // NewServer creates a gRPC server suitable for internal communication.
 // TLS is enabled when GRPC_TLS_CERT_FILE and GRPC_TLS_KEY_FILE are set.
 func NewServer(opts ...grpc.ServerOption) *grpc.Server {
+	s, _ := NewServerWithHealth(opts...)
+	return s
+}
+
+// NewServerWithHealth creates a gRPC server and returns its registered health
+// service so callers can publish service-specific health statuses.
+func NewServerWithHealth(opts ...grpc.ServerOption) (*grpc.Server, *health.Server) {
 	creds, err := GetServerTLSCredentials()
 	var serverOpts []grpc.ServerOption
 	if err == nil && creds != nil {
@@ -54,11 +61,10 @@ func NewServer(opts ...grpc.ServerOption) *grpc.Server {
 	serverOpts = append(serverOpts, opts...)
 	s := grpc.NewServer(serverOpts...)
 	// Register health service so servers expose grpc.health.v1.Health.
-	// Each service must NOT register it again to avoid "duplicate service registration".
 	h := health.NewServer()
 	h.SetServingStatus("", grpc_health_v1.HealthCheckResponse_SERVING)
 	grpc_health_v1.RegisterHealthServer(s, h)
-	return s
+	return s, h
 }
 
 // NewClient creates a gRPC client connection with optional TLS.

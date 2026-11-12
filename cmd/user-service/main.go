@@ -23,7 +23,6 @@ import (
 	"golang.org/x/crypto/argon2"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/health"
 	grpc_health_v1 "google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/reflection"
 	"google.golang.org/grpc/status"
@@ -3474,15 +3473,9 @@ func setupGRPCServer(log *logger.Logger, svc *userServer) *grpc.Server {
 		metrics.UnaryServerInterceptor(serviceName),
 	), telemetry.ServerHandlerOption()}
 
-	s := grpctls.NewServer(serverOpts...)
+	s, healthServer := grpctls.NewServerWithHealth(serverOpts...)
 
 	pb.RegisterUserServiceServer(s, svc)
-
-	healthServer := health.NewServer()
-
-	grpc_health_v1.RegisterHealthServer(s, healthServer)
-
-	healthServer.SetServingStatus("", grpc_health_v1.HealthCheckResponse_SERVING)
 
 	healthServer.SetServingStatus("user.v1.UserService", grpc_health_v1.HealthCheckResponse_SERVING)
 

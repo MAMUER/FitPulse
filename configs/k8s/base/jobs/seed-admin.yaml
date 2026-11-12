@@ -99,16 +99,30 @@ spec:
               fi
               echo "-> Checking if admin exists..."
               EXISTING=$(PGPASSWORD="${POSTGRES_PASSWORD}" psql -h "${DB_HOST:-postgres-service}" \
-                -p "${DB_PORT:-5432}" -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" -tAc \
-                "SELECT COUNT(*) FROM users WHERE email = '${SEED_ADMIN_EMAIL}'" 2>/dev/null || echo "0")
-              if [ "${EXISTING:-0}" != "0" ]; then
-                echo "✅ Admin user already exists: ${SEED_ADMIN_EMAIL}"
+                -p "${DB_PORT:-5432}" -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" -v ON_ERROR_STOP=1 \
+                -v email="${SEED_ADMIN_EMAIL}" -tAc \
+                "SELECT EXISTS (SELECT 1 FROM users WHERE email_hash = encode(digest(:'email', 'sha256'), 'hex'))")
+              if [ "${EXISTING}" = "t" ]; then
+                echo "✅ Admin user already exists"
                 exit 0
+              fi
+              KEY_ID=$(PGPASSWORD="${POSTGRES_PASSWORD}" psql -h "${DB_HOST:-postgres-service}" \
+                -p "${DB_PORT:-5432}" -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" -v ON_ERROR_STOP=1 -tAc \
+                "SELECT key_id FROM pgsodium.key WHERE name = 'fitpulse_pii' AND key_type = 'aead-det'")
+              if [ -z "${KEY_ID}" ]; then
+                KEY_ID=$(PGPASSWORD="${POSTGRES_PASSWORD}" psql -h "${DB_HOST:-postgres-service}" \
+                  -p "${DB_PORT:-5432}" -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" -v ON_ERROR_STOP=1 -tAc \
+                  "SELECT (pgsodium.create_key('aead-det'::pgsodium.key_type, 'fitpulse_pii')).key_id")
+              fi
+              if [ -z "${KEY_ID}" ]; then
+                echo "❌ Failed to find or create the pgsodium PII key"
+                exit 1
               fi
               echo "-> Generating password hash (Argon2id, 64MB, 3 iters, 1 parallelism)..."
               HASH=$(PGPASSWORD="${POSTGRES_PASSWORD}" psql -h "${DB_HOST:-postgres-service}" \
-                -p "${DB_PORT:-5432}" -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" -tAc \
-                "SELECT crypt('${SEED_ADMIN_PASSWORD}', gen_salt('argon2id', 'm=65536,t=3,p=1'))" 2>/dev/null)
+                -p "${DB_PORT:-5432}" -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" -v ON_ERROR_STOP=1 \
+                -v password="${SEED_ADMIN_PASSWORD}" -tAc \
+                "SELECT crypt(:'password', gen_salt('argon2id', 'm=65536,t=3,p=1'))")
               if [ -z "${HASH}" ]; then
                 echo "❌ Failed to generate password hash (is pgcrypto extension installed?)"
                 exit 1
@@ -116,21 +130,38 @@ spec:
               echo "Hash generated"
               echo "-> Creating admin user..."
               PGPASSWORD="${POSTGRES_PASSWORD}" psql -h "${DB_HOST:-postgres-service}" \
-                -p "${DB_PORT:-5432}" -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" <<EOF
+                -p "${DB_PORT:-5432}" -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" -v ON_ERROR_STOP=1 \
+                -v email="${SEED_ADMIN_EMAIL}" -v password_hash="${HASH}" -v key_id="${KEY_ID}" <<'SQL'
               BEGIN;
-              INSERT INTO users (id, email, password_hash, full_name, role, email_confirmed, created_at, updated_at)
-              VALUES (
+              WITH admin_data AS (
+                SELECT
+                  :'email'::text AS email,
+                  :'password_hash'::text AS password_hash,
+                  gen_random_bytes(12) AS email_nonce,
+                  gen_random_bytes(12) AS full_name_nonce
+              )
+              INSERT INTO users (
+                id, email_encrypted, email_nonce, email_hash, password_hash,
+                full_name_encrypted, full_name_nonce, full_name_hash,
+                role, email_confirmed, created_at, updated_at
+              )
+              SELECT
                 gen_random_uuid(),
-                '${SEED_ADMIN_EMAIL}',
-                '${HASH}',
-                'System Administrator',
+                pgsodium.crypto_aead_aegis256_encrypt(email, '', :key_id, email_nonce),
+                email_nonce,
+                encode(digest(email, 'sha256'), 'hex'),
+                password_hash,
+                pgsodium.crypto_aead_aegis256_encrypt('System Administrator', '', :key_id, full_name_nonce),
+                full_name_nonce,
+                encode(digest('System Administrator', 'sha256'), 'hex'),
                 'admin',
                 TRUE,
                 NOW(),
                 NOW()
-              );
+              FROM admin_data
+              ON CONFLICT (email_hash) DO NOTHING;
               INSERT INTO user_profiles (user_id)
-              SELECT id FROM users WHERE email = '${SEED_ADMIN_EMAIL}'
+              SELECT id FROM users WHERE email_hash = encode(digest(:'email', 'sha256'), 'hex')
               ON CONFLICT (user_id) DO NOTHING;
               INSERT INTO invite_codes (code, role, max_uses, is_active, created_at)
               SELECT
@@ -144,9 +175,11 @@ spec:
                 SELECT 1 FROM invite_codes WHERE code LIKE 'INVITE-%'
               );
               COMMIT;
-              SELECT 'Admin created: ' || email FROM users WHERE email = '${SEED_ADMIN_EMAIL}';
-              EOF
-              echo "✅ Admin user created successfully"
+              SELECT 'Admin user present' WHERE EXISTS (
+                SELECT 1 FROM users WHERE email_hash = encode(digest(:'email', 'sha256'), 'hex')
+              );
+              SQL
+              echo "✅ Admin user seed completed"
           # Блок env удалён
           volumeMounts:
             - name: secrets

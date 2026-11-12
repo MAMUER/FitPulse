@@ -21,7 +21,6 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/health"
 	"google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -1407,7 +1406,7 @@ func setupGRPCServer(log *logger.Logger, db *sql.DB, trainingSvc service.Trainin
 		middleware.GRPCAuthInterceptor(jwtPublicKeyPEM, log.Logger),
 		metrics.UnaryServerInterceptor(serviceName),
 	), telemetry.ServerHandlerOption()}
-	s := grpctls.NewServer(serverOpts...)
+	s, healthServer := grpctls.NewServerWithHealth(serverOpts...)
 	ts := &trainingServer{
 		db:          db,
 		trainingSvc: trainingSvc,
@@ -1418,12 +1417,8 @@ func setupGRPCServer(log *logger.Logger, db *sql.DB, trainingSvc service.Trainin
 	}
 	pb.RegisterTrainingServiceServer(s, ts)
 
-	// The shared server constructor no longer registers the standard health
-	// service, so each service owns its health state. The empty service name
-	// covers generic probes; the fully qualified name covers gRPC clients.
-	healthServer := health.NewServer()
-	grpc_health_v1.RegisterHealthServer(s, healthServer)
-	healthServer.SetServingStatus("", grpc_health_v1.HealthCheckResponse_SERVING)
+	// The shared constructor registers the health service; publish the service
+	// name on that instance so gRPC clients and generic probes share its state.
 	healthServer.SetServingStatus("training.v1.TrainingService", grpc_health_v1.HealthCheckResponse_SERVING)
 
 	return s, ts

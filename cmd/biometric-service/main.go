@@ -621,13 +621,13 @@ func (s *biometricServer) DeleteRecord(ctx context.Context, req *pb.DeleteRecord
 	return &pb.DeleteRecordResponse{Deleted: true}, nil
 }
 
-func createGRPCServer(log *logger.Logger, jwtPublicKeyPEM string) *grpc.Server {
+func createGRPCServer(log *logger.Logger, jwtPublicKeyPEM string) (*grpc.Server, *health.Server) {
 	serverOpts := []grpc.ServerOption{grpc.ChainUnaryInterceptor(
 		middleware.CorrelationIDGRPC(),
 		middleware.GRPCAuthInterceptor(jwtPublicKeyPEM, log.Logger),
 		metrics.UnaryServerInterceptor(serviceName),
 	), telemetry.ServerHandlerOption()}
-	return grpctls.NewServer(serverOpts...)
+	return grpctls.NewServerWithHealth(serverOpts...)
 }
 
 func startMetricsServer(srv *http.Server, log *logger.Logger) {
@@ -694,12 +694,12 @@ func main() {
 
 	port, metricsPort, webhookPort, jwtPublicKeyPEM, dbCfg := loadBiometricConfig()
 	database, pgxPool, biometricSvc, rabbitQueue := initBiometricDependencies(dbCfg, log)
-	grpcServer := createBiometricGRPCServer(log, jwtPublicKeyPEM)
+	grpcServer, healthServer := createBiometricGRPCServer(log, jwtPublicKeyPEM)
 	metricsSrv := buildMetricsServer(metricsPort, log)
 	webhookSrv := startWebhookServer(webhookPort, database, log)
 
-	registerBiometricGRPC(grpcServer, database, biometricSvc, rabbitQueue, log)
-	startHealthChecks(database, rabbitQueue, log)
+	registerBiometricGRPC(grpcServer, database, biometricSvc, rabbitQueue, healthServer, log)
+	startHealthChecks(database, rabbitQueue, healthServer, log)
 
 	lis, err := net.Listen("tcp", ":"+port) // #nosec G102
 	if err != nil {
@@ -786,7 +786,7 @@ func initBiometricDependencies(dbCfg db.Config, log *logger.Logger) (*sql.DB, *p
 	return database, pgxPool, biometricSvc, rabbitQueue
 }
 
-func createBiometricGRPCServer(log *logger.Logger, jwtPublicKeyPEM string) *grpc.Server {
+func createBiometricGRPCServer(log *logger.Logger, jwtPublicKeyPEM string) (*grpc.Server, *health.Server) {
 	return createGRPCServer(log, jwtPublicKeyPEM)
 }
 
@@ -802,19 +802,16 @@ func startWebhookServer(webhookPort string, database *sql.DB, log *logger.Logger
 	return webhookSrv
 }
 
-func registerBiometricGRPC(grpcServer *grpc.Server, database *sql.DB, biometricSvc service.BiometricService, rabbitQueue queue.Publisher, log *logger.Logger) {
-	healthServer := health.NewServer()
+func registerBiometricGRPC(grpcServer *grpc.Server, database *sql.DB, biometricSvc service.BiometricService, rabbitQueue queue.Publisher, healthServer *health.Server, log *logger.Logger) {
 	pb.RegisterBiometricServiceServer(grpcServer, &biometricServer{
 		db:           database,
 		biometricSvc: biometricSvc,
 		log:          log,
 		rabbitQueue:  rabbitQueue,
 	})
-	grpc_health_v1.RegisterHealthServer(grpcServer, healthServer)
-	startHealthCheckLoop(database, rabbitQueue, healthServer, log)
+	healthServer.SetServingStatus("biometric.v1.BiometricService", grpc_health_v1.HealthCheckResponse_SERVING)
 }
 
-func startHealthChecks(db *sql.DB, rq queue.Publisher, log *logger.Logger) {
-	healthServer := health.NewServer()
+func startHealthChecks(db *sql.DB, rq queue.Publisher, healthServer *health.Server, log *logger.Logger) {
 	startHealthCheckLoop(db, rq, healthServer, log)
 }

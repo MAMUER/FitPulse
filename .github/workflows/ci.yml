@@ -1403,13 +1403,6 @@ jobs:
       - name: Check service logs for errors
         if: steps.connectivity.outputs.reachable == 'true'
         run: bash scripts/ci/deploy-production.sh check_logs
-      - name: Debug pod status after deploy
-        if: always() && steps.connectivity.outputs.reachable == 'true'
-        env:
-          VPS_HOST: ${{ secrets.VPS_HOST }}
-          VPS_PORT: ${{ secrets.VPS_PORT }}
-          VPS_USER: ${{ secrets.VPS_USER }}
-        run: bash scripts/ci/deploy-production.sh debug_pod_status
       - name: Verify production deployment
         if: steps.connectivity.outputs.reachable == 'true'
         env:
@@ -1423,6 +1416,13 @@ jobs:
           VPS_HOST: ${{ secrets.VPS_HOST }}
           VPS_PORT: ${{ secrets.VPS_PORT }}
         run: bash scripts/ci/deploy-production.sh deploy_open_wearables
+      - name: Debug pod status after deploy
+        if: always() && steps.connectivity.outputs.reachable == 'true'
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+        run: bash scripts/ci/deploy-production.sh debug_pod_status
 
   # ============================================================================
   # PHASE 8: PARALLEL POST-DEPLOYMENT TESTS

@@ -6,6 +6,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/grpc/health/grpc_health_v1"
 )
 
 func TestNewServer(t *testing.T) {
@@ -19,6 +20,17 @@ func TestHealthCheckRegistered(t *testing.T) {
 
 	serviceInfo := s.GetServiceInfo()
 	_, ok := serviceInfo["grpc.health.v1.Health"]
+	assert.True(t, ok, "Health service should be registered")
+}
+
+func TestNewServerWithHealthReturnsRegisteredHealthService(t *testing.T) {
+	s, healthServer := NewServerWithHealth()
+	defer s.Stop()
+
+	require.NotNil(t, healthServer)
+	healthServer.SetServingStatus("test.Service", grpc_health_v1.HealthCheckResponse_SERVING)
+
+	_, ok := s.GetServiceInfo()["grpc.health.v1.Health"]
 	assert.True(t, ok, "Health service should be registered")
 }
 

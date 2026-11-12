@@ -239,6 +239,46 @@ verify_deployment() {
 	sleep 30
 }
 
+diagnose_unready_pods() {
+	local namespace="$1"
+	local pods pod phase ready container_names restart_status container restart_count
+
+	echo "=== Resource status in namespace $namespace ==="
+	kubectl get deploy,statefulset,job,pods -n "$namespace" -o wide 2>&1 || true
+	pods=$(kubectl get pods -n "$namespace" -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' 2>/dev/null || true)
+
+	while IFS= read -r pod; do
+		[[ -z "$pod" ]] && continue
+		phase=$(kubectl get pod "$pod" -n "$namespace" -o jsonpath='{.status.phase}' 2>/dev/null || echo "Unknown")
+		[[ "$phase" == "Succeeded" ]] && continue
+		ready=$(kubectl get pod "$pod" -n "$namespace" -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}' 2>/dev/null || echo "Unknown")
+		if [[ "$ready" == "True" && "$phase" != "Failed" ]]; then
+			continue
+		fi
+
+		echo "::group::Pod diagnostics: $namespace/$pod (phase=$phase, ready=$ready)"
+		kubectl describe pod "$pod" -n "$namespace" 2>&1 || true
+		container_names=$(kubectl get pod "$pod" -n "$namespace" -o jsonpath='{range .spec.initContainers[*]}{.name}{"\n"}{end}{range .spec.containers[*]}{.name}{"\n"}{end}' 2>/dev/null || true)
+		restart_status=$(kubectl get pod "$pod" -n "$namespace" -o jsonpath='{range .status.initContainerStatuses[*]}{.name}={.restartCount}{"\n"}{end}{range .status.containerStatuses[*]}{.name}={.restartCount}{"\n"}{end}' 2>/dev/null || true)
+		while IFS= read -r container; do
+			[[ -z "$container" ]] && continue
+			echo "--- Current logs: $container ---"
+			kubectl logs "$pod" -n "$namespace" -c "$container" --timestamps --tail=150 2>&1 || true
+			restart_count=$(printf '%s\n' "$restart_status" | awk -F= -v name="$container" '$1 == name {print $2; exit}')
+			if [[ "$restart_count" =~ ^[0-9]+$ ]] && ((restart_count > 0)); then
+				echo "--- Previous logs: $container (restart count: $restart_count) ---"
+				kubectl logs "$pod" -n "$namespace" -c "$container" --previous --timestamps --tail=150 2>&1 || true
+			fi
+		done <<<"$container_names"
+		echo "--- Pod events ---"
+		kubectl get events -n "$namespace" --field-selector "involvedObject.name=$pod" --sort-by=.lastTimestamp 2>&1 || true
+		echo "::endgroup::"
+	done <<<"$pods"
+
+	echo "=== Recent events in namespace $namespace ==="
+	kubectl get events -n "$namespace" --sort-by=.lastTimestamp 2>&1 | tail -50 || true
+}
+
 deploy_open_wearables() {
 	echo "=== Deploying Open Wearables ==="
 	kubectl apply -f configs/k8s/base/jobs/create-open-wearables-db.yaml -n fitness-platform-production
@@ -261,27 +301,15 @@ debug_pod_status() {
 		fi
 		sleep 5
 	done
-	echo "=== Checking pod status ==="
-	kubectl get pods -n fitness-platform-production -o wide || true
-	echo ""
-	echo "=== Logs for gateway deployment ==="
-	kubectl logs deployment/gateway -n fitness-platform-production --tail=100 || echo "No logs for gateway"
-	echo ""
-	echo "=== Logs for user-service deployment ==="
-	kubectl logs deployment/user-service -n fitness-platform-production --tail=100 || echo "No logs for user-service"
-	echo ""
-	echo "=== Logs for RabbitMQ (if exists) ==="
-	kubectl logs statefulset/rabbitmq -n fitness-platform-production --tail=50 || echo "RabbitMQ not running"
-	echo ""
-	echo "=== Recent events ==="
-	kubectl get events -n fitness-platform-production --sort-by=.lastTimestamp | tail -20 || true
+	diagnose_unready_pods fitness-platform-production
+	diagnose_unready_pods ingress-nginx
 }
 
 check_logs() {
 	echo "Waiting for pods to stabilize..."
 	sleep 30
 	echo "Checking pod status..."
-	kubectl get pods -n fitness-platform-production
+	kubectl get pods -n fitness-platform-production -o wide
 	echo "Checking logs for critical errors..." >&2
 	ERROR_FOUND=0
 	for dep in user-service training-service rabbitmq; do
@@ -297,9 +325,10 @@ check_logs() {
 			ERROR_FOUND=1
 		fi
 	done
-	for app in user-service training-service biometric-service gateway device-aggregator classifier valkey; do
-		if ! kubectl get pods -l app=$app -n fitness-platform-production | grep -q Running; then
-			echo "::warning::Pod(s) for $app are not Running"
+	for app in user-service training-service biometric-service gateway device-aggregator classifier valkey ml-generator open-wearables open-wearables-frontend; do
+		READY_PODS=$(kubectl get pods -l "app=$app" -n fitness-platform-production -o jsonpath='{range .items[*]}{.status.conditions[?(@.type=="Ready")].status}{"\n"}{end}' 2>/dev/null | grep -c '^True$' || true)
+		if [[ "$READY_PODS" -eq 0 ]]; then
+			echo "::warning::No Ready pod found for $app"
 			ERROR_FOUND=1
 		fi
 	done
