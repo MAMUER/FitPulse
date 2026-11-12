@@ -143,10 +143,10 @@ spec:
             timeoutSeconds: 3
           resources:
             requests:
-              cpu: "50m"
-              memory: "64Mi"
+              cpu: "250m"
+              memory: "256Mi"
               ephemeral-storage: "100Mi"
             limits:
-              cpu: "150m"
-              memory: "128Mi"
+              cpu: "1000m"
+              memory: "512Mi"
               ephemeral-storage: "200Mi"

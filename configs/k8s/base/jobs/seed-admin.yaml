@@ -37,7 +37,7 @@ spec:
         seccompProfile:
           type: RuntimeDefault
       serviceAccountName: app-service-account
-      restartPolicy: OnFailure
+      restartPolicy: Never
       volumes:
         - name: secrets
           secret:
@@ -68,7 +68,7 @@ spec:
           command: ["/bin/sh", "-c"]
           args:
             - |
-              set -euo pipefail
+              set -eu
               export POSTGRES_USER=$(cat /etc/secrets/POSTGRES_USER)
               export POSTGRES_PASSWORD=$(cat /etc/secrets/POSTGRES_PASSWORD)
               export POSTGRES_DB=$(cat /etc/secrets/POSTGRES_DB)

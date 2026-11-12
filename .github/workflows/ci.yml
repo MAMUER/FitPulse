@@ -1512,9 +1512,9 @@ jobs:
   playwright-e2e:
     name: Playwright E2E Tests
     runs-on: ubuntu-latest
-    needs: [frontend]
+    needs: [deploy-vps]
     timeout-minutes: 15
-    if: always() && needs.frontend.result == 'success'
+    if: always() && needs.deploy-vps.result == 'success'
     steps:
       - run: git config --global init.defaultBranch main
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1

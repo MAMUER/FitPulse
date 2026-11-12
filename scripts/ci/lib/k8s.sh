@@ -201,7 +201,7 @@ run_seed_admin() {
 		else
 			echo "  [$(date +%H:%M:%S)] Waiting for seed-admin pod..."
 		fi
-		if [[ "$(( $(date +%s) - MONITOR_START ))" -ge 300 ]]; then
+		if [[ "$(($(date +%s) - MONITOR_START))" -ge 300 ]]; then
 			echo "::error::Timed out waiting for seed-admin job after 300 seconds" >&2
 			break
 		fi
@@ -215,13 +215,21 @@ run_seed_admin() {
 		echo "::error::seed-admin job did not complete; collecting diagnostics before cleanup" >&2
 		diagnose_job fitness-platform-production seed-admin
 		echo "-> Checking whether admin exists using the encrypted-email hash..."
-		DB_CHECK=$(kubectl exec -n fitness-platform-production postgres-0 -- \
-			psql -U "${POSTGRES_USER:-postgres}" -d "${POSTGRES_DB:-fitness}" -v ON_ERROR_STOP=1 \
-			-v email="${SEED_ADMIN_EMAIL}" -tAc \
-			"SELECT EXISTS (SELECT 1 FROM users WHERE email_hash = encode(digest(:'email', 'sha256'), 'hex'))" 2>&1) || {
-				echo "::error::Could not verify whether the admin user exists: $DB_CHECK" >&2
-				SEED_STATUS=1
-			}
+		DB_CHECK=$(kubectl exec -i -n fitness-platform-production postgres-0 -- sh -c '
+			export PGPASSWORD="$(cat /etc/secrets/POSTGRES_PASSWORD)"
+			exec psql -U "$(cat /etc/secrets/POSTGRES_USER)" \
+				-d "$(cat /etc/secrets/POSTGRES_DB)" \
+				-v ON_ERROR_STOP=1 -v email="$1" -At
+		' sh "$SEED_ADMIN_EMAIL" 2>&1 <<'SQL'
+		SELECT EXISTS (
+			SELECT 1 FROM users
+			WHERE email_hash = encode(digest(:'email', 'sha256'), 'hex')
+		);
+SQL
+		) || {
+			echo "::error::Could not verify whether the admin user exists: $DB_CHECK" >&2
+			SEED_STATUS=1
+		}
 		if [[ "$DB_CHECK" == "t" ]]; then
 			echo "✅ Admin user exists in database (idempotent check passed)"
 		else

@@ -46,12 +46,11 @@ spec:
           # checkov:skip=CKV_K8S_43: Known public image; digest pinned for reproducibility
           image: registry.k8s.io/ingress-nginx/controller:v1.11.3
           imagePullPolicy: IfNotPresent
-          # The image entrypoint is dumb-init, so the first argument must be the
-          # controller binary followed by its flags. --admission-webhooks is not
-          # a valid flag in v1.11.3 (webhooks are enabled by installing their
-          # manifests, not by a controller flag).
-          args:
+          # Bypass the image's dumb-init entrypoint: it cannot execute under
+          # the cluster's restricted runtime security policy.
+          command:
             - /nginx-ingress-controller
+          args:
             - --publish-service=$(POD_NAMESPACE)/ingress-nginx-controller
             - --configmap=$(POD_NAMESPACE)/ingress-nginx-controller
             - --ingress-class=nginx
