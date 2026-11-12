@@ -10,10 +10,8 @@ configMapGenerator:
 
 resources:
   - backup-scripts-configmap.yaml
-  - create-open-wearables-db.yaml
-  - migrate-db.yaml
+  # One-shot Jobs are run explicitly by CI so migrations and setup stay sequential.
   - postgres-backup-cronjob.yaml
   - postgres-backup-pvc.yaml
   - postgres-wal-archive-cronjob.yaml
-  - seed-admin.yaml
   - update-modsecurity-crs.yaml

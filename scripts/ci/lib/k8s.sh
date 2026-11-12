@@ -119,6 +119,7 @@ run_migrations() {
 		# "relation pgsodium.key does not exist"). Surface the reason and stop.
 		echo "::error::migrate-db job did not complete — dumping diagnostics" >&2
 		kubectl describe job migrate-db -n fitness-platform-production || true
+		kubectl describe pod -n fitness-platform-production -l app=migrate-db || true
 		kubectl logs job/migrate-db -n fitness-platform-production --all-containers --tail=100 || true
 		kubectl get pods -n fitness-platform-production -l app=migrate-db -o wide || true
 		return 1

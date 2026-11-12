@@ -27,7 +27,7 @@ import_problem_images() {
 	# Authenticate to Docker Hub to avoid anonymous pull rate limits.
 	# DOCKER_USERNAME/DOCKER_PASSWORD are optional; if unset, fall back to anon.
 	if [[ -n "${DOCKER_USERNAME:-}" && -n "${DOCKER_PASSWORD:-}" ]]; then
-		echo "${DOCKER_PASSWORD}" | docker login docker.io -u "${DOCKER_USERNAME}" --password-stdin >/dev/null 2>&1 || \
+		echo "${DOCKER_PASSWORD}" | docker login docker.io -u "${DOCKER_USERNAME}" --password-stdin >/dev/null 2>&1 ||
 			log_warn "Docker Hub login failed, continuing anonymously"
 	fi
 	for img in "${PROBLEM_IMAGES[@]}"; do

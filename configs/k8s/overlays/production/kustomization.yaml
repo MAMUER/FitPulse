@@ -14,6 +14,33 @@ patches:
       kind: Deployment
       name: ingress-nginx-controller
       namespace: ingress-nginx
+  - target:
+      group: apps
+      version: v1
+      kind: Deployment
+      labelSelector: environment=production
+    patch: |-
+      - op: add
+        path: /spec/replicas
+        value: 1
+      - op: add
+        path: /spec/strategy
+        value:
+          type: RollingUpdate
+          rollingUpdate:
+            maxSurge: 0
+            maxUnavailable: 1
+  - target:
+      group: policy
+      version: v1
+      kind: PodDisruptionBudget
+      labelSelector: environment=production
+    patch: |-
+      - op: remove
+        path: /spec/minAvailable
+      - op: add
+        path: /spec/maxUnavailable
+        value: 1
 images:
   - name: ghcr.io/mamuer/project/user-service
     newTag: latest

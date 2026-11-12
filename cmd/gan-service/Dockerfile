@@ -23,7 +23,8 @@ FROM python:3.14-slim
 WORKDIR /app
 
 COPY cmd/gan-service/requirements.txt /tmp/requirements.txt
-RUN pip install \
+RUN pip install --no-cache-dir --only-binary :all: --index-url https://pypi.org/simple --upgrade "pip==26.3" && \
+    pip install \
     --extra-index-url https://pypi.org/simple \
     --index-url https://download.pytorch.org/whl/cpu \
     --no-cache-dir \
