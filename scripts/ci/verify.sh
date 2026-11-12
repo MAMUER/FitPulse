@@ -16,7 +16,7 @@ check_ssl() {
 
 health_check() {
 	echo "🔍 Checking production health via HTTPS..."
-	for _ in {1..42}; do
+	for i in {1..42}; do
 		RESPONSE=$(curl -skf --max-time 5 "https://$FITPULSE_DOMAIN/health" 2>/dev/null || echo "")
 		if [[ -n "$RESPONSE" ]]; then
 			echo "Health response: $RESPONSE"

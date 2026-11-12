@@ -558,6 +558,25 @@ jobs:
           COVERAGE_THRESHOLD: "60"
         run: bash scripts/ci/coverage-check.sh
 
+  smoke-test:
+    name: Smoke Test (testcontainers-go)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    needs: [test]
+    timeout-minutes: 20
+    if: always() && needs.test.result == 'success'
+    steps:
+      - run: git config --global init.defaultBranch main
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+      - name: Run testcontainers smoke test
+        run: bash scripts/ci/test.sh run_smoke_tests
+
   contract:
     name: Contract Tests
     runs-on: ubuntu-latest
@@ -1205,7 +1224,7 @@ jobs:
     runs-on: ubuntu-latest
     # binary_build dropped from the gate: deploy only pulls the "kubeconfig"
     # artifact, so Build Binaries runs in parallel instead of blocking the deploy.
-    needs: [detect-changes, docker, provision-k8s-vps, test]
+    needs: [detect-changes, docker, provision-k8s-vps, test, smoke-test]
     timeout-minutes: 60
     environment:
       name: production
@@ -1400,9 +1419,6 @@ jobs:
       - name: Restart application deployments
         if: steps.connectivity.outputs.reachable == 'true'
         run: bash scripts/ci/deploy-production.sh restart_app_deployments
-      - name: Check service logs for errors
-        if: steps.connectivity.outputs.reachable == 'true'
-        run: bash scripts/ci/deploy-production.sh check_logs
       - name: Verify production deployment
         if: steps.connectivity.outputs.reachable == 'true'
         env:
@@ -1416,6 +1432,9 @@ jobs:
           VPS_HOST: ${{ secrets.VPS_HOST }}
           VPS_PORT: ${{ secrets.VPS_PORT }}
         run: bash scripts/ci/deploy-production.sh deploy_open_wearables
+      - name: Check service logs and readiness
+        if: steps.connectivity.outputs.reachable == 'true'
+        run: bash scripts/ci/deploy-production.sh check_logs
       - name: Debug pod status after deploy
         if: always() && steps.connectivity.outputs.reachable == 'true'
         env:
@@ -1452,6 +1471,38 @@ jobs:
       - name: Prepare target URL
         id: target
         run: bash scripts/ci/ci-helpers.sh prepare_target_url
+      - name: Wait for production API health
+        env:
+          BASE_URL: ${{ steps.target.outputs.target }}
+        run: |
+          ready=false
+          for attempt in {1..6}; do
+            response=""
+            if response=$(curl -sS --connect-timeout 5 --max-time 10 \
+              -w $'\nHTTP_STATUS:%{http_code}' "${BASE_URL%/}/health" 2>&1); then
+              curl_status=0
+            else
+              curl_status=$?
+            fi
+            http_status=$(printf '%s\n' "$response" | sed -n 's/^HTTP_STATUS://p' | tail -1)
+            response_body=$(printf '%s\n' "$response" | sed '/^HTTP_STATUS:/d')
+            if [[ "$curl_status" -eq 0 && "$http_status" == "200" ]]; then
+              echo "Production API health check passed (HTTP 200)"
+              ready=true
+              break
+            fi
+            echo "Health attempt $attempt/6 failed (curl=$curl_status, HTTP=${http_status:-unknown}): ${response_body:0:300}"
+            if [[ "$attempt" -lt 6 ]]; then
+              sleep 10
+            fi
+          done
+          if [[ "$ready" != true ]]; then
+            echo "::error::Production API did not become healthy at ${BASE_URL%/}/health"
+            kubectl get pods -n fitness-platform-production -o wide || true
+            kubectl get ingress,svc,endpoints -n fitness-platform-production -o wide || true
+            kubectl get events -n fitness-platform-production --sort-by=.lastTimestamp | tail -50 || true
+            exit 1
+          fi
       - name: Run UAT tests
         env:
           BASE_URL: ${{ steps.target.outputs.target }}
@@ -1461,9 +1512,9 @@ jobs:
   playwright-e2e:
     name: Playwright E2E Tests
     runs-on: ubuntu-latest
-    needs: [deploy-vps]
+    needs: [frontend]
     timeout-minutes: 15
-    if: always() && needs.deploy-vps.result == 'success'
+    if: always() && needs.frontend.result == 'success'
     steps:
       - run: git config --global init.defaultBranch main
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -1569,25 +1620,6 @@ jobs:
         env:
           CSP_DOMAIN: "https://${{ env.FITPULSE_DOMAIN }}"
         run: bash scripts/ci/verify.sh check_csp
-
-  smoke-test:
-    name: Smoke Test (testcontainers-go)
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    needs: [deploy-vps]
-    timeout-minutes: 20
-    if: always() && needs.deploy-vps.result == 'success'
-    steps:
-      - run: git config --global init.defaultBranch main
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-      - name: Set up Go
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
-        with:
-          go-version: ${{ env.GO_VERSION }}
-          cache: true
-      - name: Run testcontainers smoke test
-        run: bash scripts/ci/test.sh run_smoke_tests
 
   # ============================================================================
   # PHASE 9: SECURITY POST-DEPLOY & RELEASE

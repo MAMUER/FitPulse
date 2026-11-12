@@ -312,6 +312,7 @@ check_logs() {
 	kubectl get pods -n fitness-platform-production -o wide
 	echo "Checking logs for critical errors..." >&2
 	ERROR_FOUND=0
+	UNREADY_FOUND=0
 	for dep in user-service training-service rabbitmq; do
 		echo "=== Logs for $dep ==="
 		if [[ "$dep" == "rabbitmq" ]]; then
@@ -330,11 +331,22 @@ check_logs() {
 		if [[ "$READY_PODS" -eq 0 ]]; then
 			echo "::warning::No Ready pod found for $app"
 			ERROR_FOUND=1
+			UNREADY_FOUND=1
 		fi
 	done
+	READY_INGRESS_PODS=$(kubectl get pods -l app.kubernetes.io/name=ingress-nginx -n ingress-nginx -o jsonpath='{range .items[*]}{.status.conditions[?(@.type=="Ready")].status}{"\n"}{end}' 2>/dev/null | grep -c '^True$' || true)
+	if [[ "$READY_INGRESS_PODS" -eq 0 ]]; then
+		echo "::warning::No Ready ingress-nginx pod found"
+		ERROR_FOUND=1
+		UNREADY_FOUND=1
+	fi
 	if [[ $ERROR_FOUND -eq 1 ]]; then
 		echo "::warning::Critical errors detected, continuing deployment" >&2
 	else
 		echo "✅ No critical errors found, all services are healthy" >&2
+	fi
+	if [[ "$UNREADY_FOUND" -eq 1 ]]; then
+		echo "::error::Production services are not Ready; stopping deployment before external tests" >&2
+		return 1
 	fi
 }

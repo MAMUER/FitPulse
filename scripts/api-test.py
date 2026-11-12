@@ -42,6 +42,7 @@ class TestRunner:
         self.failed = 0
         self.skipped = 0
         self.results = []
+        self.last_status = None
         self.parsed_base_url = urlsplit(self.base_url)
         self.host = self.parsed_base_url.hostname
         try:
@@ -117,11 +118,13 @@ class TestRunner:
         print(f"  [{num}] {name} ", end="", flush=True)
 
         status, resp_body = self.request(method, path, body, token=token)
+        self.last_status = status
 
         if status is None:
-            print(f"{RED}ERROR (connection){RESET}")
+            error = resp_body.get("error", "unknown connection error")
+            print(f"{RED}ERROR (connection: {error}){RESET}")
             self.failed += 1
-            self.results.append(f"FAIL | {method} {path} | CONNECTION ERROR")
+            self.results.append(f"FAIL | {method} {path} | CONNECTION ERROR: {error}")
             return resp_body
 
         ok = status == expected
@@ -148,6 +151,7 @@ def section(title):
 def test_health(t):
     section("0. HEALTH")
     t.test("Health", "GET", "/health", expected=200)
+    return t.last_status == 200
 
 
 def test_auth(t, test_email):
@@ -400,7 +404,10 @@ def main():
     print(f"  Test User: {test_email}")
     print()
 
-    test_health(t)
+    if not test_health(t):
+        print(f"\n{RED}Health check failed; skipping the remaining API tests.{RESET}")
+        print_summary(t)
+        return
     test_auth(t, test_email)
     test_profile(t)
     test_biometrics(t)

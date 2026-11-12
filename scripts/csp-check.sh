@@ -18,14 +18,32 @@ echo "  CSP Headers Check"
 echo "  Domain: $DOMAIN"
 echo "============================================"
 
-HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 30 --retry 3 --retry-delay 5 "$DOMAIN")
-if [[ "$HTTP_CODE" -ne 200 ]]; then
-	echo "❌ FAIL: Site returned HTTP $HTTP_CODE"
+HTTP_CODE=""
+for attempt in {1..6}; do
+	if CURL_OUTPUT=$(curl -sS -o /dev/null -w "HTTP %{http_code}" \
+		--connect-timeout 5 --max-time 10 "$DOMAIN" 2>&1); then
+		HTTP_CODE="${CURL_OUTPUT#HTTP }"
+		if [[ "$HTTP_CODE" == "200" ]]; then
+			break
+		fi
+		echo "Attempt $attempt/6: site returned $CURL_OUTPUT"
+	else
+		echo "Attempt $attempt/6: request failed: $CURL_OUTPUT"
+	fi
+	if [[ "$attempt" -lt 6 ]]; then
+		sleep 10
+	fi
+done
+if [[ "$HTTP_CODE" != "200" ]]; then
+	echo "::error::Site did not return HTTP 200 after 6 attempts (last status: ${HTTP_CODE:-unavailable})"
 	exit 1
 fi
 echo "✅ Site is accessible (HTTP 200)"
 
-HEADERS=$(curl -s -I --max-time 30 --retry 3 --retry-delay 5 "$DOMAIN")
+if ! HEADERS=$(curl -sS -I --connect-timeout 5 --max-time 15 "$DOMAIN"); then
+	echo "::error::Could not retrieve response headers from $DOMAIN"
+	exit 1
+fi
 MISSING=()
 
 for header in "${EXPECTED_HEADERS[@]}"; do
