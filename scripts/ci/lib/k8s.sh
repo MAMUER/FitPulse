@@ -215,7 +215,9 @@ run_seed_admin() {
 		echo "::error::seed-admin job did not complete; collecting diagnostics before cleanup" >&2
 		diagnose_job fitness-platform-production seed-admin
 		echo "-> Checking whether admin exists using the encrypted-email hash..."
-		DB_CHECK=$(kubectl exec -i -n fitness-platform-production postgres-0 -- sh -c '
+		# shellcheck disable=SC2016
+		DB_CHECK=$(
+			kubectl exec -i -n fitness-platform-production postgres-0 -- sh -c '
 			export PGPASSWORD="$(cat /etc/secrets/POSTGRES_PASSWORD)"
 			exec psql -U "$(cat /etc/secrets/POSTGRES_USER)" \
 				-d "$(cat /etc/secrets/POSTGRES_DB)" \
