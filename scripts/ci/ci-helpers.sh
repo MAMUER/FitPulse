@@ -248,12 +248,12 @@ add_vps_to_known_hosts() {
 	if [[ -n "${VPS_PORT:-}" ]]; then
 		echo "Scanning host: ${VPS_HOST} on custom port: ${VPS_PORT}"
 		# Сканируем с явным указанием порта
-		ssh-keyscan -H -p "${VPS_PORT}" "${VPS_HOST}" >> ~/.ssh/known_hosts 2>/dev/null || true
+		ssh-keyscan -H -p "${VPS_PORT}" "${VPS_HOST}" >>~/.ssh/known_hosts 2>/dev/null || true
 		# Добавляем также в формате [IP]:PORT, который иногда требует строгий SSH-клиент
-		ssh-keyscan -H -p "${VPS_PORT}" "[${VPS_HOST}]:${VPS_PORT}" >> ~/.ssh/known_hosts 2>/dev/null || true
+		ssh-keyscan -H -p "${VPS_PORT}" "[${VPS_HOST}]:${VPS_PORT}" >>~/.ssh/known_hosts 2>/dev/null || true
 	else
 		echo "Scanning host: ${VPS_HOST} on default port 22"
-		ssh-keyscan -H "${VPS_HOST}" >> ~/.ssh/known_hosts 2>/dev/null || true
+		ssh-keyscan -H "${VPS_HOST}" >>~/.ssh/known_hosts 2>/dev/null || true
 	fi
 
 	echo "✅ SSH known_hosts configured"
