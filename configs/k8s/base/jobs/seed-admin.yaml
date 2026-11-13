@@ -74,6 +74,7 @@ spec:
               export POSTGRES_DB=$(cat /etc/secrets/POSTGRES_DB)
               export SEED_ADMIN_EMAIL=$(cat /etc/secrets/SEED_ADMIN_EMAIL)
               export SEED_ADMIN_PASSWORD=$(cat /etc/secrets/SEED_ADMIN_PASSWORD)
+              export SEED_ADMIN_HASH=$(cat /etc/secrets/SEED_ADMIN_HASH)
               echo "=== FitPulse Admin Seed ==="
               echo "Timestamp: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
               echo "Email: ${SEED_ADMIN_EMAIL}"
@@ -98,10 +99,14 @@ spec:
                 exit 1
               fi
               echo "-> Checking if admin exists..."
+              # psql -c does not expand :'var' placeholders (they are psql-specific
+              # features, which -c rejects), so feed the query on stdin instead.
               EXISTING=$(PGPASSWORD="${POSTGRES_PASSWORD}" psql -h "${DB_HOST:-postgres-service}" \
                 -p "${DB_PORT:-5432}" -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" -v ON_ERROR_STOP=1 \
-                -v email="${SEED_ADMIN_EMAIL}" -tAc \
-                "SELECT EXISTS (SELECT 1 FROM users WHERE email_hash = encode(digest(:'email', 'sha256'), 'hex'))")
+                -v email="${SEED_ADMIN_EMAIL}" -tA <<'SQL'
+              SELECT EXISTS (SELECT 1 FROM users WHERE email_hash = encode(convert_to(btrim(:'email'), 'UTF8'), 'hex'));
+              SQL
+              )
               if [ "${EXISTING}" = "t" ]; then
                 echo "✅ Admin user already exists"
                 exit 0
@@ -118,20 +123,17 @@ spec:
                 echo "❌ Failed to find or create the pgsodium PII key"
                 exit 1
               fi
-              echo "-> Generating password hash (Argon2id, 64MB, 3 iters, 1 parallelism)..."
-              HASH=$(PGPASSWORD="${POSTGRES_PASSWORD}" psql -h "${DB_HOST:-postgres-service}" \
-                -p "${DB_PORT:-5432}" -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" -v ON_ERROR_STOP=1 \
-                -v password="${SEED_ADMIN_PASSWORD}" -tAc \
-                "SELECT crypt(:'password', gen_salt('argon2id', 'm=65536,t=3,p=1'))")
-              if [ -z "${HASH}" ]; then
-                echo "❌ Failed to generate password hash (is pgcrypto extension installed?)"
+              # pgcrypto's gen_salt() has no Argon2id support, so the hash is
+              # generated in CI by cmd/hash-password and stored in app-secrets.
+              if [ -z "${SEED_ADMIN_HASH}" ]; then
+                echo "❌ SEED_ADMIN_HASH is empty (app-secrets lacks the Argon2id hash)"
                 exit 1
               fi
-              echo "Hash generated"
+              echo "-> Using precomputed Argon2id password hash"
               echo "-> Creating admin user..."
               PGPASSWORD="${POSTGRES_PASSWORD}" psql -h "${DB_HOST:-postgres-service}" \
                 -p "${DB_PORT:-5432}" -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" -v ON_ERROR_STOP=1 \
-                -v email="${SEED_ADMIN_EMAIL}" -v password_hash="${HASH}" -v key_id="${KEY_ID}" <<'SQL'
+                -v email="${SEED_ADMIN_EMAIL}" -v password_hash="${SEED_ADMIN_HASH}" -v key_id="${KEY_ID}" <<'SQL'
               BEGIN;
               WITH admin_data AS (
                 SELECT
@@ -149,11 +151,11 @@ spec:
                 gen_random_uuid(),
                 pgsodium.crypto_aead_aegis256_encrypt(email, '', :key_id, email_nonce),
                 email_nonce,
-                encode(digest(email, 'sha256'), 'hex'),
+                encode(convert_to(btrim(email), 'UTF8'), 'hex'),
                 password_hash,
                 pgsodium.crypto_aead_aegis256_encrypt('System Administrator', '', :key_id, full_name_nonce),
                 full_name_nonce,
-                encode(digest('System Administrator', 'sha256'), 'hex'),
+                encode(convert_to('System Administrator', 'UTF8'), 'hex'),
                 'admin',
                 TRUE,
                 NOW(),
@@ -161,7 +163,7 @@ spec:
               FROM admin_data
               ON CONFLICT (email_hash) DO NOTHING;
               INSERT INTO user_profiles (user_id)
-              SELECT id FROM users WHERE email_hash = encode(digest(:'email', 'sha256'), 'hex')
+              SELECT id FROM users WHERE email_hash = encode(convert_to(btrim(:'email'), 'UTF8'), 'hex')
               ON CONFLICT (user_id) DO NOTHING;
               INSERT INTO invite_codes (code, role, max_uses, is_active, created_at)
               SELECT
@@ -176,27 +178,11 @@ spec:
               );
               COMMIT;
               SELECT 'Admin user present' WHERE EXISTS (
-                SELECT 1 FROM users WHERE email_hash = encode(digest(:'email', 'sha256'), 'hex')
+                SELECT 1 FROM users WHERE email_hash = encode(convert_to(btrim(:'email'), 'UTF8'), 'hex')
               );
               SQL
               echo "✅ Admin user seed completed"
-          # Блок env удалён
           volumeMounts:
             - name: secrets
               mountPath: /etc/secrets
               readOnly: true
-          # Пробы заменены на tcpSocket
-          readinessProbe:
-            tcpSocket:
-              port: 5432
-            initialDelaySeconds: 5
-            periodSeconds: 5
-            timeoutSeconds: 3
-            failureThreshold: 12
-          livenessProbe:
-            tcpSocket:
-              port: 5432
-            initialDelaySeconds: 30
-            periodSeconds: 10
-            timeoutSeconds: 5
-            failureThreshold: 6

@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"crypto/rand"
-	"crypto/subtle"
 	"database/sql"
 	"encoding/base64"
 	"encoding/hex"
@@ -20,7 +19,6 @@ import (
 
 	"github.com/google/uuid"
 	"go.uber.org/zap"
-	"golang.org/x/crypto/argon2"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	grpc_health_v1 "google.golang.org/grpc/health/grpc_health_v1"
@@ -34,6 +32,7 @@ import (
 	"github.com/MAMUER/project/internal/apperrors"
 	"github.com/MAMUER/project/internal/audit"
 	"github.com/MAMUER/project/internal/auth/jwt"
+	authpassword "github.com/MAMUER/project/internal/auth/password"
 	"github.com/MAMUER/project/internal/config"
 	"github.com/MAMUER/project/internal/crypto"
 	"github.com/MAMUER/project/internal/db"
@@ -122,8 +121,6 @@ type userServer struct {
 }
 
 const (
-	argon2idParams = "m=65536,t=3,p=1"
-
 	dateFormat = "2006-01-02"
 
 	logFailedToGenerateNonce = "Failed to generate nonce"
@@ -152,65 +149,11 @@ const (
 )
 
 func hashPasswordArgon2id(password string) (string, error) {
-
-	salt := make([]byte, 16)
-
-	if _, err := rand.Read(salt); err != nil {
-
-		return "", fmt.Errorf("generate salt: %w", err)
-
-	}
-
-	hash := argon2.IDKey([]byte(password), salt, 3, 64*1024, 1, 32)
-
-	return "$argon2id$v=19$" + argon2idParams + "$" + base64.RawStdEncoding.EncodeToString(salt) + "$" + base64.RawStdEncoding.EncodeToString(hash), nil
-
+	return authpassword.HashArgon2id(password)
 }
 
 func verifyPasswordArgon2id(stored, password string) bool {
-
-	parts := strings.Split(stored, "$")
-
-	if len(parts) != 6 {
-
-		return false
-
-	}
-
-	salt, err := base64.RawStdEncoding.DecodeString(parts[4])
-
-	if err != nil {
-
-		return false
-
-	}
-
-	hash, err := base64.RawStdEncoding.DecodeString(parts[5])
-
-	if err != nil {
-
-		return false
-
-	}
-
-	if len(hash) > 32 {
-
-		return false
-
-	}
-
-	hashLen := len(hash)
-
-	if uint64(hashLen) > uint64(^uint32(0)) {
-
-		return false
-
-	}
-
-	computed := argon2.IDKey([]byte(password), salt, 3, 64*1024, 1, uint32(hashLen))
-
-	return subtle.ConstantTimeCompare(hash, computed) == 1
-
+	return authpassword.VerifyArgon2id(stored, password)
 }
 
 func toString(v *string) string {

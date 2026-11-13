@@ -126,9 +126,19 @@ spec:
               value: "/tmp/uv-cache"
             - name: UV_NO_SYNC
               value: "1"
+          # The upstream image has no /health route (it returns 404); "/"
+          # returns 200. The start script runs migrations and seed scripts
+          # before uvicorn listens, so allow several minutes on first boot.
+          startupProbe:
+            httpGet:
+              path: /
+              port: 8000
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 60
           livenessProbe:
             httpGet:
-              path: /health
+              path: /
               port: 8000
             initialDelaySeconds: 30
             periodSeconds: 15
@@ -136,7 +146,7 @@ spec:
             failureThreshold: 3
           readinessProbe:
             httpGet:
-              path: /health
+              path: /
               port: 8000
             initialDelaySeconds: 10
             periodSeconds: 10

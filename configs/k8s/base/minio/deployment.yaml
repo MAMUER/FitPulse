@@ -30,9 +30,16 @@ spec:
         - name: minio-storage
           persistentVolumeClaim:
             claimName: minio-storage
+        # Silo may probe HOME (defaults to /tmp) during initialization, and the
+        # root filesystem is read-only.
+        - name: tmp
+          emptyDir: {}
       containers:
         - name: minio
-          image: docker.io/minio/minio:RELEASE.2025-10-15T17-29-55Z
+          # MinIO stopped publishing community images in October 2025. Silo is
+          # the maintained drop-in fork: same S3 API, MINIO_* variables,
+          # /minio/health/* endpoints and on-disk format.
+          image: docker.io/pgsty/silo:RELEASE.2026-11-12T00-00-00Z
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 9000
@@ -54,6 +61,8 @@ spec:
           volumeMounts:
             - name: minio-storage
               mountPath: /data
+            - name: tmp
+              mountPath: /tmp
           securityContext:
             runAsUser: 1001
             runAsGroup: 1001

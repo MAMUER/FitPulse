@@ -5,7 +5,7 @@ source "$(dirname "${BASH_SOURCE[0]}")/utils.sh"
 
 PROBLEM_IMAGES=(
 	"registry.k8s.io/ingress-nginx/controller:v1.11.3"
-	"docker.io/minio/minio:RELEASE.2025-10-15T17-29-55Z"
+	"docker.io/pgsty/silo:RELEASE.2026-11-12T00-00-00Z"
 	"docker.io/library/postgres:18-alpine"
 	"docker.io/library/rabbitmq:4-management-alpine"
 	"docker.io/valkey/valkey:9-alpine"

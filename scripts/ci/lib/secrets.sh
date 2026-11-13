@@ -102,6 +102,17 @@ create_secrets() {
 	# Ensure SEED_ADMIN_EMAIL and SEED_ADMIN_PASSWORD exist in app-secrets (required by seed-admin job)
 	kubectl patch secret app-secrets -n fitness-platform-production --type=merge -p "{\"stringData\":{\"SEED_ADMIN_EMAIL\":\"${SEED_ADMIN_EMAIL:-admin@fittpulse.duckdns.org}\",\"SEED_ADMIN_PASSWORD\":\"${SEED_ADMIN_PASSWORD:-FitPulseAdmin2026!}\"}}" >/dev/null 2>&1 || true
 
+	# seed-admin cannot produce Argon2id hashes with pgcrypto, so precompute the
+	# PHC string through the same code path as user-service and ship it in
+	# app-secrets. This must stay in sync with the password patched above.
+	SEED_ADMIN_EFFECTIVE_PASSWORD="${SEED_ADMIN_PASSWORD:-FitPulseAdmin2026!}"
+	SEED_ADMIN_HASH="$(printf '%s' "${SEED_ADMIN_EFFECTIVE_PASSWORD}" | go run ./cmd/hash-password)"
+	if [[ -z "${SEED_ADMIN_HASH}" ]]; then
+		echo "::error::failed to generate SEED_ADMIN_HASH via cmd/hash-password" >&2
+		return 1
+	fi
+	kubectl patch secret app-secrets -n fitness-platform-production --type=merge -p "{\"stringData\":{\"SEED_ADMIN_HASH\":\"${SEED_ADMIN_HASH}\"}}" >/dev/null 2>&1 || true
+
 	# Ensure DB_ENCRYPTION_KEY exists in app-secrets (required by user-service pgsodium keyring)
 	kubectl patch secret app-secrets -n fitness-platform-production --type=merge -p "{\"stringData\":{\"DB_ENCRYPTION_KEY\":\"${DB_ENCRYPTION_KEY:-$(openssl rand -hex 32 2>/dev/null || echo 'dev-encryption-key-change-me')}\"}}" >/dev/null 2>&1 || true
 

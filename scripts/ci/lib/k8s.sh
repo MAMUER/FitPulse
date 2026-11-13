@@ -225,7 +225,7 @@ run_seed_admin() {
 		' sh "$SEED_ADMIN_EMAIL" 2>&1 <<'SQL'
 		SELECT EXISTS (
 			SELECT 1 FROM users
-			WHERE email_hash = encode(digest(:'email', 'sha256'), 'hex')
+			WHERE email_hash = encode(convert_to(btrim(:'email'), 'UTF8'), 'hex')
 		);
 SQL
 		) || {

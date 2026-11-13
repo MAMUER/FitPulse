@@ -7,6 +7,46 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 CREATE EXTENSION IF NOT EXISTS pgsodium;
 
+-- ============ pgsodium AEGIS-256 compatibility wrappers ============
+-- pgsodium exposes ChaCha20-Poly1305-IETF AEAD but ships no AEGIS-256
+-- bindings. The application calls the AEGIS-256 names with the same
+-- key-id + 12-byte nonce contract (see internal/db/pgsodium.go), so map
+-- them onto the IETF by-id functions. Ciphertexts stay readable by both
+-- the Go service and the seed-admin job.
+CREATE OR REPLACE FUNCTION pgsodium.crypto_aead_aegis256_encrypt(
+    message text,
+    additional text,
+    key_id bigint,
+    nonce bytea
+) RETURNS bytea
+LANGUAGE sql
+IMMUTABLE
+AS $$
+    SELECT pgsodium.crypto_aead_ietf_encrypt(
+        convert_to(message, 'UTF8'),
+        convert_to(additional, 'UTF8'),
+        nonce,
+        key_id
+    );
+$$;
+
+CREATE OR REPLACE FUNCTION pgsodium.crypto_aead_aegis256_decrypt(
+    message bytea,
+    additional text,
+    key_id bigint,
+    nonce bytea
+) RETURNS bytea
+LANGUAGE sql
+IMMUTABLE
+AS $$
+    SELECT pgsodium.crypto_aead_ietf_decrypt(
+        message,
+        convert_to(additional, 'UTF8'),
+        nonce,
+        key_id
+    );
+$$;
+
 -- ===================== Users & Auth =====================
 CREATE TABLE IF NOT EXISTS users (
     id                      UUID PRIMARY KEY DEFAULT gen_random_uuid(),
