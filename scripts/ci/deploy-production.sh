@@ -43,6 +43,7 @@ main() {
 	create_secrets) create_secrets ;;
 	cleanup_disk) cleanup_disk ;;
 	images) import_problem_images ;;
+	import_problem_images) import_problem_images ;;
 	update_image_tags) update_image_tags ;;
 	pre_pull_images) pre_pull_images ;;
 	pre_pull_public_images) pre_pull_public_images ;;

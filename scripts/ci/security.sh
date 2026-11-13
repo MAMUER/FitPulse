@@ -200,7 +200,12 @@ run_checkov() {
 	local status=0
 	# checkov 3.3.9 only has --output-file-path (a folder); the SARIF lands as
 	# results_sarif.sarif inside it and is renamed for the upload step.
-	checkov --directory configs/k8s --directory scripts --output sarif \
+	# Skip the kustomize framework: its 3.3.9 parser crashes on multi-document
+	# kustomize output ("expected a single document in the stream"). The
+	# kubernetes framework scans the same YAML manifests directly.
+	checkov --directory configs/k8s --directory scripts \
+		--framework kubernetes,dockerfile,secrets \
+		--output sarif \
 		--output-file-path sarif-results --compact --quiet || status=$?
 
 	# checkov writes results_sarif.sarif inside the output folder; the upload
