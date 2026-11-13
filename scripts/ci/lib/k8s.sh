@@ -115,7 +115,11 @@ apply_manifests() {
 # migrate-db is still running.
 restart_app_deployments() {
 	echo "Rolling restart of application deployments..."
-	for deploy in user-service biometric-service training-service gateway classifier ml-generator device-aggregator data-processor open-wearables open-wearables-frontend; do
+	# open-wearables is intentionally excluded: its database is created later by
+	# deploy_open_wearables, and restarting it before that only produces a
+	# crash-loop plus an extra ReplicaSet. Its image is already rolled out by
+	# apply_manifests.
+	for deploy in user-service biometric-service training-service gateway classifier ml-generator device-aggregator data-processor; do
 		kubectl rollout restart deployment/"$deploy" -n fitness-platform-production 2>/dev/null || true
 	done
 }
@@ -406,13 +410,17 @@ deploy_open_wearables() {
 	# already done it. Re-applying reset the `kubectl.kubernetes.io/restartedAt`
 	# annotation added by restart_app_deployments, which triggered a second
 	# rollout of gateway/open-wearables and another pile of ReplicaSets.
-	echo "Waiting for Open Wearables pods to be ready..."
-	if ! kubectl wait --for=condition=ready pod -l app=open-wearables -n fitness-platform-production --timeout=300s; then
+	echo "Waiting for Open Wearables deployments to be ready..."
+	# Use rollout status, not a pod-label wait: during a rollout the old pod is
+	# terminating and may never become Ready, which made `kubectl wait` time out
+	# even though the new pod became Ready moments later. The backend also runs
+	# migrations on start, so allow 10 minutes.
+	if ! kubectl rollout status deployment/open-wearables -n fitness-platform-production --timeout=600s; then
 		echo "::error::Open Wearables backend not ready; collecting pod diagnostics" >&2
 		diagnose_unready_pods fitness-platform-production
 		return 1
 	fi
-	if ! kubectl wait --for=condition=ready pod -l app=open-wearables-frontend -n fitness-platform-production --timeout=300s; then
+	if ! kubectl rollout status deployment/open-wearables-frontend -n fitness-platform-production --timeout=600s; then
 		echo "::error::Open Wearables frontend not ready; collecting pod diagnostics" >&2
 		diagnose_unready_pods fitness-platform-production
 		return 1
