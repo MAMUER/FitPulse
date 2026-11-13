@@ -98,13 +98,28 @@ spec:
                 echo "❌ Cannot connect to database after retries"
                 exit 1
               fi
+              echo "-> Migrating legacy email hash if needed..."
+              # Before 32417e2e the app used hex(email) as the lookup hash. The
+              # current code uses SHA256(lower(trim(email))); rewrite the seeded
+              # admin row so login keeps working after the upgrade.
+              PGPASSWORD="${POSTGRES_PASSWORD}" psql -h "${DB_HOST:-postgres-service}" \
+                -p "${DB_PORT:-5432}" -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" -v ON_ERROR_STOP=1 \
+                -v email="${SEED_ADMIN_EMAIL}" <<'SQL'
+              UPDATE users u
+              SET email_hash = encode(digest(lower(btrim(:'email')), 'sha256'), 'hex')
+              WHERE u.email_hash = encode(convert_to(btrim(:'email'), 'UTF8'), 'hex')
+                AND NOT EXISTS (
+                  SELECT 1 FROM users x
+                  WHERE x.email_hash = encode(digest(lower(btrim(:'email')), 'sha256'), 'hex')
+                );
+              SQL
               echo "-> Checking if admin exists..."
               # psql -c does not expand :'var' placeholders (they are psql-specific
               # features, which -c rejects), so feed the query on stdin instead.
               EXISTING=$(PGPASSWORD="${POSTGRES_PASSWORD}" psql -h "${DB_HOST:-postgres-service}" \
                 -p "${DB_PORT:-5432}" -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" -v ON_ERROR_STOP=1 \
                 -v email="${SEED_ADMIN_EMAIL}" -tA <<'SQL'
-              SELECT EXISTS (SELECT 1 FROM users WHERE email_hash = encode(convert_to(btrim(:'email'), 'UTF8'), 'hex'));
+              SELECT EXISTS (SELECT 1 FROM users WHERE email_hash = encode(digest(lower(btrim(:'email')), 'sha256'), 'hex'));
               SQL
               )
               if [ "${EXISTING}" = "t" ]; then
@@ -151,11 +166,11 @@ spec:
                 gen_random_uuid(),
                 pgsodium.crypto_aead_aegis256_encrypt(email, '', :key_id, email_nonce),
                 email_nonce,
-                encode(convert_to(btrim(email), 'UTF8'), 'hex'),
+                encode(digest(lower(btrim(email)), 'sha256'), 'hex'),
                 password_hash,
                 pgsodium.crypto_aead_aegis256_encrypt('System Administrator', '', :key_id, full_name_nonce),
                 full_name_nonce,
-                encode(convert_to('System Administrator', 'UTF8'), 'hex'),
+                encode(digest(lower('System Administrator'), 'sha256'), 'hex'),
                 'admin',
                 TRUE,
                 NOW(),
@@ -163,7 +178,7 @@ spec:
               FROM admin_data
               ON CONFLICT (email_hash) DO NOTHING;
               INSERT INTO user_profiles (user_id)
-              SELECT id FROM users WHERE email_hash = encode(convert_to(btrim(:'email'), 'UTF8'), 'hex')
+              SELECT id FROM users WHERE email_hash = encode(digest(lower(btrim(:'email')), 'sha256'), 'hex')
               ON CONFLICT (user_id) DO NOTHING;
               INSERT INTO invite_codes (code, role, max_uses, is_active, created_at)
               SELECT
@@ -178,7 +193,7 @@ spec:
               );
               COMMIT;
               SELECT 'Admin user present' WHERE EXISTS (
-                SELECT 1 FROM users WHERE email_hash = encode(convert_to(btrim(:'email'), 'UTF8'), 'hex')
+                SELECT 1 FROM users WHERE email_hash = encode(digest(lower(btrim(:'email')), 'sha256'), 'hex')
               );
               SQL
               echo "✅ Admin user seed completed"
