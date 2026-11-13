@@ -251,13 +251,20 @@ add_vps_to_known_hosts() {
 	chmod 700 ~/.ssh
 
 	local port="${VPS_PORT:-22}"
-	local scanned_keys
-	scanned_keys=$(ssh-keyscan -H -p "$port" "$VPS_HOST" 2>/dev/null) || {
-		echo "::error::Could not scan SSH host key for VPS_HOST on port ${port}" >&2
-		return 1
-	}
+	local scanned_keys=""
+	local attempt
+	# Tailscale can report the node as up before the SSH daemon is reachable
+	# through the tunnel, and a single ssh-keyscan attempt then fails the whole
+	# job. Retry with a bounded timeout instead of trusting one shot.
+	for attempt in {1..10}; do
+		if scanned_keys=$(ssh-keyscan -T 5 -H -p "$port" "$VPS_HOST" 2>/dev/null) && [[ -n "$scanned_keys" ]]; then
+			break
+		fi
+		echo "Attempt ${attempt}/10: SSH host key not available yet for ${VPS_HOST}:${port}"
+		sleep 3
+	done
 	if [[ -z "$scanned_keys" ]]; then
-		echo "::error::No SSH host keys returned for VPS_HOST on port ${port}" >&2
+		echo "::error::Could not scan SSH host key for VPS_HOST on port ${port} after 10 attempts" >&2
 		return 1
 	fi
 
