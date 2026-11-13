@@ -10,6 +10,8 @@ spec:
   jobTemplate:
     spec:
       backoffLimit: 2
+      activeDeadlineSeconds: 600
+      ttlSecondsAfterFinished: 600
       template:
         spec:
           restartPolicy: OnFailure

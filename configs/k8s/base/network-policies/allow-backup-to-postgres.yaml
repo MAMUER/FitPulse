@@ -1,0 +1,21 @@
+# PostgreSQL's data-zone policy only admits app-zone/dmz/internal clients.
+# The backup job is labelled component=backup, so admit it explicitly.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-backup-to-postgres
+  namespace: fitness-platform-production
+spec:
+  podSelector:
+    matchLabels:
+      app: postgres
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              component: backup
+      ports:
+        - protocol: TCP
+          port: 5432

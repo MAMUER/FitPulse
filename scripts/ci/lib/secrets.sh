@@ -96,6 +96,15 @@ create_secrets() {
 	# Ensure POSTGRES_USER/PASSWORD/DB are present (fix empty/missing keys in pre-existing secrets)
 	kubectl patch secret app-secrets -n fitness-platform-production --type=merge -p "{\"stringData\":{\"POSTGRES_USER\":\"${POSTGRES_USER:-fitness_admin}\",\"POSTGRES_PASSWORD\":\"${POSTGRES_PASSWORD:-}\",\"POSTGRES_DB\":\"${POSTGRES_DB:-fitness}\"}}" >/dev/null 2>&1 || true
 
+	# BACKUP_KEY encrypts the nightly pg_dump. Keep an existing key stable;
+	# only generate one when the secret predates backups.
+	if [[ -n "${BACKUP_KEY:-}" ]]; then
+		kubectl patch secret app-secrets -n fitness-platform-production --type=merge -p "{\"stringData\":{\"BACKUP_KEY\":\"${BACKUP_KEY}\"}}" >/dev/null 2>&1 || true
+	elif ! kubectl get secret app-secrets -n fitness-platform-production -o jsonpath='{.data.BACKUP_KEY}' 2>/dev/null | grep -q .; then
+		BACKUP_KEY_GENERATED="$(openssl rand -hex 32 2>/dev/null || echo 'fitpulse-backup-key-change-me')"
+		kubectl patch secret app-secrets -n fitness-platform-production --type=merge -p "{\"stringData\":{\"BACKUP_KEY\":\"${BACKUP_KEY_GENERATED}\"}}" >/dev/null 2>&1 || true
+	fi
+
 	echo "Ensuring app-secrets contains OPEN_WEARABLES_WEBHOOK_SECRET..."
 	kubectl patch secret app-secrets -n fitness-platform-production --type=merge -p "{\"stringData\":{\"OPEN_WEARABLES_WEBHOOK_SECRET\":\"${OPEN_WEARABLES_WEBHOOK_SECRET:-}\"}}" >/dev/null 2>&1 || true
 
@@ -146,6 +155,15 @@ create_secrets() {
 			--from-literal=root-user=fitpulse-admin \
 			--from-literal=root-password="${MINIO_SECRET_KEY}" \
 			--dry-run=client -o yaml | kubectl apply --validate=false -f - || echo "::warning::minio-credentials creation failed" >&2
+		# Backup/WAL CronJobs run in fitness-platform-production and cannot
+		# reference a Secret from the minio namespace, so mirror the S3
+		# credentials there.
+		kubectl create secret generic minio-credentials \
+			-n fitness-platform-production \
+			--from-literal=root-user=fitpulse-admin \
+			--from-literal=root-password="${MINIO_SECRET_KEY}" \
+			--from-literal=S3_ENDPOINT="http://minio.minio.svc.cluster.local:9000" \
+			--dry-run=client -o yaml | kubectl apply --validate=false -f - || echo "::warning::minio-credentials (app namespace) creation failed" >&2
 	fi
 
 	echo "Creating grafana-credentials secret..."

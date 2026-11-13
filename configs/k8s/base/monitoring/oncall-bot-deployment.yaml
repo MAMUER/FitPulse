@@ -8,6 +8,7 @@ metadata:
     component: oncall
 spec:
   replicas: 1
+  revisionHistoryLimit: 3
   selector:
     matchLabels:
       app: oncall-bot

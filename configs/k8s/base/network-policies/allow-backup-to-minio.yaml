@@ -1,0 +1,64 @@
+# Backup/WAL-archive jobs run in fitness-platform-production and upload dumps
+# to Silo (MinIO) in the `minio` namespace. They carry component=backup /
+# component=wal-archive, which no other policy selects, so default-deny-all
+# would block both DNS and S3.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-backup-to-minio
+  namespace: fitness-platform-production
+spec:
+  podSelector:
+    matchExpressions:
+      - key: component
+        operator: In
+        values:
+          - backup
+          - wal-archive
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: minio
+          podSelector:
+            matchLabels:
+              app: minio
+      ports:
+        - protocol: TCP
+          port: 9000
+    - to:
+        - podSelector:
+            matchLabels:
+              app: postgres
+      ports:
+        - protocol: TCP
+          port: 5432
+    # The jobs install aws-cli/openssl at runtime (`apk add`), so they need
+    # outbound HTTPS to the Alpine CDN. Private ranges are excluded because
+    # they are covered by the explicit rules above.
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 10.0.0.0/8
+              - 172.16.0.0/12
+              - 192.168.0.0/16
+      ports:
+        - protocol: TCP
+          port: 80
+        - protocol: TCP
+          port: 443

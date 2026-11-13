@@ -47,6 +47,7 @@ main() {
 	pre_pull_images) pre_pull_images ;;
 	manifests) apply_manifests ;;
 	apply_manifests) apply_manifests ;;
+	cleanup_cluster) cleanup_cluster_resources ;;
 	migrations) run_migrations ;;
 	run_migrations) run_migrations ;;
 	verify) verify_deployment ;;

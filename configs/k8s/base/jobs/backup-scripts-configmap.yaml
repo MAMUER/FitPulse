@@ -43,6 +43,12 @@ data:
     export AWS_SECRET_ACCESS_KEY
     export PGPASSWORD="${PGPASSWORD:-}"
 
+    # The bucket is not created by the Silo/MinIO deployment, so create it
+    # before the first upload. `mb` fails harmlessly when the bucket exists.
+    for bucket in "$S3_BUCKET" "$S3_WAL_BUCKET"; do
+      aws --endpoint-url "$S3_ENDPOINT" s3 mb "s3://${bucket}" >/dev/null 2>&1 || true
+    done
+
     TIMESTAMP="$(date -u +%Y%m%dT%H%M%SZ)"
 
     if [[ "$BACKUP_TYPE" == "full" ]]; then

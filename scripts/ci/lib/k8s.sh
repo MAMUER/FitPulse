@@ -3,6 +3,75 @@ set -euo pipefail
 
 source "$(dirname "${BASH_SOURCE[0]}")/utils.sh"
 
+# Remove resources that accumulated on the long-lived VPS:
+#   * ReplicaSets older than 1h scaled to 0 (revisionHistoryLimit only prunes
+#     new revisions; the 5-day-old controller history had dozens per service)
+#   * completed/failed Jobs and CronJob Jobs stuck active for >30m
+#   * orphan cert-manager HTTP-01 solver pods/services
+#   * HPAs (min=max=1 was a no-op that only produced "cpu: <unknown>" errors)
+#   * the pre-fix `postgres-wal-archive` PVC (the StatefulSet creates
+#     `postgres-wal-archive-postgres-0`; CronJobs now reference that name)
+cleanup_cluster_resources() {
+	echo "=== Cleaning up stale cluster resources ==="
+	local ns="fitness-platform-production"
+	local stale
+
+	for namespace in "$ns" ingress-nginx minio monitoring elk; do
+		stale=$(kubectl get rs -n "$namespace" -o json 2>/dev/null |
+			jq -r '.items[]
+				| select((.spec.replicas // 0) == 0)
+				| select(.metadata.creationTimestamp != null)
+				| select((now - (.metadata.creationTimestamp | fromdateiso8601)) > 3600)
+				| .metadata.name' 2>/dev/null || true)
+		if [[ -n "$stale" ]]; then
+			echo "-> Pruning $(printf '%s\n' "$stale" | wc -l) stale ReplicaSet(s) in $namespace"
+			printf '%s\n' "$stale" | xargs -r -n 20 kubectl delete rs -n "$namespace" --wait=false >/dev/null 2>&1 || true
+		fi
+	done
+
+	stale=$(kubectl get jobs -n "$ns" -o json 2>/dev/null |
+		jq -r '.items[]
+			| select(
+				((.status.succeeded // 0) > 0)
+				or ((.status.failed // 0) > 0)
+				or (((.status.active // 0) > 0)
+					and (.metadata.creationTimestamp != null)
+					and ((now - (.metadata.creationTimestamp | fromdateiso8601)) > 1800))
+			)
+			| .metadata.name' 2>/dev/null || true)
+	if [[ -n "$stale" ]]; then
+		echo "-> Deleting $(printf '%s\n' "$stale" | wc -l) stale Job(s)"
+		printf '%s\n' "$stale" | xargs -r -n 20 kubectl delete job -n "$ns" --wait=false >/dev/null 2>&1 || true
+	fi
+
+	# cert-manager HTTP-01 solver pods/services are left behind when the
+	# ingress controller was crash-looping (the previous RBAC bug).
+	kubectl get pods -n "$ns" -o name 2>/dev/null | grep 'cm-acme-http-solver' |
+		xargs -r -n 20 kubectl delete -n "$ns" --wait=false >/dev/null 2>&1 || true
+	kubectl get svc -n "$ns" -o name 2>/dev/null | grep 'cm-acme-http-solver' |
+		xargs -r -n 20 kubectl delete -n "$ns" --wait=false >/dev/null 2>&1 || true
+
+	kubectl delete hpa --all -n "$ns" --ignore-not-found=true >/dev/null 2>&1 || true
+
+	# Ingresses removed from the production overlay. kubectl apply does not
+	# prune resources deleted from kustomize, so remove the stale objects (and
+	# their duplicate host routes) explicitly.
+	kubectl delete ingress jaeger-ingress open-wearables-ingress -n "$ns" \
+		--ignore-not-found=true >/dev/null 2>&1 || true
+
+	# Orphan PVC from the pre-fix WAL CronJob name. Only delete it when no pod
+	# references it; the live StatefulSet volume is postgres-wal-archive-postgres-0.
+	if kubectl get pvc postgres-wal-archive -n "$ns" >/dev/null 2>&1; then
+		if ! kubectl get pods -n "$ns" -o json 2>/dev/null |
+			jq -e '.items[] | select(.spec.volumes[]? | .persistentVolumeClaim?.claimName == "postgres-wal-archive")' >/dev/null 2>&1; then
+			echo "-> Deleting orphan PVC postgres-wal-archive"
+			kubectl delete pvc postgres-wal-archive -n "$ns" --wait=false >/dev/null 2>&1 || true
+		fi
+	fi
+
+	echo "✅ Cleanup complete"
+}
+
 apply_manifests() {
 	echo "Waiting for k8s API internal availability..."
 	for i in {1..30}; do
@@ -19,6 +88,8 @@ apply_manifests() {
 		kubectl get nodes -o wide || true
 		exit 1
 	}
+
+	cleanup_cluster_resources
 
 	echo "Deleting immutable Jobs for fresh recreation..."
 	for job in migrate-db seed-admin create-open-wearables-db; do
@@ -258,10 +329,21 @@ verify_deployment() {
 		sleep 5
 	done
 	echo "Verifying deployment..."
-	echo "Waiting for gateway to be ready (up to 50s)..."
-	kubectl get pods -n fitness-platform-production
-	kubectl wait --for=condition=ready pod -l app=gateway -n fitness-platform-production --timeout=50s || echo "::warning::Gateway not ready yet"
-	sleep 30
+	echo "Waiting for all application deployments to be ready..."
+	for deploy in user-service biometric-service training-service gateway classifier ml-generator device-aggregator data-processor open-wearables open-wearables-frontend; do
+		if ! kubectl rollout status deployment/"$deploy" -n fitness-platform-production --timeout=180s; then
+			echo "::error::Deployment $deploy did not become ready" >&2
+			kubectl get pods -n fitness-platform-production -l "app=$deploy" -o wide >&2 || true
+			kubectl describe deployment "$deploy" -n fitness-platform-production >&2 || true
+			return 1
+		fi
+	done
+	if ! kubectl rollout status deployment/ingress-nginx-controller -n ingress-nginx --timeout=120s; then
+		echo "::error::ingress-nginx controller did not become ready" >&2
+		kubectl get pods -n ingress-nginx -o wide >&2 || true
+		return 1
+	fi
+	echo "✅ All application deployments are ready"
 }
 
 diagnose_unready_pods() {
@@ -321,8 +403,10 @@ deploy_open_wearables() {
 		return 1
 	fi
 	kubectl logs job/create-open-wearables-db -n fitness-platform-production --all-containers --timestamps --tail=100 2>&1 || true
-	echo "Applying Open Wearables manifests..."
-	kubectl apply -k configs/k8s/overlays/production/ --validate=false
+	# Do NOT re-apply the whole production overlay here: apply_manifests has
+	# already done it. Re-applying reset the `kubectl.kubernetes.io/restartedAt`
+	# annotation added by restart_app_deployments, which triggered a second
+	# rollout of gateway/open-wearables and another pile of ReplicaSets.
 	echo "Waiting for Open Wearables pods to be ready..."
 	if ! kubectl wait --for=condition=ready pod -l app=open-wearables -n fitness-platform-production --timeout=300s; then
 		echo "::error::Open Wearables backend not ready; collecting pod diagnostics" >&2

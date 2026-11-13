@@ -41,11 +41,33 @@ echo '✅ Certificate configuration complete'
 EOF
 }
 install_ingress_nginx() {
-	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "mkdir -p /tmp/ingress-nginx" || return 0
-	./scripts/ssh-retry.sh scp -r configs/k8s/base/ingress-nginx/* "${VPS_USER}@${VPS_HOST}:/tmp/ingress-nginx/" || return 0
+	# Apply the same overlay the production kustomization uses: base controller
+	# + namespace-scoped TLS Role + --watch-namespace patch. Applying the bare
+	# base used to start the controller with cluster-wide secret watches, which
+	# RBAC denies (secrets are intentionally not granted cluster-wide), so it
+	# crash-looped on /healthz 500 until the later overlay apply.
+	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "mkdir -p /tmp/ingress-nginx/base/ingress-nginx" || return 0
+	./scripts/ssh-retry.sh scp -r configs/k8s/base/ingress-nginx/* "${VPS_USER}@${VPS_HOST}:/tmp/ingress-nginx/base/ingress-nginx/" || return 0
+	./scripts/ssh-retry.sh scp \
+		configs/k8s/overlays/production/ingress-nginx-tls-role.yaml \
+		configs/k8s/overlays/production/ingress-nginx-watch-namespace-patch.yaml \
+		"${VPS_USER}@${VPS_HOST}:/tmp/ingress-nginx/" || return 0
 
 	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" <<'EOF' || true
 set -euo pipefail
+cat > /tmp/ingress-nginx/kustomization.yaml <<'YAML'
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - base/ingress-nginx
+  - ingress-nginx-tls-role.yaml
+patches:
+  - path: ingress-nginx-watch-namespace-patch.yaml
+    target:
+      kind: Deployment
+      name: ingress-nginx-controller
+      namespace: ingress-nginx
+YAML
 echo '-> Installing ingress-nginx controller...'
 sudo k3s kubectl apply -k /tmp/ingress-nginx/ || true
 

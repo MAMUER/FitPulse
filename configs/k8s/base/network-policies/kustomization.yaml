@@ -4,6 +4,8 @@ kind: Kustomization
 resources:
   - allow-backends-ingress.yaml
   - allow-backends-to-infrastructure.yaml
+  - allow-backup-to-minio.yaml
+  - allow-backup-to-postgres.yaml
   - allow-frontend-egress.yaml
   - allow-gateway-to-backends.yaml
   - allow-gateway-to-ml-generator.yaml
