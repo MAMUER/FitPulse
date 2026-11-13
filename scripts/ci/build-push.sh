@@ -106,6 +106,15 @@ build_backup_tools() {
 		--push
 }
 
+build_oncall_bot() {
+	docker buildx build \
+		--cache-from=type=gha,scope=oncall-bot \
+		--cache-to=type=gha,scope=oncall-bot,mode=max \
+		-t "$REGISTRY/mamuer/project/oncall-bot:v1" \
+		-f "scripts/oncall-bot/Dockerfile" scripts/oncall-bot \
+		--push
+}
+
 build_open_wearables() {
 	echo "Cloning Open Wearables repo..."
 	git clone --depth 1 https://github.com/the-momentum/open-wearables.git /tmp/open-wearables
@@ -197,6 +206,7 @@ main() {
 		build_ml_images
 		build_crs_updater
 		build_backup_tools
+		build_oncall_bot
 		build_open_wearables
 		build_pgsodium_image
 		build_go_binaries
@@ -205,6 +215,7 @@ main() {
 	build_ml_images) build_ml_images ;;
 	build_crs_updater) build_crs_updater ;;
 	build_backup_tools) build_backup_tools ;;
+	build_oncall_bot) build_oncall_bot ;;
 	build_open_wearables) build_open_wearables ;;
 	build_pgsodium_image) build_pgsodium_image ;;
 	build_go_binaries) build_go_binaries ;;

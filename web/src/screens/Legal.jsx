@@ -183,9 +183,7 @@ export default function Legal() {
           <div className='panel-title'>{title}</div>
         </div>
         <div className='panel-body'>
-          <pre
-            style={{ whiteSpace: 'pre-wrap', fontSize: 12, lineHeight: 1.5 }}
-          >
+          <pre className='legal-body'>
             {body}
           </pre>
           <button

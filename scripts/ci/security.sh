@@ -228,13 +228,13 @@ run_checkov() {
 			    raise SystemExit(0)
 
 			definitions = {}
-			for rule in data["runs"][0]["tool"]["driver"].get("rules", []]):
+			for rule in data["runs"][0]["tool"]["driver"].get("rules", []):
 			    definitions[rule.get("id")] = rule.get("shortDescription", {}).get("text", "")
 
 			counter = collections.Counter(
 			    result["ruleId"]
-			    for run in data.get("runs", []])
-			    for result in run.get("results", []])
+			    for run in data.get("runs", [])
+			    for result in run.get("results", [])
 			)
 			total = sum(counter.values())
 			if not total:
@@ -257,14 +257,14 @@ run_checkov() {
 			    "",
 			    "| Check | Count | Description |",
 			    "| --- | --- | --- |",
-			]]
+			]
 			for rule, count in counter.most_common():
 			    title = definitions.get(rule, "").replace("|", "\\|")
 			    rows.append(f"| `{rule}` | {count} | {title} |")
 			rows += [
 			    "",
 			    "Fix the findings above, or add a justified skip to `.checkov.yaml`.",
-			]]
+			]
 
 			with open(summary_path, "a", encoding="utf-8") as fh:
 			    fh.write("\n".join(rows) + "\n")

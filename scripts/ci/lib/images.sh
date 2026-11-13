@@ -59,6 +59,29 @@ import_problem_images() {
 	log_info "=== Problem images import completed ==="
 }
 
+pre_pull_public_images() {
+	# These images are not in the k3s airgap bundle and are not GHCR images, so
+	# pull them directly on the VPS (it has working DNS/egress after fix_dns).
+	local images=(
+		"docker.elastic.co/elasticsearch/elasticsearch:8.12.0"
+		"docker.elastic.co/kibana/kibana:8.12.0"
+		"docker.elastic.co/logstash/logstash:8.12.0"
+		"docker.io/fluent/fluent-bit:3.0.0"
+		"docker.io/otel/opentelemetry-collector:0.91.0"
+	)
+	local img
+	for img in "${images[@]}"; do
+		if ./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "sudo k3s ctr -n k8s.io images ls -q | grep -q '^${img}$'"; then
+			log_info "Image already present on VPS: $img"
+			continue
+		fi
+		log_info "-> Pulling $img directly on VPS..."
+		./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "sudo k3s ctr -n k8s.io images pull '${img}'" ||
+			log_warn "Failed to pull $img on VPS; the pod will retry via imagePullPolicy"
+	done
+	log_info "Public images pre-pull completed"
+}
+
 pre_pull_images() {
 	local image_tag
 	image_tag=$(git rev-parse --short HEAD)
@@ -76,7 +99,8 @@ pre_pull_images() {
 			\\\"ghcr.io/mamuer/project/open-wearables-frontend:${image_tag}\\\" \\
 			\\\"ghcr.io/mamuer/project/data-processor:${image_tag}\\\" \\
 			\\\"ghcr.io/mamuer/project/postgres-pgsodium:pg18\\\" \\
-			\\\"ghcr.io/mamuer/project/backup-tools:pg18\\\"; do
+			\\\"ghcr.io/mamuer/project/backup-tools:pg18\\\" \
+			\\\"ghcr.io/mamuer/project/oncall-bot:v1\\\"; do
 
 			echo \\\"Pulling \\\$img...\\\"
 			sudo k3s ctr -n k8s.io images pull --user \"${GITHUB_ACTOR}:${GHCR_TOKEN}\" \"\\\$img\" >/dev/null 2>&1 || \\

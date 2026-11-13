@@ -29,7 +29,7 @@ export default function TwoFASetup({ initialQrCode = '' }) {
             <img
               src={`data:image/png;base64,${qrCodeBase64}`}
               alt='QR'
-              style={{ maxWidth: 220 }}
+              className='qr-code'
             />
           )}
           <div className='field'>

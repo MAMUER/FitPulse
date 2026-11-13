@@ -47,8 +47,10 @@ class TestRunner:
         self.host = self.parsed_base_url.hostname
         try:
             port = self.parsed_base_url.port
+            port_error = False
         except ValueError:
             port = None
+            port_error = True
         if port is not None:
             self.port = port
         else:
@@ -57,7 +59,7 @@ class TestRunner:
         self.invalid_base_url = (
             self.parsed_base_url.scheme not in {"http", "https"}
             or not self.parsed_base_url.hostname
-            or port is None
+            or port_error
         )
         self.ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
         self.ctx.minimum_version = ssl.TLSVersion.TLSv1_2

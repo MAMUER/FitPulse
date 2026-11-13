@@ -3591,6 +3591,62 @@ textarea:focus {
   font-weight: 800;
 }
 
+.auth-link--compact {
+  margin-top: 8px;
+}
+
+.auth-control {
+  font-size: 9px;
+}
+
+.lang-control {
+  margin-left: 6px;
+}
+
+.legal-body {
+  white-space: pre-wrap;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.qr-code {
+  max-width: 220px;
+}
+
+.cal-dots {
+  display: inline-flex;
+  gap: 2px;
+  margin-left: 4px;
+}
+
+.cal-dot {
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #19d8da;
+}
+
+.cal-dot--training {
+  background: #6fae20;
+}
+
+.cal-dot--food {
+  background: #f5d45d;
+}
+
+.cal-dot--recovery {
+  background: #ff6375;
+}
+
+.cal-dot--meeting {
+  background: #a78bfa;
+}
+
+.cal-dot--note {
+  background: #19d8da;
+}
+
 /* ═══════════════════════════════════════════
    LANDING PAGE
    ═══════════════════════════════════════════ */

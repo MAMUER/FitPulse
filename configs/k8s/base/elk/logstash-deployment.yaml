@@ -52,6 +52,12 @@ spec:
             - name: logstash-config-yml
               mountPath: /usr/share/logstash/config
               readOnly: true
+            - name: tmp
+              mountPath: /tmp
+              readOnly: false
+            - name: logstash-data
+              mountPath: /usr/share/logstash/data
+              readOnly: false
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
@@ -97,3 +103,7 @@ spec:
             items:
               - key: logstash.yml
                 path: logstash.yml
+        - name: tmp
+          emptyDir: {}
+        - name: logstash-data
+          emptyDir: {}

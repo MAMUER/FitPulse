@@ -25,14 +25,14 @@ data:
         engineer: "@petr"
         tech_lead: "@alex"
         cto: "@ivan"
-  escalation-policy: |
-    sev1:
-      - oncall-engineer
-      - tech-lead
-      - cto
-    sev2:
-      - oncall-engineer
-      - tech-lead
-    timeout:
-      ack: 300
-      escalate: 600
+    escalation-policy:
+      sev1:
+        - oncall-engineer
+        - tech-lead
+        - cto
+      sev2:
+        - oncall-engineer
+        - tech-lead
+      timeout:
+        ack: 300
+        escalate: 600

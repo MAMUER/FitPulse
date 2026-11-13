@@ -82,14 +82,6 @@ export default function Calendar() {
     meeting: t('Встреча', 'Meeting'),
     note: t('Заметка', 'Note'),
   };
-  const typeColors = {
-    training: '#6fae20',
-    food: '#f5d45d',
-    recovery: '#ff6375',
-    meeting: '#a78bfa',
-    note: '#19d8da',
-  };
-
   return (
     <section className='calendar'>
       <div className='panel'>
@@ -130,10 +122,7 @@ export default function Calendar() {
                       {dayEvents.slice(0, 3).map((ev) => (
                         <span
                           key={ev.id}
-                          className='cal-dot'
-                          style={{
-                            background: typeColors[ev.type] || '#19d8da',
-                          }}
+                          className={`cal-dot cal-dot--${ev.type || 'note'}`}
                         />
                       ))}
                     </span>

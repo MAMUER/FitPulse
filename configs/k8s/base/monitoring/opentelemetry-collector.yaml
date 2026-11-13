@@ -43,6 +43,9 @@ spec:
             - name: otel-config
               mountPath: /etc/otelcol
               readOnly: true
+            - name: tmp
+              mountPath: /tmp
+              readOnly: false
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
@@ -79,3 +82,5 @@ spec:
         - name: otel-config
           configMap:
             name: opentelemetry-config
+        - name: tmp
+          emptyDir: {}

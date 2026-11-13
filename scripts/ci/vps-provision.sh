@@ -42,6 +42,13 @@ configure_swap() {
 	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "sudo chmod +x /tmp/configure-swap.sh && sudo /tmp/configure-swap.sh && touch /tmp/.swap-configured"
 }
 
+configure_elasticsearch_sysctl() {
+	echo "-> Configuring vm.max_map_count for Elasticsearch..."
+	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" \
+		"echo 'vm.max_map_count=262144' | sudo tee /etc/sysctl.d/99-k3s-elasticsearch.conf >/dev/null && sudo sysctl -w vm.max_map_count=262144 >/dev/null"
+	echo "✅ vm.max_map_count configured"
+}
+
 check_disk_space() {
 	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" <<'EOF'
 DISK_USAGE=$(df / | tail -1 | awk '{print $5}' | sed 's/%//')
@@ -614,6 +621,7 @@ main() {
 	case "$cmd" in
 	all)
 		configure_swap
+		configure_elasticsearch_sysctl
 		check_disk_space
 		cleanup_old_k3s
 		configure_cpu_governor
@@ -630,6 +638,7 @@ main() {
 		start_k3s
 		;;
 	configure_swap) configure_swap ;;
+	configure_elasticsearch_sysctl) configure_elasticsearch_sysctl ;;
 	check_disk_space) check_disk_space ;;
 	cleanup_old_k3s) cleanup_old_k3s ;;
 	configure_cpu_governor) configure_cpu_governor ;;

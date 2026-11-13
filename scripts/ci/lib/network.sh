@@ -30,6 +30,15 @@ create_image_pull_secret() {
 		--docker-password="${GHCR_TOKEN}" \
 		-n fitness-platform-production \
 		--dry-run=client -o yaml | kubectl apply --validate=false -f -
+	# The on-call bot image is also a private GHCR image but lives in the
+	# monitoring namespace, so mirror the pull secret there.
+	kubectl create namespace monitoring --dry-run=client -o yaml | kubectl apply --validate=false -f -
+	kubectl create secret docker-registry ghcr-pull-secret \
+		--docker-server=ghcr.io \
+		--docker-username="$GITHUB_ACTOR" \
+		--docker-password="${GHCR_TOKEN}" \
+		-n monitoring \
+		--dry-run=client -o yaml | kubectl apply --validate=false -f -
 	echo "imagePullSecret created/updated"
 }
 

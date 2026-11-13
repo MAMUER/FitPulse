@@ -63,6 +63,8 @@ spec:
                       key: BACKUP_KEY
                 - name: WAL_DIR
                   value: "/wal-archive"
+                - name: BACKUP_DIR
+                  value: "/tmp/backups"
                 - name: S3_ENDPOINT
                   value: "http://minio.minio.svc.cluster.local:9000"
                 - name: S3_BUCKET

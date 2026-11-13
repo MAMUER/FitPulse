@@ -47,9 +47,9 @@ func SecurityHeaders(next http.Handler) http.Handler {
 		w.Header().Set("Content-Security-Policy",
 			"default-src 'self'; "+
 				"script-src 'self' 'nonce-"+nonce+"'; "+
-				"style-src 'self' 'unsafe-inline'; "+
+				"style-src 'self' https://cdnjs.cloudflare.com; "+
 				"img-src 'self' data: https:; "+
-				"font-src 'self'; "+
+				"font-src 'self' https://cdnjs.cloudflare.com; "+
 				"connect-src 'self'; "+
 				"media-src 'self'; "+
 				"object-src 'none'; "+

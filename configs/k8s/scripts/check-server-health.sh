@@ -15,8 +15,8 @@ THRESHOLD_DISK_WARNING=80
 THRESHOLD_SWAP_ENTRIES=1
 
 # Telegram configuration (from environment or secrets)
-TELEGRAM_BOT_TOKEN="${TELEGRAM_BOT_TOKEN:-}"
-TELEGRAM_CHAT_ID="${TELEGRAM_CHAT_ID:-}"
+TELEGRAM_BOT_TOKEN="${TELEGRAM_BOT_TOKEN:-$(sudo cat /etc/fitpulse/telegram-bot-token 2>/dev/null || true)}"
+TELEGRAM_CHAT_ID="${TELEGRAM_CHAT_ID:-$(sudo cat /etc/fitpulse/telegram-chat-id 2>/dev/null || true)}"
 
 # Parse arguments
 if [[ "${1:-}" == "--silent" ]]; then

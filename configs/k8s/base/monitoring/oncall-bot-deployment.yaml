@@ -19,6 +19,8 @@ spec:
         component: oncall
     spec:
       automountServiceAccountToken: false
+      imagePullSecrets:
+        - name: ghcr-pull-secret
       securityContext:
         runAsNonRoot: true
         runAsUser: 1000
@@ -26,7 +28,7 @@ spec:
         fsGroup: 1000
       containers:
         - name: oncall-bot
-          image: oncall/oncall:1.0.0
+          image: ghcr.io/mamuer/project/oncall-bot:v1
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8000
@@ -48,6 +50,9 @@ spec:
             - name: oncall-config
               mountPath: /config
               readOnly: true
+            - name: tmp
+              mountPath: /tmp
+              readOnly: false
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
@@ -84,3 +89,5 @@ spec:
         - name: oncall-config
           configMap:
             name: oncall-schedule
+        - name: tmp
+          emptyDir: {}

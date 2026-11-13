@@ -38,6 +38,9 @@ spec:
               readOnly: true
             - name: fluent-bit-db
               mountPath: /var/log/flb_db/
+            - name: tmp
+              mountPath: /tmp
+              readOnly: false
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
@@ -79,4 +82,6 @@ spec:
           configMap:
             name: fluent-bit-config
         - name: fluent-bit-db
+          emptyDir: {}
+        - name: tmp
           emptyDir: {}

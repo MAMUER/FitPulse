@@ -14,12 +14,11 @@ export default function AuthLayout({ children }) {
         <h1>FitPulse</h1>
       </div>
       {children}
-      <div className='auth-link' style={{ marginTop: 8 }}>
+      <div className='auth-link auth-link--compact'>
         <button
           type='button'
           className='secondary auth-control'
           onClick={toggleHighContrast}
-          style={{ fontSize: 9 }}
         >
           <i className='fas fa-eye'></i>{' '}
           {t('Режим высокой контрастности', 'High contrast mode')}
@@ -28,7 +27,6 @@ export default function AuthLayout({ children }) {
           type='button'
           className='secondary auth-control lang-control'
           onClick={toggleLanguage}
-          style={{ fontSize: 9, marginLeft: 6 }}
         >
           <i className='fas fa-globe'></i>{' '}
           {state.language === 'ru' ? 'EN' : 'RU'}

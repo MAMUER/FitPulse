@@ -985,6 +985,8 @@ jobs:
         run: bash scripts/ci/build-push.sh build_crs_updater
       - name: Build and push backup tools image
         run: bash scripts/ci/build-push.sh build_backup_tools
+      - name: Build and push on-call bot image
+        run: bash scripts/ci/build-push.sh build_oncall_bot
       - name: Build and push Open Wearables images
         run: bash scripts/ci/build-push.sh build_open_wearables
       - name: Scan gateway image with Trivy
@@ -1060,6 +1062,12 @@ jobs:
           VPS_PORT: ${{ secrets.VPS_PORT }}
           VPS_USER: ${{ secrets.VPS_USER }}
         run: bash scripts/ci/vps-provision.sh configure_swap
+      - name: Configure Elasticsearch vm.max_map_count
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+        run: bash scripts/ci/vps-provision.sh configure_elasticsearch_sysctl
       - name: Check disk space on VPS
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
@@ -1371,6 +1379,13 @@ jobs:
           VPS_PORT: ${{ secrets.VPS_PORT }}
           VPS_USER: ${{ secrets.VPS_USER }}
         run: bash scripts/ci/deploy-production.sh pre_pull_images
+      - name: Pre-pull public images on VPS (ELK/monitoring)
+        if: steps.connectivity.outputs.reachable == 'true'
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+        run: bash scripts/ci/deploy-production.sh pre_pull_public_images
       - name: Ensure local-path-provisioner is running and StorageClass is ready
         if: steps.connectivity.outputs.reachable == 'true'
         env:
