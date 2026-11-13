@@ -103,6 +103,8 @@ spec:
             items:
               - key: logstash.yml
                 path: logstash.yml
+              - key: pipelines.yml
+                path: pipelines.yml
         - name: tmp
           emptyDir: {}
         - name: logstash-data

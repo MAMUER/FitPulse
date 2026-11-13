@@ -257,6 +257,23 @@ updates:
     assignees: ["MAMUER"]
     registries: ["ghcr"]
 
+  - package-ecosystem: "docker"
+    directory: "/scripts/oncall-bot"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "08:00"
+      timezone: "Europe/Moscow"
+    cooldown:
+      default-days: 7
+    open-pull-requests-limit: 3
+    commit-message: { prefix: "deps(docker/oncall-bot)", include: "scope" }
+    labels: ["dependencies", "docker", "oncall"]
+    assignees: ["MAMUER"]
+    registries: ["ghcr"]
+    allow:
+      - dependency-type: "direct"
+
   # ═══════════════════════════════════════════════════════════════
   # 5. KUBERNETES MANIFESTS — ingress-nginx
   # ═══════════════════════════════════════════════════════════════
@@ -312,6 +329,20 @@ updates:
     open-pull-requests-limit: 5
     commit-message: { prefix: "deps(pip/gan-service)", include: "scope" }
     labels: ["dependencies", "python", "ml"]
+    assignees: ["MAMUER"]
+
+  - package-ecosystem: "pip"
+    directory: "/scripts/oncall-bot"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "08:00"
+      timezone: "Europe/Moscow"
+    cooldown:
+      default-days: 7
+    open-pull-requests-limit: 3
+    commit-message: { prefix: "deps(pip/oncall-bot)", include: "scope" }
+    labels: ["dependencies", "python", "oncall"]
     assignees: ["MAMUER"]
 
   # ═══════════════════════════════════════════════════════════════

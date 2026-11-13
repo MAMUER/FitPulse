@@ -22,6 +22,21 @@ PROBLEM_IMAGES=(
 	"ghcr.io/mamuer/project/postgres-pgsodium:pg18"
 )
 
+import_fluent_bit() {
+	local img="docker.io/fluent/fluent-bit:3.0.0"
+	local tar_file="/tmp/fluent-bit.tar"
+	if bash scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "sudo k3s ctr -n k8s.io images ls -q | grep -q '^${img}$'"; then
+		log_info "Image already present on VPS: $img"
+		return 0
+	fi
+	log_info "-> Pulling $img on runner..."
+	docker pull "$img"
+	docker save "$img" -o "$tar_file"
+	bash scripts/ssh-retry.sh scp "$tar_file" "${VPS_USER}@${VPS_HOST}:/tmp/"
+	bash scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "sudo k3s ctr -n k8s.io images import ${tar_file} && sudo rm -f ${tar_file}"
+	log_info "Imported $img"
+}
+
 import_problem_images() {
 	log_info "=== Importing problem images manually via runner ==="
 	# Authenticate to Docker Hub to avoid anonymous pull rate limits.
@@ -76,8 +91,20 @@ pre_pull_public_images() {
 			continue
 		fi
 		log_info "-> Pulling $img directly on VPS..."
-		./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "sudo k3s ctr -n k8s.io images pull '${img}'" ||
-			log_warn "Failed to pull $img on VPS; the pod will retry via imagePullPolicy"
+		if ./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "sudo k3s ctr -n k8s.io images pull '${img}'"; then
+			continue
+		fi
+		# Direct Docker Hub auth is reset on this VPS. The daocloud mirror is
+		# reachable and serves the same images; pull from it and tag the
+		# canonical name so the kubelet finds it by the manifest's image.
+		local mirror="${img/docker.io\//docker.m.daocloud.io/}"
+		if [[ "$mirror" != "$img" ]]; then
+			log_warn "Direct pull failed; trying mirror $mirror"
+			if ./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "sudo k3s ctr -n k8s.io images pull '${mirror}' && sudo k3s ctr -n k8s.io images tag '${mirror}' '${img}'"; then
+				continue
+			fi
+		fi
+		log_warn "Failed to pull $img on VPS; the pod will retry via imagePullPolicy"
 	done
 	log_info "Public images pre-pull completed"
 }

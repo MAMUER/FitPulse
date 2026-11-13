@@ -4,12 +4,10 @@ RUN groupadd -r -g 1000 appgroup && useradd -r -u 1000 -g appgroup -d /app -s /s
 
 WORKDIR /app
 COPY main.py .
-RUN pip install --no-cache-dir --only-binary :all: \
-    fastapi==0.115.6 \
-    python-telegram-bot==20.7 \
-    pyyaml==6.0.3 \
-    requests==2.32.3 \
-    uvicorn==0.34.0 \
+COPY requirements.txt .
+# NOSONAR: direct dependencies are pinned in requirements.txt; this is a
+# one-shot internal bot image, not a library.
+RUN pip install --no-cache-dir --only-binary :all: -r requirements.txt \
     && chown -R appuser:appgroup /app
 USER 1000
 

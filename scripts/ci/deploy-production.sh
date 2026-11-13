@@ -47,6 +47,7 @@ main() {
 	update_image_tags) update_image_tags ;;
 	pre_pull_images) pre_pull_images ;;
 	pre_pull_public_images) pre_pull_public_images ;;
+	import_fluent_bit) import_fluent_bit ;;
 	manifests) apply_manifests ;;
 	apply_manifests) apply_manifests ;;
 	cleanup_cluster) cleanup_cluster_resources ;;

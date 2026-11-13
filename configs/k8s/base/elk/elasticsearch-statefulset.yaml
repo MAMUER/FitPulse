@@ -25,6 +25,40 @@ spec:
         runAsUser: 1000
         runAsGroup: 1000
         fsGroup: 1000
+      initContainers:
+        - name: init-config
+          image: docker.elastic.co/elasticsearch/elasticsearch:8.12.0
+          imagePullPolicy: IfNotPresent
+          command:
+            - /bin/bash
+            - -c
+            - |
+              set -euo pipefail
+              # The ES entrypoint creates elasticsearch.keystore in
+              # /usr/share/elasticsearch/config. With readOnlyRootFilesystem
+              # the image's config dir is read-only, so copy it into a
+              # writable emptyDir and mount that over the config dir.
+              cp -a /usr/share/elasticsearch/config/. /config/
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+            seccompProfile:
+              type: RuntimeDefault
+          volumeMounts:
+            - name: es-config
+              mountPath: /config
+              readOnly: false
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+              ephemeral-storage: "128Mi"
+            limits:
+              cpu: "200m"
+              memory: "128Mi"
+              ephemeral-storage: "256Mi"
       containers:
         - name: elasticsearch
           image: docker.elastic.co/elasticsearch/elasticsearch:8.12.0
@@ -59,6 +93,9 @@ spec:
                   name: elk-credentials
                   key: elasticsearch-password
           volumeMounts:
+            - name: es-config
+              mountPath: /usr/share/elasticsearch/config
+              readOnly: false
             - name: elasticsearch-data
               mountPath: /usr/share/elasticsearch/data
             - name: elasticsearch-logs
@@ -103,6 +140,8 @@ spec:
         - name: tmp
           emptyDir: {}
         - name: elasticsearch-logs
+          emptyDir: {}
+        - name: es-config
           emptyDir: {}
   volumeClaimTemplates:
     - metadata:

@@ -1387,7 +1387,7 @@ jobs:
           VPS_PORT: ${{ secrets.VPS_PORT }}
           VPS_USER: ${{ secrets.VPS_USER }}
         run: bash scripts/ci/deploy-production.sh pre_pull_public_images
-      - name: Import remaining public images via runner
+      - name: Import fluent-bit image via runner
         if: steps.connectivity.outputs.reachable == 'true'
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
@@ -1395,7 +1395,7 @@ jobs:
           VPS_USER: ${{ secrets.VPS_USER }}
           DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
           DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
-        run: bash scripts/ci/deploy-production.sh import_problem_images
+        run: bash scripts/ci/deploy-production.sh import_fluent_bit
       - name: Ensure local-path-provisioner is running and StorageClass is ready
         if: steps.connectivity.outputs.reachable == 'true'
         env:
@@ -1424,6 +1424,15 @@ jobs:
           VPS_PORT: ${{ secrets.VPS_PORT }}
           VPS_USER: ${{ secrets.VPS_USER }}
         run: bash scripts/ci/deploy-production.sh apply_manifests
+      - name: Restart ELK/monitoring workloads
+        if: steps.connectivity.outputs.reachable == 'true'
+        run: |
+          kubectl -n elk rollout restart statefulset/elasticsearch || true
+          kubectl -n elk rollout restart deployment/logstash || true
+          kubectl -n elk rollout restart deployment/kibana || true
+          kubectl -n monitoring rollout restart deployment/oncall-bot || true
+          kubectl -n monitoring rollout restart deployment/opentelemetry-collector || true
+          kubectl -n elk rollout restart daemonset/fluent-bit || true
       - name: Wait for RabbitMQ to be ready
         if: steps.connectivity.outputs.reachable == 'true'
         run: bash scripts/ci/deploy-production.sh wait_for_rabbitmq

@@ -5,7 +5,8 @@
   "enabledManagers": [
     "regex",
     "pip_requirements",
-    "dockerfile"
+    "dockerfile",
+    "kubernetes"
   ],
   "customManagers": [
     {
