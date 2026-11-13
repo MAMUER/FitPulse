@@ -1,4 +1,4 @@
-package main
+﻿package main
 
 import (
 	"context"
@@ -925,9 +925,6 @@ func TestMigratePIIRow_NoPairs(t *testing.T) {
 		key:      "key",
 		id:       1,
 	}
-
-	mock.ExpectQuery("SELECT convert_from").
-		WillReturnRows(sqlmock.NewRows([]string{"convert_from"}))
 
 	result := migratePIIRow(ctx, migCtx, "1", []interface{}{"1", "encrypted"})
 	assert.False(t, result)

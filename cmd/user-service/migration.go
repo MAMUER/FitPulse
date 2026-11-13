@@ -266,6 +266,9 @@ func migratePIIRow(ctx context.Context, migCtx piiMigrationContext, rowID string
 		return false
 	}
 	setParts, args := buildPIIUpdate(migCtx.t, migCtx.id, plainValues)
+	if setParts == "" {
+		return false
+	}
 	args = append(args, rowID)
 	var queryBuilder strings.Builder
 	queryBuilder.WriteString("UPDATE ")
