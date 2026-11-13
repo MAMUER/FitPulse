@@ -1997,6 +1997,7 @@ jobs:
           PYEOF
       - name: Send to Telegram
         if: always()
+        continue-on-error: true
         uses: appleboy/telegram-action@214f06cfa3d3a588c1472116889437e7c6fd29b1
         with:
           to: ${{ secrets.TELEGRAM_CHAT_ID }}
@@ -2019,7 +2020,9 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_URL: ${{ github.event.pull_request.html_url }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh pr merge --auto --squash "$PR_URL"
+        run: |
+          gh pr merge --auto --squash "$PR_URL" ||
+            echo "::warning::Auto-merge is not enabled for this repository (enablePullRequestAutoMerge); skipping"
       - name: Auto-approve minor/patch updates
         if: contains(github.event.pull_request.title, 'minor') || contains(github.event.pull_request.title, 'patch')
         env:
