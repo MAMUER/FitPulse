@@ -1386,6 +1386,15 @@ jobs:
           VPS_PORT: ${{ secrets.VPS_PORT }}
           VPS_USER: ${{ secrets.VPS_USER }}
         run: bash scripts/ci/deploy-production.sh pre_pull_public_images
+      - name: Import remaining public images via runner
+        if: steps.connectivity.outputs.reachable == 'true'
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+        run: bash scripts/ci/deploy-production.sh import_problem_images
       - name: Ensure local-path-provisioner is running and StorageClass is ready
         if: steps.connectivity.outputs.reachable == 'true'
         env:
@@ -1550,6 +1559,17 @@ jobs:
           node-version: "26"
           cache: "npm"
           cache-dependency-path: "web/package-lock.json"
+      - name: Connect to Tailscale
+        uses: tailscale/github-action@064b10558093f38325e838ddea35486bdc6b1d5c
+        with:
+          oauth-client-id: ${{ secrets.TAILSCALE_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TAILSCALE_OAUTH_CLIENT_SECRET }}
+          tags: tag:ci
+      - name: Resolve VPS hostname
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+        run: bash scripts/ci/ci-helpers.sh resolve_vps_hostname
       - name: Install frontend dependencies
         run: cd web && npm ci --ignore-scripts
       - name: Install Playwright browsers

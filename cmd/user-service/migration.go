@@ -60,6 +60,7 @@ func ensurePgsodiumKey(ctx context.Context, database *sql.DB, log *logger.Logger
 type pair struct {
 	enc   string
 	plain string
+	nonce string
 }
 
 type piiTable struct {
@@ -69,8 +70,8 @@ type piiTable struct {
 }
 
 var allowedPiiTables = map[string][]string{
-	"users":               {"id", "email", "email_encrypted", "full_name", "full_name_encrypted", "nickname", "nickname_encrypted"},
-	"email_verifications": {"id", "email", "email_encrypted", "token", "token_encrypted"},
+	"users":               {"id", "email", "email_encrypted", "email_nonce", "full_name", "full_name_encrypted", "full_name_nonce", "nickname", "nickname_encrypted", "nickname_nonce"},
+	"email_verifications": {"id", "email", "email_encrypted", "email_nonce", "token", "token_encrypted", "token_nonce"},
 }
 
 func validatePiiTable(t piiTable) error {
@@ -88,6 +89,9 @@ func validatePiiTable(t piiTable) error {
 	for _, p := range t.pairs {
 		if !allowedSet[p.enc] || !allowedSet[p.plain] {
 			return fmt.Errorf("pii migration: column %q/%q is not allowed for table %q", p.enc, p.plain, t.name)
+		}
+		if p.nonce != "" && !allowedSet[p.nonce] {
+			return fmt.Errorf("pii migration: nonce column %q is not allowed for table %q", p.nonce, t.name)
 		}
 	}
 	return nil
@@ -108,13 +112,13 @@ func reencryptPIIFromPgcrypto(ctx context.Context, database *sql.DB, log *logger
 
 	tables := []piiTable{
 		{"users", "id", []pair{
-			{"email_encrypted", "email"},
-			{"full_name_encrypted", "full_name"},
-			{"nickname_encrypted", "nickname"},
+			{"email_encrypted", "email", "email_nonce"},
+			{"full_name_encrypted", "full_name", "full_name_nonce"},
+			{"nickname_encrypted", "nickname", "nickname_nonce"},
 		}},
 		{"email_verifications", "id", []pair{
-			{"email_encrypted", "email"},
-			{"token_encrypted", "token"},
+			{"email_encrypted", "email", "email_nonce"},
+			{"token_encrypted", "token", "token_nonce"},
 		}},
 	}
 
@@ -139,6 +143,9 @@ func migrateTablePII(ctx context.Context, database *sql.DB, log *logger.Logger, 
 	cols := []string{t.idCol}
 	for _, p := range t.pairs {
 		cols = append(cols, p.enc)
+		if p.nonce != "" {
+			cols = append(cols, p.nonce)
+		}
 	}
 	colList := strings.Join(cols, ", ")
 	var selectBuilder strings.Builder
@@ -201,10 +208,24 @@ func migrateTablePII(ctx context.Context, database *sql.DB, log *logger.Logger, 
 
 func migratePIIRow(ctx context.Context, migCtx piiMigrationContext, rowID string, rowVals []interface{}) bool {
 	var probe string
-	if migCtx.database.QueryRowContext(ctx,
-		fmt.Sprintf("SELECT convert_from(pgsodium.crypto_aead_det_decrypt($1, '', %d), 'UTF8')", migCtx.id), rowVals[1],
-	).Scan(&probe) == nil {
-		return false
+	// Skip rows already encrypted with pgsodium. The seed-admin and the app
+	// use nonce-based crypto_aead_aegis256 ciphertexts, which the old
+	// deterministic-only probe did not recognise; it then fell through to
+	// pgp_sym_decrypt and logged a false warning on every start.
+	for i, p := range migCtx.t.pairs {
+		enc := rowVals[1+i*2]
+		if migCtx.database.QueryRowContext(ctx,
+			fmt.Sprintf("SELECT convert_from(pgsodium.crypto_aead_det_decrypt($1, '', %d), 'UTF8')", migCtx.id), enc,
+		).Scan(&probe) == nil {
+			return false
+		}
+		if p.nonce != "" {
+			if migCtx.database.QueryRowContext(ctx,
+				fmt.Sprintf("SELECT convert_from(pgsodium.crypto_aead_aegis256_decrypt($1, '', %d, $2), 'UTF8')", migCtx.id), enc, rowVals[2+i*2],
+			).Scan(&probe) == nil {
+				return false
+			}
+		}
 	}
 
 	setParts := make([]string, 0, len(migCtx.t.pairs))
@@ -212,9 +233,19 @@ func migratePIIRow(ctx context.Context, migCtx piiMigrationContext, rowID string
 	ai := 1
 	for i, p := range migCtx.t.pairs {
 		var plain sql.NullString
-		if dErr := migCtx.database.QueryRowContext(ctx, "SELECT pgp_sym_decrypt($1, $2)", rowVals[i+1], migCtx.key).Scan(&plain); dErr != nil || !plain.Valid {
-			migCtx.log.Warn("Failed to pgcrypto-decrypt during PII migration",
-				zap.Error(dErr), zap.String("table", sanitize.LogString(migCtx.t.name)), zap.String("col", sanitize.LogString(p.enc)))
+		if dErr := migCtx.database.QueryRowContext(ctx, "SELECT pgp_sym_decrypt($1, $2)", rowVals[1+i*2], migCtx.key).Scan(&plain); dErr != nil || !plain.Valid {
+			// Some pre-migration rows hold non-UTF8 bytes (for example a
+			// missing/corrupt legacy encryption envelope). pgcrypto returns
+			// bytea, and lib/pq refuses to decode it as UTF8. There is nothing
+			// to migrate for such a row; keep it out of the warning stream so
+			// the service does not log a false alarm on every start.
+			if dErr != nil && strings.Contains(dErr.Error(), "invalid byte sequence for encoding") {
+				migCtx.log.Debug("Skipping legacy PII row with non-UTF8 pgcrypto payload",
+					zap.String("table", sanitize.LogString(migCtx.t.name)), zap.String("col", sanitize.LogString(p.enc)))
+			} else {
+				migCtx.log.Warn("Failed to pgcrypto-decrypt during PII migration",
+					zap.Error(dErr), zap.String("table", sanitize.LogString(migCtx.t.name)), zap.String("col", sanitize.LogString(p.enc)))
+			}
 			return false
 		}
 		args = append(args, plain.String)

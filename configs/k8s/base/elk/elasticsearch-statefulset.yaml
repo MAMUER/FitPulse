@@ -61,8 +61,12 @@ spec:
           volumeMounts:
             - name: elasticsearch-data
               mountPath: /usr/share/elasticsearch/data
+            - name: elasticsearch-logs
+              mountPath: /usr/share/elasticsearch/logs
+              readOnly: false
             - name: tmp
               mountPath: /tmp
+              readOnly: false
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
@@ -97,6 +101,8 @@ spec:
               ephemeral-storage: "4Gi"
       volumes:
         - name: tmp
+          emptyDir: {}
+        - name: elasticsearch-logs
           emptyDir: {}
   volumeClaimTemplates:
     - metadata:

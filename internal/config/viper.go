@@ -26,12 +26,12 @@ func LoadViper(appName string) (*viper.Viper, error) {
 		var notFoundErr viper.ConfigFileNotFoundError
 		if !errors.As(err, &notFoundErr) {
 			// Tolerate control-character parse errors (e.g., from stale/malformed
-			// config files left on the filesystem) by logging a warning and
-			// continuing with defaults instead of crashing.
+			// config files left on the filesystem) by continuing with defaults
+			// instead of crashing. Do not print a warning: this is expected for
+			// legacy deployments and only pollutes the service log.
 			if !strings.Contains(err.Error(), "control characters") {
 				return nil, fmt.Errorf("read config: %w", err)
 			}
-			fmt.Fprintf(os.Stderr, "warning: config file parse error: %v (continuing with defaults)\n", err)
 		}
 	}
 

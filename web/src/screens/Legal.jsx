@@ -183,9 +183,7 @@ export default function Legal() {
           <div className='panel-title'>{title}</div>
         </div>
         <div className='panel-body'>
-          <pre className='legal-body'>
-            {body}
-          </pre>
+          <pre className='legal-body'>{body}</pre>
           <button
             type='button'
             className='secondary full'

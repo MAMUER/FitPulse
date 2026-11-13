@@ -15,6 +15,7 @@ import os
 import random
 import ssl
 import sys
+import time
 from datetime import datetime, timezone
 from urllib.parse import urlsplit
 
@@ -89,10 +90,19 @@ class TestRunner:
                 conn.request(method, path, body=data, headers=headers or {})
                 resp = conn.getresponse()
                 body = resp.read().decode("utf-8", errors="replace")
-                return resp.status, json.loads(body) if body else {}
+                if not body:
+                    return resp.status, {}
+                try:
+                    return resp.status, json.loads(body)
+                except json.JSONDecodeError:
+                    # Some gateways/proxies return plain text (e.g. "OK",
+                    # "404 page not found", ModSecurity block pages). Keep the
+                    # raw body so the test reports a normal FAIL instead of
+                    # crashing with a JSONDecodeError.
+                    return resp.status, {"_raw": body}
             finally:
                 conn.close()
-        except OSError as e:
+        except (OSError, http.client.HTTPException) as e:
             return None, {"error": str(e)}
 
     def request(self, method, path, body=None, token=None):
@@ -120,6 +130,15 @@ class TestRunner:
         print(f"  [{num}] {name} ", end="", flush=True)
 
         status, resp_body = self.request(method, path, body, token=token)
+        # Auth endpoints are rate-limited per IP (5/min). A CI runner can hit
+        # the limit after a few runs, and a 429 is not a product failure:
+        # wait for the window to reset and retry instead of crashing.
+        for _ in range(2):
+            if status != 429:
+                break
+            print("rate-limited (429), waiting 65s...", end="", flush=True)
+            time.sleep(65)
+            status, resp_body = self.request(method, path, body, token=token)
         self.last_status = status
 
         if status is None:
