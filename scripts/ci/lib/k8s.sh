@@ -61,12 +61,11 @@ cleanup_cluster_resources() {
 
 	# Orphan PVC from the pre-fix WAL CronJob name. Only delete it when no pod
 	# references it; the live StatefulSet volume is postgres-wal-archive-postgres-0.
-	if kubectl get pvc postgres-wal-archive -n "$ns" >/dev/null 2>&1; then
-		if ! kubectl get pods -n "$ns" -o json 2>/dev/null |
-			jq -e '.items[] | select(.spec.volumes[]? | .persistentVolumeClaim?.claimName == "postgres-wal-archive")' >/dev/null 2>&1; then
-			echo "-> Deleting orphan PVC postgres-wal-archive"
-			kubectl delete pvc postgres-wal-archive -n "$ns" --wait=false >/dev/null 2>&1 || true
-		fi
+	if kubectl get pvc postgres-wal-archive -n "$ns" >/dev/null 2>&1 &&
+		! { kubectl get pods -n "$ns" -o json 2>/dev/null |
+			jq -e '.items[] | select(.spec.volumes[]? | .persistentVolumeClaim?.claimName == "postgres-wal-archive")' >/dev/null 2>&1; }; then
+		echo "-> Deleting orphan PVC postgres-wal-archive"
+		kubectl delete pvc postgres-wal-archive -n "$ns" --wait=false >/dev/null 2>&1 || true
 	fi
 
 	echo "✅ Cleanup complete"

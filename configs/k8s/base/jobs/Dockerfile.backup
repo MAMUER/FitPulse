@@ -1,0 +1,16 @@
+# Backup tooling for the nightly pg_dump and WAL archive CronJobs.
+#
+# postgres:18-alpine ships pg_dump but not aws-cli/openssl/bash. Installing
+# them at runtime forced the jobs to run as root (Semgrep
+# run-as-non-root-unsafe-value). Bake them into the image instead and run the
+# jobs as the same numeric UID as the postgres StatefulSet (10001), which is
+# required to read the fsGroup=10001 WAL PVC.
+FROM docker.io/library/postgres:18-alpine
+
+RUN apk add --no-cache bash aws-cli openssl
+
+# AWS CLI writes its cache under $HOME; /tmp is mounted as an emptyDir in the
+# CronJobs because readOnlyRootFilesystem=true.
+ENV HOME=/tmp
+
+USER 10001:10001

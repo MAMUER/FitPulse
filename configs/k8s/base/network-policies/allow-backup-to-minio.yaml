@@ -47,18 +47,3 @@ spec:
       ports:
         - protocol: TCP
           port: 5432
-    # The jobs install aws-cli/openssl at runtime (`apk add`), so they need
-    # outbound HTTPS to the Alpine CDN. Private ranges are excluded because
-    # they are covered by the explicit rules above.
-    - to:
-        - ipBlock:
-            cidr: 0.0.0.0/0
-            except:
-              - 10.0.0.0/8
-              - 172.16.0.0/12
-              - 192.168.0.0/16
-      ports:
-        - protocol: TCP
-          port: 80
-        - protocol: TCP
-          port: 443

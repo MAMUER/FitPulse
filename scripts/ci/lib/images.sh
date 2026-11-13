@@ -75,7 +75,8 @@ pre_pull_images() {
 			\\\"ghcr.io/mamuer/project/open-wearables-backend:${image_tag}\\\" \\
 			\\\"ghcr.io/mamuer/project/open-wearables-frontend:${image_tag}\\\" \\
 			\\\"ghcr.io/mamuer/project/data-processor:${image_tag}\\\" \\
-			\\\"ghcr.io/mamuer/project/postgres-pgsodium:pg18\\\"; do
+			\\\"ghcr.io/mamuer/project/postgres-pgsodium:pg18\\\" \\
+			\\\"ghcr.io/mamuer/project/backup-tools:pg18\\\"; do
 
 			echo \\\"Pulling \\\$img...\\\"
 			sudo k3s ctr -n k8s.io images pull --user \"${GITHUB_ACTOR}:${GHCR_TOKEN}\" \"\\\$img\" >/dev/null 2>&1 || \\

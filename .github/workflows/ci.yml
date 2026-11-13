@@ -983,6 +983,8 @@ jobs:
         run: bash scripts/ci/build-push.sh build_ml_images
       - name: Build and push CRS updater image
         run: bash scripts/ci/build-push.sh build_crs_updater
+      - name: Build and push backup tools image
+        run: bash scripts/ci/build-push.sh build_backup_tools
       - name: Build and push Open Wearables images
         run: bash scripts/ci/build-push.sh build_open_wearables
       - name: Scan gateway image with Trivy
