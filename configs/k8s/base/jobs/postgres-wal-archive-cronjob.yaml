@@ -121,4 +121,4 @@ spec:
           volumes:
             - name: wal-archive-storage
               persistentVolumeClaim:
-                claimName: postgres-wal-archive
+                claimName: postgres-wal-archive-postgres-0

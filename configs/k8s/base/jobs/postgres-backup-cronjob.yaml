@@ -92,7 +92,7 @@ spec:
                 claimName: postgres-backup-pvc
             - name: wal-archive-storage
               persistentVolumeClaim:
-                claimName: postgres-wal-archive
+                claimName: postgres-wal-archive-postgres-0
             - name: backup-scripts
               configMap:
                 name: backup-scripts
