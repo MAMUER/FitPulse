@@ -17,7 +17,7 @@
 - [x] PostgreSQL 18 с pgsodium for at-rest columns, key management (envelope encryption, не двойное шифрование)
 - [x] RabbitMQ 4 с persistent queues и DLQ
 - [x] Valkey 9
-- [x] MinIO для хранения бэкапов (S3-compatible, в рамках free-stack)
+- [x] Silo (MinIO drop-in fork) для хранения бэкапов (S3-compatible, в рамках free-stack)
 - [x] Vault + External Secrets Operator для управления секретами (PostgreSQL backend)
 
 ### Наблюдаемость

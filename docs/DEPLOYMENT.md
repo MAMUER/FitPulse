@@ -229,7 +229,7 @@ openssl req -x509 -nodes -days 365 -newkey ec -pkeyopt ec_paramgen_curve:P-256 \
 
 ## Backup Setup
 
-Бэкапы настроены через MinIO (S3-compatible) и ежедневный CronJob:
+Бэкапы настроены через Silo (maintained drop-in форк MinIO, S3-совместимый) и ежедневный CronJob:
 
 ```bash
 # Применить ConfigMap с скриптами бэкапа
@@ -242,7 +242,7 @@ kubectl apply -f configs/k8s/base/jobs/backup-cronjob.yaml -n fitness-platform-p
 kubectl get cronjob -n fitness-platform-production
 ```
 
-Бэкапы хранятся в MinIO bucket `fitpulse-db-backups`. Восстановление: см. `OPERATIONS_RUNBOOK.md` → «Восстановление данных».
+Бэкапы хранятся в Silo (MinIO-совместимое хранилище) bucket `fitpulse-db-backups`. Восстановление: см. `OPERATIONS_RUNBOOK.md` → «Восстановление данных».
 
 ## Device Aggregator Deployment
 

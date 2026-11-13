@@ -12,7 +12,7 @@ func TestEmailHash(t *testing.T) {
 	hash3 := EmailHash("other@example.com")
 
 	assert.NotEmpty(t, hash1)
-	assert.Len(t, hash1, 32)
+	assert.Len(t, hash1, 64)
 	assert.Equal(t, strings.ToLower(hash1), hash1)
 	assert.NotEqual(t, hash1, hash3)
 	assert.Equal(t, hash1, EmailHash("Test@Example.com"))

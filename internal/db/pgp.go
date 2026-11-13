@@ -1,6 +1,7 @@
 package db
 
 import (
+	"crypto/sha256"
 	"encoding/hex"
 	"strings"
 
@@ -45,6 +46,14 @@ func EncryptionKey() []byte {
 }
 
 // EmailHash returns a lowercase SHA256 hex representation for lookup.
+// It MUST match the SQL expression `encode(digest(lower(email), 'sha256'), 'hex')`
+// used by the migration backfill and pgsodium queries, otherwise lookups by
+// email_hash will not match. Empty input returns "".
 func EmailHash(email string) string {
-	return strings.ToLower(hex.EncodeToString([]byte(sanitize.String(email))))
+	s := strings.ToLower(sanitize.String(email))
+	if s == "" {
+		return ""
+	}
+	sum := sha256.Sum256([]byte(s))
+	return hex.EncodeToString(sum[:])
 }

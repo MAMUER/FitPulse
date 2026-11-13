@@ -219,9 +219,10 @@ func TestConnectionPoolSettings(t *testing.T) {
 }
 
 func TestBlindIndex(t *testing.T) {
-	assert.Equal(t, "54657374", BlindIndex("Test"))
-	assert.Equal(t, "54657374", BlindIndex("Test"))
-	assert.NotEqual(t, BlindIndex("Test"), BlindIndex("test"))
+	assert.Equal(t, BlindIndex("Test"), BlindIndex("Test"))
+	assert.Equal(t, BlindIndex("Test"), BlindIndex("test")) // case-insensitive
+	assert.NotEqual(t, BlindIndex("Test"), BlindIndex("other"))
+	assert.Len(t, BlindIndex("Test"), 64) // SHA256 hex
 }
 
 func TestNicknameHash(t *testing.T) {

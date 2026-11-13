@@ -1,7 +1,6 @@
 package db
 
 import (
-	"encoding/hex"
 	"strings"
 	"testing"
 
@@ -11,12 +10,12 @@ import (
 
 func TestBlindIndexFormat(t *testing.T) {
 	got := BlindIndex("Test@Example.COM")
-	expected := strings.ToLower(hex.EncodeToString([]byte("Test@Example.COM")))
 
-	assert.Equal(t, expected, got)
+	assert.Len(t, got, 64) // SHA256 hex = 64 chars
 	assert.Equal(t, strings.ToLower(got), got)
 	assert.NotEmpty(t, got)
-	assert.Equal(t, got, BlindIndex("Test@Example.COM"))
+	assert.Equal(t, got, BlindIndex("test@example.com"))  // case-insensitive
+	assert.NotEqual(t, got, BlindIndex("other@example.com"))
 }
 
 func TestPgsodiumKeyringName(t *testing.T) {

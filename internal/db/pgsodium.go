@@ -2,6 +2,7 @@ package db
 
 import (
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
 	"strings"
@@ -84,8 +85,14 @@ func PgsodiumKeyringName() string {
 
 // BlindIndex возвращает lowercase hex SHA256 для поиска без утечки plaintext.
 // Используется для полей, где применяется рандомизированное шифрование.
+// ДОЛЖНО совпадать с SQL-выражением `encode(digest(lower(x), 'sha256'), 'hex')`.
 func BlindIndex(plaintext string) string {
-	return strings.ToLower(hex.EncodeToString([]byte(sanitize.String(plaintext))))
+	s := strings.ToLower(sanitize.String(plaintext))
+	if s == "" {
+		return ""
+	}
+	sum := sha256.Sum256([]byte(s))
+	return hex.EncodeToString(sum[:])
 }
 
 // NicknameHash возвращает lowercase hex SHA256 для поиска по nickname.

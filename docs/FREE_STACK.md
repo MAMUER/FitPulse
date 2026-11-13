@@ -24,7 +24,7 @@
 | **Container** | Docker / BuildKit | Apache-2.0 | Free | ❌ No |
 | **TLS** | cert-manager + Let's Encrypt | Apache-2.0 | Free | ❌ No |
 | **WAF** | Ingress NGINX + ModSecurity CRS v4 | Apache-2.0 | Free | ❌ No |
-| **Backup** | MinIO (S3-compatible) | AGPL-3.0 | Free | ❌ No |
+| **Backup** | Silo (MinIO drop-in fork, S3-compatible) | AGPL-3.0 | Free | ❌ No |
 
 ---
 
@@ -47,7 +47,7 @@
 │  ┌───────────────────────────────────────────────────────────┐  │
 │  │  k3s cluster (1 node, production)                         │  │
 │  │  ┌─────────────────────────────────────────────────────┐  │  │
-│  │  │  MinIO (S3-compatible)                              │  │  │
+│  │  │  Silo (MinIO drop-in fork, S3-compatible)         │  │  │
 │  │  │  - Bucket: fitpulse-db-backups                      │  │  │
 │  │  └─────────────────────────────────────────────────────┘  │  │
 │  │  ┌─────────────────────────────────────────────────────┐  │  │
@@ -122,7 +122,7 @@ Kubernetes Secret `app-secrets`
 
 ### MINIO_ROOT_PASSWORD
 
-**Source:** You set this yourself when deploying MinIO.
+**Source:** You set this yourself when deploying Silo (MinIO-compatible storage).
 
 ```bash
 # Add to GitHub Secrets:
@@ -236,7 +236,7 @@ vault kv put secret/cloudflare api_token="<token>"
 
 - ✅ Added: Vault + External Secrets Operator
 - ✅ Added: cert-manager для TLS
-- ✅ Added: MinIO для бэкапов
+- ✅ Added: Silo (MinIO drop-in fork) для бэкапов
 - ✅ Added: WAF (Ingress NGINX + ModSecurity CRS v4)
 
 ---
@@ -246,7 +246,7 @@ vault kv put secret/cloudflare api_token="<token>"
 | Secret Name | Value | Source |
 | --- | --- | --- | --- |
 | `KUBECONFIG_DATA` | base64 kubeconfig | Existing k3s cluster |
-| `MINIO_SECRET_KEY` | MinIO root password | You generate |
+| `MINIO_SECRET_KEY` | Silo (MinIO) root password | You generate |
 | `EXTERNAL_SECRETS_DB_PASSWORD` | PostgreSQL password | You generate |
 | `ELASTICSEARCH_PASSWORD` | Elasticsearch elastic user | You generate |
 | `ELASTICSEARCH_PLATFORM_PASSWORD` | Elasticsearch platform-team user | You generate |
@@ -262,7 +262,7 @@ vault kv put secret/cloudflare api_token="<token>"
 ## Implementation Notes
 
 - Все секреты хранятся в Vault, синхронизируются через External Secrets Operator
-- MinIO используется для бэкапов PostgreSQL (ежедневно через CronJob)
+- Silo (MinIO drop-in fork) используется для бэкапов PostgreSQL (ежедневно через CronJob)
 - cert-manager автоматически выписывает TLS-сертификаты через Let's Encrypt
 - WAF (ModSecurity CRS v4) защищает от OWASP Top 10
 - Valkey используется для сессий, rate limiting, TOTP cache
