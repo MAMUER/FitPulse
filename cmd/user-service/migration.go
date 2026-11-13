@@ -206,68 +206,77 @@ func migrateTablePII(ctx context.Context, database *sql.DB, log *logger.Logger, 
 	}
 }
 
-func migratePIIRow(ctx context.Context, migCtx piiMigrationContext, rowID string, rowVals []interface{}) bool {
+func piiRowIsPgsodium(ctx context.Context, database *sql.DB, keyID int64, pairs []pair, rowVals []interface{}) bool {
 	var probe string
+	for i, p := range pairs {
+		enc := rowVals[1+i*2]
+		if database.QueryRowContext(ctx,
+			fmt.Sprintf("SELECT convert_from(pgsodium.crypto_aead_det_decrypt($1, '', %d), 'UTF8')", keyID), enc,
+		).Scan(&probe) == nil {
+			return true
+		}
+		if p.nonce != "" && database.QueryRowContext(ctx,
+			fmt.Sprintf("SELECT convert_from(pgsodium.crypto_aead_aegis256_decrypt($1, '', %d, $2), 'UTF8')", keyID), enc, rowVals[2+i*2],
+		).Scan(&probe) == nil {
+			return true
+		}
+	}
+	return false
+}
+
+func decryptPIIRow(ctx context.Context, database *sql.DB, log *logger.Logger, t piiTable, key string, rowVals []interface{}) ([]string, bool) {
+	values := make([]string, 0, len(t.pairs))
+	for i, p := range t.pairs {
+		var plain sql.NullString
+		if dErr := database.QueryRowContext(ctx, "SELECT pgp_sym_decrypt($1, $2)", rowVals[1+i*2], key).Scan(&plain); dErr != nil || !plain.Valid {
+			if dErr != nil && strings.Contains(dErr.Error(), "invalid byte sequence for encoding") {
+				log.Debug("Skipping legacy PII row with non-UTF8 pgcrypto payload",
+					zap.String("table", sanitize.LogString(t.name)), zap.String("col", sanitize.LogString(p.enc)))
+			} else {
+				log.Warn("Failed to pgcrypto-decrypt during PII migration",
+					zap.Error(dErr), zap.String("table", sanitize.LogString(t.name)), zap.String("col", sanitize.LogString(p.enc)))
+			}
+			return nil, false
+		}
+		values = append(values, plain.String)
+	}
+	return values, true
+}
+
+func buildPIIUpdate(t piiTable, keyID int64, plainValues []string) (string, []interface{}) {
+	setParts := make([]string, 0, len(t.pairs))
+	args := make([]interface{}, 0, len(t.pairs)+1)
+	for i, p := range t.pairs {
+		setParts = append(setParts, fmt.Sprintf("%s = pgsodium.crypto_aead_det_encrypt($%d::text, '', %d)", p.enc, i+1, keyID))
+		args = append(args, plainValues[i])
+	}
+	return strings.Join(setParts, ", "), args
+}
+
+func migratePIIRow(ctx context.Context, migCtx piiMigrationContext, rowID string, rowVals []interface{}) bool {
 	// Skip rows already encrypted with pgsodium. The seed-admin and the app
 	// use nonce-based crypto_aead_aegis256 ciphertexts, which the old
-	// deterministic-only probe did not recognise; it then fell through to
+	// deterministic-only probe did not recognize; it then fell through to
 	// pgp_sym_decrypt and logged a false warning on every start.
-	for i, p := range migCtx.t.pairs {
-		enc := rowVals[1+i*2]
-		if migCtx.database.QueryRowContext(ctx,
-			fmt.Sprintf("SELECT convert_from(pgsodium.crypto_aead_det_decrypt($1, '', %d), 'UTF8')", migCtx.id), enc,
-		).Scan(&probe) == nil {
-			return false
-		}
-		if p.nonce != "" {
-			if migCtx.database.QueryRowContext(ctx,
-				fmt.Sprintf("SELECT convert_from(pgsodium.crypto_aead_aegis256_decrypt($1, '', %d, $2), 'UTF8')", migCtx.id), enc, rowVals[2+i*2],
-			).Scan(&probe) == nil {
-				return false
-			}
-		}
-	}
-
-	setParts := make([]string, 0, len(migCtx.t.pairs))
-	args := make([]interface{}, 0, len(migCtx.t.pairs)+1)
-	ai := 1
-	for i, p := range migCtx.t.pairs {
-		var plain sql.NullString
-		if dErr := migCtx.database.QueryRowContext(ctx, "SELECT pgp_sym_decrypt($1, $2)", rowVals[1+i*2], migCtx.key).Scan(&plain); dErr != nil || !plain.Valid {
-			// Some pre-migration rows hold non-UTF8 bytes (for example a
-			// missing/corrupt legacy encryption envelope). pgcrypto returns
-			// bytea, and lib/pq refuses to decode it as UTF8. There is nothing
-			// to migrate for such a row; keep it out of the warning stream so
-			// the service does not log a false alarm on every start.
-			if dErr != nil && strings.Contains(dErr.Error(), "invalid byte sequence for encoding") {
-				migCtx.log.Debug("Skipping legacy PII row with non-UTF8 pgcrypto payload",
-					zap.String("table", sanitize.LogString(migCtx.t.name)), zap.String("col", sanitize.LogString(p.enc)))
-			} else {
-				migCtx.log.Warn("Failed to pgcrypto-decrypt during PII migration",
-					zap.Error(dErr), zap.String("table", sanitize.LogString(migCtx.t.name)), zap.String("col", sanitize.LogString(p.enc)))
-			}
-			return false
-		}
-		args = append(args, plain.String)
-		setParts = append(setParts, fmt.Sprintf("%s = pgsodium.crypto_aead_det_encrypt($%d::text, '', %d)", p.enc, ai, migCtx.id))
-		ai++
-	}
-	if len(setParts) == 0 {
+	if piiRowIsPgsodium(ctx, migCtx.database, migCtx.id, migCtx.t.pairs, rowVals) {
 		return false
 	}
+	plainValues, ok := decryptPIIRow(ctx, migCtx.database, migCtx.log, migCtx.t, migCtx.key, rowVals)
+	if !ok {
+		return false
+	}
+	setParts, args := buildPIIUpdate(migCtx.t, migCtx.id, plainValues)
 	args = append(args, rowID)
-
 	var queryBuilder strings.Builder
 	queryBuilder.WriteString("UPDATE ")
 	queryBuilder.WriteString(migCtx.t.name)
 	queryBuilder.WriteString(" SET ")
-	queryBuilder.WriteString(strings.Join(setParts, ", "))
+	queryBuilder.WriteString(setParts)
 	queryBuilder.WriteString(" WHERE ")
 	queryBuilder.WriteString(migCtx.t.idCol)
 	queryBuilder.WriteString(" = $")
-	queryBuilder.WriteString(strconv.Itoa(ai))
+	queryBuilder.WriteString(strconv.Itoa(len(args)))
 	query := queryBuilder.String()
-
 	if _, uErr := migCtx.database.ExecContext(ctx, query, args...); uErr != nil { // NOSONAR go:S2077
 		migCtx.log.Error("Failed to re-encrypt PII row", zap.Error(uErr), zap.String("table", sanitize.LogString(migCtx.t.name)), zap.String("id", sanitize.LogString(rowID)))
 		return false

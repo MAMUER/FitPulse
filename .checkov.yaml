@@ -55,8 +55,8 @@ skip-check:
   - CKV_K8S_19
 
   # Containers requiring writable filesystem for PID files and operational commands
-  # (ingress-nginx needs /var/run/nginx.pid, postgres-wal-archive needs apk add).
-  # These are legitimate operational requirements, not security gaps.
+  # (ingress-nginx needs /var/run/nginx.pid). These are legitimate operational
+  # requirements, not security gaps.
   - CKV_K8S_22
 
   # Ingress configuration-snippet annotations are admin-managed static configuration;
@@ -65,3 +65,8 @@ skip-check:
 
   # The external-secrets 'writer' ServiceAccount must read cluster-wide secrets by design.
   - CKV2_K8S_5
+
+  # Docker HEALTHCHECK is ignored by Kubernetes; readiness/liveness probes are
+  # declared in the manifests. The backup image is used only by ephemeral Jobs,
+  # where a HEALTHCHECK would be dead weight (and would fail without a local DB).
+  - CKV_DOCKER_2

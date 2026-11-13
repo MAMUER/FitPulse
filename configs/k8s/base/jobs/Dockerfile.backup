@@ -5,7 +5,6 @@
 # run-as-non-root-unsafe-value). Bake them into the image instead and run the
 # jobs as the same numeric UID as the postgres StatefulSet (10001), which is
 # required to read the fsGroup=10001 WAL PVC.
-# checkov:skip=CKV_DOCKER_2:ephemeral backup job image; Kubernetes ignores Docker HEALTHCHECK
 FROM docker.io/library/postgres:18-alpine
 
 RUN apk add --no-cache aws-cli bash openssl
