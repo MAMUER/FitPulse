@@ -22,6 +22,27 @@ PROBLEM_IMAGES=(
 	"ghcr.io/mamuer/project/postgres-pgsodium:pg18"
 )
 
+pull_image_with_mirror_fallback() {
+	local img="$1"
+	local mirror="${img/docker.io\//docker.m.daocloud.io/}"
+
+	# Prefer the canonical Docker Hub reference, but fall back to the Daocloud
+	# mirror when Docker Hub is rate-limited or the anonymous token fetch fails.
+	if docker pull "$img" >/dev/null 2>&1; then
+		return 0
+	fi
+
+	if [[ "$mirror" != "$img" ]]; then
+		log_warn "Direct pull failed for $img; trying mirror $mirror"
+		if docker pull "$mirror" >/dev/null 2>&1; then
+			docker tag "$mirror" "$img" >/dev/null 2>&1 || return 1
+			return 0
+		fi
+	fi
+
+	return 1
+}
+
 import_fluent_bit() {
 	local img="docker.io/fluent/fluent-bit:3.0.0"
 	local tar_file="/tmp/fluent-bit.tar"
@@ -29,8 +50,18 @@ import_fluent_bit() {
 		log_info "Image already present on VPS: $img"
 		return 0
 	fi
+
+	if [[ -n "${DOCKER_USERNAME:-}" && -n "${DOCKER_PASSWORD:-}" ]]; then
+		echo "${DOCKER_PASSWORD}" | docker login docker.io -u "${DOCKER_USERNAME}" --password-stdin >/dev/null 2>&1 ||
+			log_warn "Docker Hub login failed, continuing anonymously"
+	fi
+
 	log_info "-> Pulling $img on runner..."
-	docker pull "$img"
+	if ! pull_image_with_mirror_fallback "$img"; then
+		log_warn "Failed to pull $img on runner; kubelet will retry the image when the pod starts"
+		return 0
+	fi
+
 	docker save "$img" -o "$tar_file"
 	bash scripts/ssh-retry.sh scp "$tar_file" "${VPS_USER}@${VPS_HOST}:/tmp/"
 	bash scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "sudo k3s ctr -n k8s.io images import ${tar_file} && sudo rm -f ${tar_file}"
@@ -55,7 +86,7 @@ import_problem_images() {
 		fi
 
 		log_info "-> [1/4] Pulling $img on runner..."
-		if ! docker pull "$img"; then
+		if ! pull_image_with_mirror_fallback "$img"; then
 			log_warn "Failed to pull $img (rate limit or auth) — skipping; VPS will pull directly if needed"
 			continue
 		fi

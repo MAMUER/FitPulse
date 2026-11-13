@@ -214,8 +214,9 @@ func TestConnectionPoolSettings(t *testing.T) {
 	}
 	defer func() { _ = db.Close() }()
 
-	assert.Equal(t, 25, db.Stats().MaxOpenConnections)
-	assert.Equal(t, 10, db.Stats().MaxIdleClosed)
+	stats := db.Stats()
+	assert.Equal(t, 25, stats.MaxOpenConnections)
+	assert.GreaterOrEqual(t, stats.OpenConnections, 1)
 }
 
 func TestBlindIndex(t *testing.T) {
