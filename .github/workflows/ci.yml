@@ -955,7 +955,10 @@ jobs:
     # never downloaded by this job (the Dockerfiles compile Go from source), so
     # waiting for it only added ~2 min of serial time before the longest job.
     needs: [scan-trivy-fs, detect-changes]
-    timeout-minutes: 60
+    # Go/ML/crs/backup/oncall/open-wearables builds are sequential; a cold
+    # BuildKit cache can exceed 60m. Give the job headroom so the Open Wearables
+    # frontend is not cancelled mid-build.
+    timeout-minutes: 90
     if: needs.detect-changes.outputs.go == 'true' || needs.detect-changes.outputs.frontend == 'true' || github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
     permissions:
       packages: write
@@ -975,8 +978,6 @@ jobs:
       - name: Get short SHA
         id: sha
         run: echo "short_sha=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
       - name: Build and push Go services
         run: bash scripts/ci/build-push.sh build_go_services
       - name: Build and push ML images (if models exist)

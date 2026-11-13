@@ -12,13 +12,16 @@ RUN apk add --no-cache git ca-certificates
 WORKDIR /app
 
 COPY go.mod go.sum ./
-RUN go mod download
+RUN --mount=type=cache,target=/go/pkg/mod \
+    go mod download
 
 COPY cmd/classifier/ ./cmd/classifier/
 COPY internal/ ./internal/
 COPY api/ ./api/
 
-RUN CGO_ENABLED=0 GOOS=linux go build \
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    CGO_ENABLED=0 GOOS=linux go build \
 	-ldflags="-w -s -buildid=" \
 	-o /app/bin/classifier \
 	./cmd/classifier

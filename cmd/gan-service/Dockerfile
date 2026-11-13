@@ -10,13 +10,16 @@ RUN apk add --no-cache git ca-certificates
 WORKDIR /app
 
 COPY go.mod go.sum ./
-RUN go mod download
+RUN --mount=type=cache,target=/go/pkg/mod \
+    go mod download
 
 COPY cmd/gan-service/ ./cmd/gan-service/
 COPY internal/ ./internal/
 COPY api/ ./api/
 
-RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s -buildid=" -o "/app/bin/gan-service" "./cmd/gan-service"
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s -buildid=" -o "/app/bin/gan-service" "./cmd/gan-service"
 
 FROM python:3.14-slim
 

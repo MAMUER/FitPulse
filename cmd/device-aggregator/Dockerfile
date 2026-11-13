@@ -5,12 +5,15 @@ ENV GOTOOLCHAIN=local
 
 WORKDIR /app
 COPY go.mod go.sum ./
-RUN go mod download
+RUN --mount=type=cache,target=/go/pkg/mod \
+    go mod download
 
 COPY cmd/device-aggregator/ ./cmd/device-aggregator/
 COPY internal/ ./internal/
 
-RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s -buildid=" -o /app/bin/device-aggregator ./cmd/device-aggregator
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s -buildid=" -o /app/bin/device-aggregator ./cmd/device-aggregator
 
 FROM alpine:3.24
 
