@@ -20,7 +20,11 @@ echo "============================================"
 
 HTTP_CODE=""
 for attempt in {1..6}; do
-	if CURL_OUTPUT=$(curl -sS -o /dev/null -w "HTTP %{http_code}" \
+	# -k: CI reaches the cluster through Tailscale and the ingress currently
+	# serves the default self-signed certificate until cert-manager completes
+	# its public HTTP-01 challenge. This check verifies security headers, not
+	# PKI trust; the certificate itself is covered by check_ssl.
+	if CURL_OUTPUT=$(curl -ksS -o /dev/null -w "HTTP %{http_code}" \
 		--connect-timeout 5 --max-time 10 "$DOMAIN" 2>&1); then
 		HTTP_CODE="${CURL_OUTPUT#HTTP }"
 		if [[ "$HTTP_CODE" == "200" ]]; then
@@ -40,7 +44,7 @@ if [[ "$HTTP_CODE" != "200" ]]; then
 fi
 echo "✅ Site is accessible (HTTP 200)"
 
-if ! HEADERS=$(curl -sS -I --connect-timeout 5 --max-time 15 "$DOMAIN"); then
+if ! HEADERS=$(curl -ksS -I --connect-timeout 5 --max-time 15 "$DOMAIN"); then
 	echo "::error::Could not retrieve response headers from $DOMAIN"
 	exit 1
 fi

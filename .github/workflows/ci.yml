@@ -1316,6 +1316,7 @@ jobs:
           VALKEY_PASSWORD: ${{ secrets.VALKEY_PASSWORD }}
           EXTERNAL_SECRETS_DB_PASSWORD: ${{ secrets.EXTERNAL_SECRETS_DB_PASSWORD }}
           MINIO_SECRET_KEY: ${{ secrets.MINIO_SECRET_KEY }}
+          BACKUP_KEY: ${{ secrets.BACKUP_KEY }}
           ELASTICSEARCH_PASSWORD: ${{ secrets.ELASTICSEARCH_PASSWORD }}
           ELASTICSEARCH_PLATFORM_PASSWORD: ${{ secrets.ELASTICSEARCH_PLATFORM_PASSWORD }}
           ELASTICSEARCH_AUDITOR_PASSWORD: ${{ secrets.ELASTICSEARCH_AUDITOR_PASSWORD }}
@@ -1423,6 +1424,12 @@ jobs:
       - name: Restart application deployments
         if: steps.connectivity.outputs.reachable == 'true'
         run: bash scripts/ci/deploy-production.sh restart_app_deployments
+      - name: Deploy Open Wearables
+        if: steps.connectivity.outputs.reachable == 'true'
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+        run: bash scripts/ci/deploy-production.sh deploy_open_wearables
       - name: Verify production deployment
         if: steps.connectivity.outputs.reachable == 'true'
         env:
@@ -1430,12 +1437,6 @@ jobs:
           VPS_PORT: ${{ secrets.VPS_PORT }}
           VPS_USER: ${{ secrets.VPS_USER }}
         run: bash scripts/ci/deploy-production.sh verify_deployment
-      - name: Deploy Open Wearables
-        if: steps.connectivity.outputs.reachable == 'true'
-        env:
-          VPS_HOST: ${{ secrets.VPS_HOST }}
-          VPS_PORT: ${{ secrets.VPS_PORT }}
-        run: bash scripts/ci/deploy-production.sh deploy_open_wearables
       - name: Check service logs and readiness
         if: steps.connectivity.outputs.reachable == 'true'
         run: bash scripts/ci/deploy-production.sh check_logs
@@ -1470,6 +1471,10 @@ jobs:
         with:
           name: kubeconfig
           path: ./kubeconfig
+      - name: Resolve VPS hostname and add to /etc/hosts
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        run: bash scripts/ci/ci-helpers.sh resolve_vps_hostname
       - name: Configure kubectl
         run: bash scripts/ci/ci-helpers.sh configure_kubectl
       - name: Prepare target URL
@@ -1482,7 +1487,7 @@ jobs:
           ready=false
           for attempt in {1..6}; do
             response=""
-            if response=$(curl -sS --connect-timeout 5 --max-time 10 \
+            if response=$(curl -ksS --connect-timeout 5 --max-time 10 \
               -w $'\nHTTP_STATUS:%{http_code}' "${BASE_URL%/}/health" 2>&1); then
               curl_status=0
             else
@@ -1511,7 +1516,7 @@ jobs:
         env:
           BASE_URL: ${{ steps.target.outputs.target }}
         run: |
-          python scripts/api-test.py --base-url "$BASE_URL"
+          python scripts/api-test.py --base-url "$BASE_URL" --insecure
 
   playwright-e2e:
     name: Playwright E2E Tests
@@ -1620,6 +1625,16 @@ jobs:
     steps:
       - run: git config --global init.defaultBranch main
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - name: 🌐 Подключение к сети Tailscale
+        uses: tailscale/github-action@064b10558093f38325e838ddea35486bdc6b1d5c
+        with:
+          oauth-client-id: ${{ secrets.TAILSCALE_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TAILSCALE_OAUTH_CLIENT_SECRET }}
+          tags: tag:ci
+      - name: Resolve VPS hostname and add to /etc/hosts
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        run: bash scripts/ci/ci-helpers.sh resolve_vps_hostname
       - name: Check CSP and security headers
         env:
           CSP_DOMAIN: "https://${{ env.FITPULSE_DOMAIN }}"

@@ -5,9 +5,9 @@ metadata:
   namespace: fitness-platform-production
 rules:
   # ingress-nginx needs list/watch (not just get) to load TLS certs that
-  # cert-manager writes into this namespace (fitpulse-ru-tls,
-  # openwearables-fittpulse-ru-tls). Access is scoped to this single
-  # namespace, so a compromised controller cannot read cluster-wide secrets.
+  # cert-manager writes into this namespace (fittpulse-duckdns-tls). Access
+  # is scoped to this single namespace, so a compromised controller cannot
+  # read cluster-wide secrets.
   - apiGroups: [""]
     resources: ["secrets"]
     verbs: ["get", "list", "watch"]

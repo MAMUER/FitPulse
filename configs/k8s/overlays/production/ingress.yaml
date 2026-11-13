@@ -5,7 +5,6 @@ metadata:
   name: gateway-ingress
   namespace: fitness-platform-production
   annotations:
-    nginx.ingress.kubernetes.io/rewrite-target: /
     cert-manager.io/cluster-issuer: letsencrypt-prod
     nginx.ingress.kubernetes.io/ssl-redirect: "true"
     nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
@@ -21,10 +20,10 @@ spec:
   ingressClassName: nginx
   tls:
     - hosts:
-        - fitpulse.ru
-      secretName: fitpulse-ru-tls
+        - fittpulse.duckdns.org
+      secretName: fittpulse-duckdns-tls
   rules:
-    - host: fitpulse.ru
+    - host: fittpulse.duckdns.org
       http:
         paths:
           - path: /
