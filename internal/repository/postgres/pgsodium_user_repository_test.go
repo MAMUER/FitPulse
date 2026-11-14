@@ -2635,15 +2635,15 @@ func TestPgsodiumUserRepo_DeleteMenstrualCycle_Error(t *testing.T) {
 func maxPlaceholder(t *testing.T, query string) int {
 	t.Helper()
 	re := regexp.MustCompile(`\$(\d+)`)
-	max := 0
+	highest := 0
 	for _, match := range re.FindAllStringSubmatch(query, -1) {
 		n, err := strconv.Atoi(match[1])
 		require.NoError(t, err)
-		if n > max {
-			max = n
+		if n > highest {
+			highest = n
 		}
 	}
-	return max
+	return highest
 }
 
 func TestPgsodiumUserRepo_BuildUserInsertQuery(t *testing.T) {
