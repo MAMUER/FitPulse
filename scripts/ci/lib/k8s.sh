@@ -511,6 +511,7 @@ verify_tls() {
 		echo "::error::Ingress TLS certificate $secret is not Ready" >&2
 		kubectl describe certificate/"$secret" -n fitness-platform-production >&2 || true
 		kubectl get order,challenge -n fitness-platform-production >&2 || true
+		kubectl describe challenge -n fitness-platform-production >&2 || true
 		kubectl get pods -n fitness-platform-production -l acme.cert-manager.io/http01-solver=true -o wide >&2 || true
 		kubectl describe networkpolicy -n fitness-platform-production allow-ingress-nginx-to-acme-solver >&2 || true
 		return 1

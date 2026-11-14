@@ -18,7 +18,7 @@ func spaFileHandler(distDir string) http.HandlerFunc {
 		// URL path, not a filesystem path: path.Clean is used only for routing
 		// checks; file reads go through http.FileServer/http.Dir, which reject
 		// traversal. The Semgrep filepath rule does not apply to URL paths.
-		cleanPath := path.Clean(r.URL.Path) // nosemgrep: go.lang.security.filepath-clean-misuse
+		cleanPath := path.Clean(r.URL.Path) // nosemgrep: go.lang.security.filepath-clean-misuse.filepath-clean-misuse
 		if cleanPath == "/api" || strings.HasPrefix(cleanPath, "/api/") {
 			http.NotFound(w, r)
 			return
