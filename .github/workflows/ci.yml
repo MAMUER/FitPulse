@@ -1553,6 +1553,42 @@ jobs:
           BASE_URL: ${{ steps.target.outputs.target }}
         run: |
           python scripts/api-test.py --base-url "$BASE_URL" --insecure
+      - name: Collect auth diagnostics after UAT failure
+        if: failure()
+        shell: bash
+        run: |
+          namespace=fitness-platform-production
+          kubectl get pods -n "$namespace" -l 'app in (gateway,user-service)' -o wide || true
+
+          print_auth_events() {
+            local pod="$1"
+            shift
+            local logs
+            if ! logs=$(kubectl logs -n "$namespace" "$pod" --all-containers=true --since=15m --tail=200 "$@" 2>/dev/null); then
+              return 0
+            fi
+            printf '%s\n' "$logs" | jq -Rrc '
+              try fromjson catch empty
+              | select((.message // "") | test("^(Register|Login)"))
+              | {
+                  timestamp,
+                  level,
+                  message,
+                  http_code,
+                  grpc_code: (try (.error | capture("code = (?<code>[^ ]+)").code) catch null)
+                }
+            '
+          }
+
+          for app in gateway user-service; do
+            while IFS= read -r pod; do
+              [[ -n "$pod" ]] || continue
+              echo "Auth events from $pod (current container):"
+              print_auth_events "$pod"
+              echo "Auth events from $pod (previous container, if any):"
+              print_auth_events "$pod" --previous
+            done < <(kubectl get pods -n "$namespace" -l "app=$app" -o name)
+          done
 
   playwright-e2e:
     name: Playwright E2E Tests
