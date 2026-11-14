@@ -23,35 +23,53 @@ spec:
           image: docker.elastic.co/elasticsearch/elasticsearch:8.12.0
           imagePullPolicy: IfNotPresent
           command:
-            - /bin/sh
+            - /bin/bash
             - -c
             - |
               set -euo pipefail
 
               ES_URL="http://elasticsearch:9200"
-              ELASTIC_PASSWORD="$${ELASTIC_PASSWORD}"
 
               echo "Waiting for Elasticsearch to be ready..."
-              until curl -s -u "elastic:$${ELASTIC_PASSWORD}" "$${ES_URL}/_cluster/health" | grep -E '"status":"(green|yellow)"' >/dev/null 2>&1; do
+              for attempt in {1..60}; do
+                if curl --fail --silent --show-error --connect-timeout 2 --max-time 5 \
+                  -u "elastic:${ELASTIC_PASSWORD}" "${ES_URL}/_cluster/health" |
+                  grep -Eq '"status":"(green|yellow)"'; then
+                  break
+                fi
+                if [[ "$attempt" -eq 60 ]]; then
+                  echo "Elasticsearch did not become ready after 5 minutes" >&2
+                  exit 1
+                fi
                 echo "Waiting for Elasticsearch..."
                 sleep 5
               done
 
+              json_escape() {
+                local value="$1"
+                value="${value//\\/\\\\}"
+                value="${value//\"/\\\"}"
+                value="${value//$'\n'/\\n}"
+                value="${value//$'\r'/\\r}"
+                value="${value//$'\t'/\\t}"
+                printf '%s' "$value"
+              }
+
               echo "Applying ILM policy..."
-              curl -X PUT "$${ES_URL}/_ilm/policy/fitpulse-logs-policy" \
-                -u "elastic:$${ELASTIC_PASSWORD}" \
+              curl --fail --silent --show-error -X PUT "${ES_URL}/_ilm/policy/fitpulse-logs-policy" \
+                -u "elastic:${ELASTIC_PASSWORD}" \
                 -H "Content-Type: application/json" \
                 -d @/tmp/ilm-policy.json
 
               echo "Applying index template..."
-              curl -X PUT "$${ES_URL}/_index_template/fitpulse-logs-template" \
-                -u "elastic:$${ELASTIC_PASSWORD}" \
+              curl --fail --silent --show-error -X PUT "${ES_URL}/_index_template/fitpulse-logs-template" \
+                -u "elastic:${ELASTIC_PASSWORD}" \
                 -H "Content-Type: application/json" \
                 -d @/tmp/index-template.json
 
               echo "Creating roles..."
-              curl -X POST "$${ES_URL}/_security/role/platform-team" \
-                -u "elastic:$${ELASTIC_PASSWORD}" \
+              curl --fail --silent --show-error -X PUT "${ES_URL}/_security/role/platform-team" \
+                -u "elastic:${ELASTIC_PASSWORD}" \
                 -H "Content-Type: application/json" \
                 -d '{
                   "indices": [
@@ -62,8 +80,8 @@ spec:
                   ]
                 }'
 
-              curl -X POST "$${ES_URL}/_security/role/auditor" \
-                -u "elastic:$${ELASTIC_PASSWORD}" \
+              curl --fail --silent --show-error -X PUT "${ES_URL}/_security/role/auditor" \
+                -u "elastic:${ELASTIC_PASSWORD}" \
                 -H "Content-Type: application/json" \
                 -d '{
                   "indices": [
@@ -75,23 +93,25 @@ spec:
                 }'
 
               echo "Creating users..."
-              curl -X POST "$${ES_URL}/_security/user/platform-team" \
-                -u "elastic:$${ELASTIC_PASSWORD}" \
+              platform_team_password="$(json_escape "$PLATFORM_TEAM_PASSWORD")"
+              curl --fail --silent --show-error -X PUT "${ES_URL}/_security/user/platform-team" \
+                -u "elastic:${ELASTIC_PASSWORD}" \
                 -H "Content-Type: application/json" \
-                -d '{
-                  "password": "$${PLATFORM_TEAM_PASSWORD}",
-                  "roles": ["platform-team"],
-                  "full_name": "Platform Team"
-                }'
+                -d "{
+                  \"password\": \"${platform_team_password}\",
+                  \"roles\": [\"platform-team\"],
+                  \"full_name\": \"Platform Team\"
+                }"
 
-              curl -X POST "$${ES_URL}/_security/user/auditor" \
-                -u "elastic:$${ELASTIC_PASSWORD}" \
+              auditor_password="$(json_escape "$AUDITOR_PASSWORD")"
+              curl --fail --silent --show-error -X PUT "${ES_URL}/_security/user/auditor" \
+                -u "elastic:${ELASTIC_PASSWORD}" \
                 -H "Content-Type: application/json" \
-                -d '{
-                  "password": "$${AUDITOR_PASSWORD}",
-                  "roles": ["auditor"],
-                  "full_name": "Auditor"
-                }'
+                -d "{
+                  \"password\": \"${auditor_password}\",
+                  \"roles\": [\"auditor\"],
+                  \"full_name\": \"Auditor\"
+                }"
 
               echo "Elasticsearch initialization completed successfully"
           env:

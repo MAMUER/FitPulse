@@ -94,6 +94,9 @@ apply_manifests() {
 	for job in migrate-db seed-admin create-open-wearables-db; do
 		kubectl delete job "$job" -n fitness-platform-production --ignore-not-found=true --wait=false 2>/dev/null || true
 	done
+	if kubectl get namespace elk >/dev/null 2>&1; then
+		kubectl delete job elasticsearch-init -n elk --ignore-not-found=true --wait=true --timeout=30s
+	fi
 
 	echo "Applying manifests idempotently..."
 	cd configs/k8s/overlays/production

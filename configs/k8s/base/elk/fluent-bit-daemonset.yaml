@@ -36,8 +36,6 @@ spec:
             - name: fluent-bit-config
               mountPath: /fluent-bit/etc/
               readOnly: true
-            - name: fluent-bit-db
-              mountPath: /var/log/flb_db/
             - name: tmp
               mountPath: /tmp
               readOnly: false
@@ -81,7 +79,5 @@ spec:
         - name: fluent-bit-config
           configMap:
             name: fluent-bit-config
-        - name: fluent-bit-db
-          emptyDir: {}
         - name: tmp
           emptyDir: {}
