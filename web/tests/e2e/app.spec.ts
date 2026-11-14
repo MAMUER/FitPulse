@@ -25,7 +25,6 @@ async function setupConfig(page: Page, config: typeof CONFIGS[number]) {
     config
   );
   await page.reload();
-  await page.waitForLoadState('networkidle');
 }
 
 type LangKey = keyof typeof CONFIGS[number]['lang'];
@@ -195,7 +194,6 @@ for (const config of CONFIGS) {
 
     test('home navigates to main screens', async ({ page }) => {
       await page.locator(`text=${getText('guest', config)}`).click();
-      await page.waitForLoadState('networkidle');
       await page.locator(`text=${getText('nutrition', config)}`).click();
       await expect(page.locator(`text=${getText('nutrition', config)}`)).toBeVisible();
       await page.locator(`text=${getText('calendar', config)}`).click();
@@ -212,7 +210,6 @@ for (const config of CONFIGS) {
 
     test('profile actions are accessible', async ({ page }) => {
       await page.locator(`text=${getText('guest', config)}`).click();
-      await page.waitForLoadState('networkidle');
       await page.locator(`text=${getText('profile', config)}`).click();
       await expect(page.locator(`text=${getText('logout', config)}`)).toBeVisible();
       await expect(page.locator(`text=${getText('changePassword', config)}`)).toBeVisible();
@@ -223,7 +220,6 @@ for (const config of CONFIGS) {
 
     test('training quick add and navigation', async ({ page }) => {
       await page.locator(`text=${getText('guest', config)}`).click();
-      await page.waitForLoadState('networkidle');
       await page.locator(`text=${getText('training', config)}`).click();
       await expect(page.locator(`text=${getText('training', config)}`)).toBeVisible();
       await page.locator(`text=${getText('startWorkout', config)}`).first().click();
@@ -232,7 +228,6 @@ for (const config of CONFIGS) {
 
     test('chat screen renders and opens settings', async ({ page }) => {
       await page.locator(`text=${getText('guest', config)}`).click();
-      await page.waitForLoadState('networkidle');
       await page.locator(`text=${getText('chat', config)}`).click();
       await expect(page.locator(`text=${getText('chat', config)}`)).toBeVisible();
       await page.locator(`text=${getText('chatSettings', config)}`).click();
@@ -241,35 +236,33 @@ for (const config of CONFIGS) {
 
     test('nutrition period tabs exist', async ({ page }) => {
       await page.locator(`text=${getText('guest', config)}`).click();
-      await page.waitForLoadState('networkidle');
       await page.locator(`text=${getText('nutrition', config)}`).click();
       await expect(page.locator(`text=${getText('nutrition', config)}`)).toBeVisible();
     });
 
     test('high contrast toggle works', async ({ page }) => {
       await page.locator(`text=${getText('highContrast', config)}`).click();
-      await page.waitForLoadState('networkidle');
       const html = page.locator('html');
       await expect(html).toHaveAttribute('data-highcontrast', /on|off/);
     });
 
     test('theme toggle works', async ({ page }) => {
       await page.locator(`text=${getText('guest', config)}`).click();
-      await page.waitForLoadState('networkidle');
-      const initial = await page.locator('html').getAttribute('data-theme');
+      const html = page.locator('html');
+      const initial = await html.getAttribute('data-theme');
       await page.locator(`text=${getText('theme', config)}`).click();
-      await page.waitForLoadState('networkidle');
-      const after = await page.locator('html').getAttribute('data-theme');
+      await expect(html).toHaveAttribute('data-theme', initial === 'dark' ? 'light' : 'dark');
+      const after = await html.getAttribute('data-theme');
       expect([initial, after].sort()).toEqual(['dark', 'light']);
     });
 
     test('language toggle switches labels', async ({ page }) => {
       await page.locator(`text=${getText('guest', config)}`).click();
-      await page.waitForLoadState('networkidle');
-      const before = await page.locator('html').getAttribute('lang');
+      const html = page.locator('html');
+      const before = await html.getAttribute('lang');
       await page.locator(`text=${getText('language', config)}`).click();
-      await page.waitForLoadState('networkidle');
-      const after = await page.locator('html').getAttribute('lang');
+      await expect(html).toHaveAttribute('lang', before === 'ru' ? 'en' : 'ru');
+      const after = await html.getAttribute('lang');
       expect([before, after].sort()).toEqual(['en', 'ru']);
     });
   });

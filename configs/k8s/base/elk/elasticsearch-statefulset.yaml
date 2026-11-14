@@ -38,7 +38,7 @@ spec:
               # /usr/share/elasticsearch/config. With readOnlyRootFilesystem
               # the image's config dir is read-only, so copy it into a
               # writable emptyDir and mount that over the config dir.
-              cp -a /usr/share/elasticsearch/config/. /config/
+              cp -r /usr/share/elasticsearch/config/. /config/
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true

@@ -99,6 +99,12 @@ spec:
               mountPath: /etc/grpc-tls
               readOnly: true
           env:
+            - name: USER_SERVICE_ADDR
+              value: "user-service:50051"
+            - name: BIOMETRIC_SERVICE_ADDR
+              value: "biometric-service:50052"
+            - name: TRAINING_SERVICE_ADDR
+              value: "training-service:50053"
             - name: VALKEY_ADDR
               value: "valkey:6379"
             - name: VALKEY_PASSWORD_FILE

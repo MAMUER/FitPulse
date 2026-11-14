@@ -8,6 +8,7 @@ COPY requirements.txt .
 # NOSONAR: direct dependencies are pinned in requirements.txt; this is a
 # one-shot internal bot image, not a library.
 RUN pip install --no-cache-dir --only-binary :all: -r requirements.txt \
+    && python -c "from telegram.ext import Application; Application.builder().token('123456:BUILD_TEST').build()" \
     && chown -R appuser:appgroup /app
 USER 1000
 

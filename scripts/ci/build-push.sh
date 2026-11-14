@@ -107,9 +107,12 @@ build_backup_tools() {
 }
 
 build_oncall_bot() {
+	local image_tag
+	image_tag=$(git rev-parse --short HEAD)
 	docker buildx build \
 		--cache-from=type=gha,scope=oncall-bot \
 		--cache-to=type=gha,scope=oncall-bot,mode=max \
+		-t "$REGISTRY/mamuer/project/oncall-bot:$image_tag" \
 		-t "$REGISTRY/mamuer/project/oncall-bot:v1" \
 		-f "scripts/oncall-bot/Dockerfile" scripts/oncall-bot \
 		--push
