@@ -1030,7 +1030,7 @@ func TestSendWithTLSImplHonorsContextDeadlineDuringSMTPGreeting(t *testing.T) {
 		if acceptErr != nil {
 			return
 		}
-		defer conn.Close()
+		defer func() { _ = conn.Close() }()
 		if tlsConn, ok := conn.(*tls.Conn); ok {
 			if handshakeErr := tlsConn.Handshake(); handshakeErr != nil {
 				return
