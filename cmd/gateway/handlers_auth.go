@@ -26,6 +26,7 @@ import (
 	userpb "github.com/MAMUER/project/api/gen/user"
 	"github.com/MAMUER/project/internal/middleware"
 	"github.com/MAMUER/project/internal/sanitize"
+	"github.com/MAMUER/project/internal/validator"
 )
 
 // ========== Auth Handlers ==========
@@ -599,6 +600,14 @@ func (g *gateway) registerHandler(w http.ResponseWriter, r *http.Request) {
 
 	}
 
+	if err := validator.ValidateRegisterRequest(&userpb.RegisterRequest{
+		Email: req.Email, Password: req.Password, FullName: req.FullName, Role: req.Role,
+	}); err != nil {
+		httpCode, errMsg := grpcToHTTPStatus(err)
+		http.Error(w, errMsg, httpCode)
+		return
+	}
+
 	resp, err := g.userClient.Register(r.Context(), &userpb.RegisterRequest{
 
 		Email: req.Email,
@@ -868,6 +877,14 @@ func (g *gateway) loginHandler(w http.ResponseWriter, r *http.Request) {
 
 		return
 
+	}
+
+	if err := validator.ValidateLoginRequest(&userpb.LoginRequest{
+		Email: req.Email, Password: req.Password,
+	}); err != nil {
+		httpCode, errMsg := grpcToHTTPStatus(err)
+		http.Error(w, errMsg, httpCode)
+		return
 	}
 
 	resp, err := g.userClient.Login(r.Context(), &userpb.LoginRequest{

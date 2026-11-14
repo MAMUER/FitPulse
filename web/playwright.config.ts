@@ -14,6 +14,8 @@ export default defineConfig({
     // ran against the local Vite server whose /api proxy targets
     // localhost:8080 (no backend in CI) and hung until the job timeout.
     baseURL: process.env.BASE_URL ?? 'http://localhost:5173',
+    // The deployed-stack E2E job checks UI behavior; API UAT uses the same TLS bypass.
+    ignoreHTTPSErrors: process.env.PLAYWRIGHT_IGNORE_HTTPS_ERRORS === 'true',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',

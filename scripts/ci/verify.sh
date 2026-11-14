@@ -3,15 +3,16 @@ set -euo pipefail
 
 check_ssl() {
 	echo "🔍 Checking SSL certificate validity..."
-	echo | openssl s_client -servername "$FITPULSE_DOMAIN" -connect "$FITPULSE_DOMAIN":443 2>/dev/null | openssl x509 -noout -dates -issuer >cert-details.txt
-	echo "🔍 Checking Certificate Transparency (SCT) logs..."
-	if grep -q "Signed Certificate Timestamp" cert-details.txt; then
-		echo "✅ Certificate Transparency SCTs verified"
-	else
-		echo "⚠️  No SCTs found in certificate (Certificate Transparency may not be configured)"
+	if ! curl --connect-timeout 5 --max-time 10 --fail --silent --show-error \
+		-o /dev/null "https://${FITPULSE_DOMAIN}/health"; then
+		echo "❌ HTTPS certificate validation failed for ${FITPULSE_DOMAIN}" >&2
+		return 1
 	fi
-	curl -k -sSf -o /dev/null --max-time 10 "https://$FITPULSE_DOMAIN/health" || exit 1
-	echo "✅ SSL certificate is valid and trusted"
+	echo | openssl s_client -servername "$FITPULSE_DOMAIN" \
+		-verify_hostname "$FITPULSE_DOMAIN" -verify_return_error \
+		-connect "${FITPULSE_DOMAIN}:443" 2>/dev/null |
+		openssl x509 -noout -dates -issuer
+	echo "✅ SSL certificate is valid, trusted, and matches the hostname"
 }
 
 health_check() {

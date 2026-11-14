@@ -1587,6 +1587,7 @@ jobs:
       - name: Run Playwright E2E tests
         env:
           BASE_URL: "https://fittpulse.duckdns.org"
+          PLAYWRIGHT_IGNORE_HTTPS_ERRORS: "true"
         # Only chromium is installed in this job, but playwright.config.js declares
         # chromium/firefox/webkit projects: running all of them triples the workload
         # (264 tests) and blew the original 20 min limit. Pin the project.

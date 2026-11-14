@@ -83,6 +83,18 @@ func TestAuth_RegisterHandler_GRPCError(t *testing.T) {
 
 }
 
+func TestAuth_RegisterHandler_InvalidRequest(t *testing.T) {
+	g := newTestGateway()
+	g.userClient = &errorUserServiceClient{err: grpcError(codes.Internal, "user service should not be called")}
+
+	w := httptest.NewRecorder()
+	req := authJSONRequest("/api/v1/register", `{"email":"bad","password":"password123","full_name":"Test","role":"client"}`)
+
+	g.registerHandler(w, req)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
 func TestAuth_RegisterWithInviteHandler_InvalidJSON(t *testing.T) {
 
 	g := newTestGateway()
@@ -169,6 +181,18 @@ func TestAuth_LoginHandler_InvalidJSON(t *testing.T) {
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 
+}
+
+func TestAuth_LoginHandler_EmptyEmail(t *testing.T) {
+	g := newTestGateway()
+	g.userClient = &errorUserServiceClient{err: grpcError(codes.Internal, "user service should not be called")}
+
+	w := httptest.NewRecorder()
+	req := authJSONRequest("/api/v1/login", `{"email":"","password":"password123"}`)
+
+	g.loginHandler(w, req)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
 }
 
 func TestAuth_LoginHandler_Success(t *testing.T) {
@@ -333,7 +357,7 @@ func TestAuth_RegisterHandler_WithMessage(t *testing.T) {
 	g.userClient = &authMessageUserClient{}
 
 	w := httptest.NewRecorder()
-	g.registerHandler(w, authJSONRequest("/api/v1/register", `{"email":"test@example.com","password":"password123"}`))
+	g.registerHandler(w, authJSONRequest("/api/v1/register", `{"email":"test@example.com","password":"password123","full_name":"Test User","role":"client"}`))
 
 	assert.Equal(t, http.StatusOK, w.Code)
 	assert.Contains(t, w.Body.String(), "Registration complete")
@@ -343,7 +367,7 @@ func TestAuth_RegisterHandler_EncodeFailure(t *testing.T) {
 	g := newTestGateway()
 
 	w := &authFailingWriter{}
-	g.registerHandler(w, authJSONRequest("/api/v1/register", `{"email":"test@example.com","password":"password123"}`))
+	g.registerHandler(w, authJSONRequest("/api/v1/register", `{"email":"test@example.com","password":"password123","full_name":"Test User","role":"client"}`))
 
 	assert.Equal(t, http.StatusInternalServerError, w.status)
 }

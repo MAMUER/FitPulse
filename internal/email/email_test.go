@@ -1011,6 +1011,48 @@ func TestSendWithTLSImplDialFailure(t *testing.T) {
 
 }
 
+func TestSendWithTLSImplHonorsContextDeadlineDuringSMTPGreeting(t *testing.T) {
+	certPEM, keyPEM := selfSignedCertForEmailTest(t)
+	cert, err := tls.X509KeyPair(certPEM, keyPEM)
+	require.NoError(t, err)
+	t.Setenv("SSL_CERT_FILE", fakeTLSCAFileForEmailTest())
+
+	listener, err := tls.Listen("tcp", "127.0.0.1:0", &tls.Config{
+		Certificates: []tls.Certificate{cert},
+		MinVersion:   tls.VersionTLS12,
+	})
+	require.NoError(t, err)
+	release := make(chan struct{})
+	serverDone := make(chan struct{})
+	go func() {
+		defer close(serverDone)
+		conn, acceptErr := listener.Accept()
+		if acceptErr != nil {
+			return
+		}
+		defer conn.Close()
+		if tlsConn, ok := conn.(*tls.Conn); ok {
+			if handshakeErr := tlsConn.Handshake(); handshakeErr != nil {
+				return
+			}
+		}
+		<-release
+	}()
+	t.Cleanup(func() {
+		_ = listener.Close()
+		close(release)
+		<-serverDone
+	})
+
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer cancel()
+	start := time.Now()
+	err = sendWithTLSImpl(ctx, Config{Host: "127.0.0.1"}, listener.Addr().String(), "user@example.com", "message")
+
+	require.Error(t, err)
+	assert.Less(t, time.Since(start), time.Second)
+}
+
 func TestSendWithTLSImplSession(t *testing.T) {
 
 	tests := []struct {

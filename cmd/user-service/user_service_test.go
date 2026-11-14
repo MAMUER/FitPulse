@@ -10,6 +10,7 @@ import (
 	"encoding/pem"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/stretchr/testify/assert"
@@ -23,6 +24,48 @@ import (
 	"github.com/MAMUER/project/internal/logger"
 	"github.com/MAMUER/project/internal/repository/postgres"
 )
+
+type blockingEmailSender struct {
+	started chan struct{}
+	release chan struct{}
+}
+
+func (s *blockingEmailSender) SendVerificationEmail(context.Context, string, string, string) error {
+	s.started <- struct{}{}
+	<-s.release
+	return nil
+}
+
+func TestSendVerificationEmailIfNeededDoesNotBlockRegistration(t *testing.T) {
+	sender := &blockingEmailSender{
+		started: make(chan struct{}, 1),
+		release: make(chan struct{}),
+	}
+	t.Cleanup(func() { close(sender.release) })
+	s := &userServer{
+		emailSender: sender,
+		baseURL:     "https://fitpulse.example",
+		log:         &logger.Logger{Logger: zap.NewNop()},
+	}
+
+	returned := make(chan struct{})
+	go func() {
+		sendVerificationEmailIfNeeded(context.Background(), s, "user@example.com", "token")
+		close(returned)
+	}()
+
+	select {
+	case <-returned:
+	case <-time.After(time.Second):
+		t.Fatal("email delivery blocked registration")
+	}
+
+	select {
+	case <-sender.started:
+	case <-time.After(time.Second):
+		t.Fatal("email delivery was not started")
+	}
+}
 
 func setupUserService(t *testing.T, db *sql.DB) *userServer {
 	t.Helper()
@@ -78,6 +121,24 @@ func TestUserServer_Register_InvalidInput(t *testing.T) {
 			assert.Contains(t, st.Message(), tt.wantMsg)
 		})
 	}
+}
+
+func TestUserServer_Login_EmptyEmail(t *testing.T) {
+	db, _, err := sqlmock.New()
+	require.NoError(t, err)
+	defer func() {
+		if closeErr := db.Close(); closeErr != nil {
+			t.Logf("close db: %v", closeErr)
+		}
+	}()
+
+	s := setupUserService(t, db)
+	_, err = s.Login(context.Background(), &pb.LoginRequest{Password: "password123"})
+	require.Error(t, err)
+	st, ok := status.FromError(err)
+	require.True(t, ok)
+	assert.Equal(t, codes.InvalidArgument, st.Code())
+	assert.Contains(t, st.Message(), "email is required")
 }
 
 func TestUserServer_GetProfile_NotFound(t *testing.T) {

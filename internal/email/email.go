@@ -296,11 +296,16 @@ var sendWithTLSImpl = func(ctx context.Context, cfg Config, addr, toEmail, msg s
 	}
 
 	conn, err := dialer.DialContext(ctx, "tcp", addr)
-
 	if err != nil {
-
 		return fmt.Errorf("TLS connect to SMTP server (%s) failed: %w", addr, err)
-
+	}
+	deadline := time.Now().Add(10 * time.Second)
+	if ctxDeadline, ok := ctx.Deadline(); ok && ctxDeadline.Before(deadline) {
+		deadline = ctxDeadline
+	}
+	if err := conn.SetDeadline(deadline); err != nil {
+		_ = conn.Close()
+		return fmt.Errorf("set SMTP connection deadline: %w", err)
 	}
 
 	defer func() {

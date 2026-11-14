@@ -218,7 +218,7 @@ func (s *userServer) Register(ctx context.Context, req *pb.RegisterRequest) (*pb
 
 		s.log.Warn("Invalid register request", zap.Error(err))
 
-		return nil, fmt.Errorf("validate register request: %w", err)
+		return nil, err
 
 	}
 
@@ -382,19 +382,22 @@ func sendVerificationEmailIfNeeded(ctx context.Context, s *userServer, email, ve
 
 	}
 
-	if sendErr := s.emailSender.SendVerificationEmail(ctx, email, verificationToken, s.baseURL); sendErr != nil {
+	go func() {
+		emailCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Second)
+		defer cancel()
 
-		s.log.Warn("Failed to send verification email (registration will proceed)",
+		if sendErr := s.emailSender.SendVerificationEmail(emailCtx, email, verificationToken, s.baseURL); sendErr != nil {
 
-			zap.Error(sendErr),
+			s.log.Warn("Failed to send verification email (registration will proceed)",
 
-			zap.String("email", sanitize.LogString(email)))
+				zap.Error(sendErr),
 
-	} else {
+				zap.String("email", sanitize.LogString(email)))
+			return
+		}
 
 		s.log.Info("Verification email sent", zap.String("email", sanitize.LogString(email)))
-
-	}
+	}()
 
 }
 
@@ -459,7 +462,7 @@ func (s *userServer) Login(ctx context.Context, req *pb.LoginRequest) (*pb.Login
 
 		s.log.Warn("Invalid login request", zap.Error(err))
 
-		return nil, fmt.Errorf("validate login request: %w", err)
+		return nil, err
 
 	}
 
