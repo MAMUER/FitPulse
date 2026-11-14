@@ -1271,11 +1271,9 @@ func (g *gateway) registerRoutes() *chi.Mux {
 
 	fsStatic := http.StripPrefix("/static/", http.FileServer(http.Dir("./web/dist/static/")))
 
-	fsRoot := http.FileServer(http.Dir("./web/dist/"))
-
 	r.Get("/static/*", fsStatic.ServeHTTP)
 
-	r.Get("/*", fsRoot.ServeHTTP)
+	r.Get("/*", spaFileHandler("./web/dist"))
 
 	return r
 
