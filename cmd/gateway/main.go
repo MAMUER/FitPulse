@@ -133,13 +133,15 @@ func main() {
 
 	cfg := loadGatewayConfig(log)
 
-	g, err := initGateway(ctx, log, cfg, metrics)
+	g, userConn, err := initGateway(ctx, log, cfg, metrics)
 
 	if err != nil {
 
 		log.Fatal("Failed to initialize gateway", zap.Error(err))
 
 	}
+
+	defer closeUserServiceConn(log, userConn)
 
 	mainRouter := g.registerRoutes()
 
@@ -161,7 +163,7 @@ func initJWTProvider() (ports.TokenProvider, error) {
 	return jwt.NewJWTAdapter(jwtPrivateKeyPEM, jwtPublicKeyPEM), nil
 }
 
-func initGateway(ctx context.Context, log *logger.Logger, cfg gatewayConfig, metrics gatewayMetrics) (*gateway, error) {
+func initGateway(ctx context.Context, log *logger.Logger, cfg gatewayConfig, metrics gatewayMetrics) (*gateway, *grpc.ClientConn, error) {
 
 	valkeyPassword := config.GetEnv("VALKEY_PASSWORD")
 
@@ -189,13 +191,13 @@ func initGateway(ctx context.Context, log *logger.Logger, cfg gatewayConfig, met
 
 	userConn, userClient := connectUserService(ctx, log, cfg.userServiceAddr)
 
-	defer closeUserServiceConn(log, userConn)
-
 	tokenProvider, err := initJWTProvider()
 
 	if err != nil {
 
-		return nil, err
+		closeUserServiceConn(log, userConn)
+
+		return nil, nil, err
 
 	}
 
@@ -236,7 +238,7 @@ func initGateway(ctx context.Context, log *logger.Logger, cfg gatewayConfig, met
 
 	}
 
-	return g, nil
+	return g, userConn, nil
 }
 
 // newSessionStore создаёт хранилище сессий, если Valkey доступен.
