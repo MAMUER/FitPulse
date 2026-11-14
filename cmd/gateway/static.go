@@ -15,7 +15,10 @@ func spaFileHandler(distDir string) http.HandlerFunc {
 	indexPath := filepath.Join(distDir, "index.html")
 
 	return func(w http.ResponseWriter, r *http.Request) {
-		cleanPath := path.Clean(r.URL.Path)
+		// URL path, not a filesystem path: path.Clean is used only for routing
+		// checks; file reads go through http.FileServer/http.Dir, which reject
+		// traversal. The Semgrep filepath rule does not apply to URL paths.
+		cleanPath := path.Clean(r.URL.Path) // nosemgrep: go.lang.security.filepath-clean-misuse
 		if cleanPath == "/api" || strings.HasPrefix(cleanPath, "/api/") {
 			http.NotFound(w, r)
 			return

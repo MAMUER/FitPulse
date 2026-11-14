@@ -5,6 +5,7 @@ The test is intended to run from the CI runner against port-forwarded
 ClusterIP services (kubectl port-forward), so it does not depend on the
 ingress or on NetworkPolicies. Standard library only.
 """
+
 import argparse
 import json
 import sys
@@ -71,7 +72,9 @@ def main():
         },
         "user_id": "ml-e2e",
     }
-    status, body = request("POST", f"{args.classifier_url}/classify", payload=payload, timeout=60)
+    status, body = request(
+        "POST", f"{args.classifier_url}/classify", payload=payload, timeout=60
+    )
     if status != 200 or not body.get("state"):
         print(f"FAIL classifier /classify: {status} {body}")
         sys.exit(1)

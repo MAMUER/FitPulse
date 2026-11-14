@@ -689,18 +689,25 @@ func TestConcurrentGetOrSetDecodedFetchesOnce(t *testing.T) {
 	ctx := context.Background()
 	const workers = 8
 
-	var mu sync.Mutex
+var mu sync.Mutex
 	fetchCalls := 0
 	var fetchErr error
+	// The cache-aside path has no singleflight: every worker that misses the
+	// cache calls fetchFn. Release them together so the test is deterministic:
+	// the first worker's Set must not win the race before the others read.
+	var arrived sync.WaitGroup
+	arrived.Add(workers)
+	var first sync.Once
 	fetchFn := func() (interface{}, error) {
 		mu.Lock()
 		fetchCalls++
 		failure := fetchErr
 		mu.Unlock()
-		time.Sleep(5 * time.Millisecond)
 		if failure != nil {
 			return nil, failure
 		}
+		arrived.Done()
+		first.Do(func() { arrived.Wait() })
 		return map[string]int{"value": 1}, nil
 	}
 

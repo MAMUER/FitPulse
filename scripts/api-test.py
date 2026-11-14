@@ -208,7 +208,17 @@ def confirm_test_user_email(email: str) -> None:
     )
     try:
         subprocess.run(
-            ["kubectl", "exec", "-i", "-n", "fitness-platform-production", "postgres-0", "--", "sh", "-s"],
+            [
+                "kubectl",
+                "exec",
+                "-i",
+                "-n",
+                "fitness-platform-production",
+                "postgres-0",
+                "--",
+                "sh",
+                "-s",
+            ],
             input=script,
             text=True,
             check=True,
@@ -268,12 +278,19 @@ def test_auth(t, test_email):
     # test() captures the access_token from the Set-Cookie header. If the test
     # user is still unconfirmed, fall back to the seeded admin so the remaining
     # authenticated tests can run (the Login FAIL above is still reported).
-    if not t.token and os.getenv("SEED_ADMIN_EMAIL") and os.getenv("SEED_ADMIN_PASSWORD"):
+    if (
+        not t.token
+        and os.getenv("SEED_ADMIN_EMAIL")
+        and os.getenv("SEED_ADMIN_PASSWORD")
+    ):
         t.test(
             "Login (admin fallback)",
             "POST",
             LOGIN_PATH,
-            body={"email": os.getenv("SEED_ADMIN_EMAIL"), "password": os.getenv("SEED_ADMIN_PASSWORD")},
+            body={
+                "email": os.getenv("SEED_ADMIN_EMAIL"),
+                "password": os.getenv("SEED_ADMIN_PASSWORD"),
+            },
             expected=200,
         )
 
@@ -386,7 +403,14 @@ def test_training(t):
 
 def test_chat(t):
     section("6. Chat")
-    chat_resp = t.test("Chat", "POST", "/api/v1/chat", token=t.token, body={"message": "plan"}, expected=200)
+    chat_resp = t.test(
+        "Chat",
+        "POST",
+        "/api/v1/chat",
+        token=t.token,
+        body={"message": "plan"},
+        expected=200,
+    )
     if isinstance(chat_resp, dict) and chat_resp.get("answer"):
         print(f"       {GRAY}answer: {chat_resp['answer'][:50]}...{RESET}")
 
@@ -415,7 +439,9 @@ def test_totp(t):
             token=t.token,
             expected=400,
         )
-        t.test("TOTP Status", "GET", "/api/v1/auth/2fa/status", token=t.token, expected=200)
+        t.test(
+            "TOTP Status", "GET", "/api/v1/auth/2fa/status", token=t.token, expected=200
+        )
     else:
         t.skipped += 1
         print(f"       {YELLOW}SKIP: TOTP setup unavailable{RESET}")
@@ -466,7 +492,9 @@ def main():
     )
     args = parser.parse_args()
 
-    t = TestRunner(args.base_url, insecure=args.insecure, confirm_email=args.confirm_email)
+    t = TestRunner(
+        args.base_url, insecure=args.insecure, confirm_email=args.confirm_email
+    )
     test_email = f"apitest-{random.SystemRandom().randint(1000, 9999)}@example.com"
     t.test_email = test_email
 
