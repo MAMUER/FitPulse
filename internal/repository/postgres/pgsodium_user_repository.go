@@ -1073,7 +1073,9 @@ func buildUserInsertQuery(p userInsertData) (string, []interface{}) {
 
 	b.WriteString("$10, ")
 
-	b.WriteString("$11, NOW(), NOW())")
+	b.WriteString("$11, ")
+
+	b.WriteString("$12, NOW(), NOW())")
 
 	args := []interface{}{p.userID, p.email, p.emailNonce, p.emailNonce, p.emailHash, p.passwordHash, p.fullName, p.fullNameNonce, p.fullNameNonce, p.fullNameHash, p.role, p.emailConfirmed}
 
@@ -1095,11 +1097,11 @@ func buildEmailVerificationInsertQuery(userID, email, emailHash, verificationTok
 
 	b.WriteString(sql56Prefix)
 
-	b.WriteString(db.PgsodiumRandomEncryptParam(7, 8))
+	b.WriteString(db.PgsodiumRandomEncryptParam(6, 7))
 
-	b.WriteString(", $9, NOW() + INTERVAL '24 hours', false)")
+	b.WriteString(", $7, NOW() + INTERVAL '24 hours', false)")
 
-	args := []interface{}{userID, email, emailNonce, emailNonce, emailHash, verificationToken, tokenNonce, tokenNonce}
+	args := []interface{}{userID, email, emailNonce, emailNonce, emailHash, verificationToken, tokenNonce}
 
 	return b.String(), args
 

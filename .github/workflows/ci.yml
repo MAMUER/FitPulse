@@ -1473,6 +1473,8 @@ jobs:
           VPS_PORT: ${{ secrets.VPS_PORT }}
           VPS_USER: ${{ secrets.VPS_USER }}
         run: bash scripts/ci/deploy-production.sh verify_deployment
+      - name: Verify ingress TLS certificate
+        run: bash scripts/ci/deploy-production.sh verify_tls
       - name: Check service logs and readiness
         if: steps.connectivity.outputs.reachable == 'true'
         run: bash scripts/ci/deploy-production.sh check_logs
@@ -1551,8 +1553,10 @@ jobs:
       - name: Run UAT tests
         env:
           BASE_URL: ${{ steps.target.outputs.target }}
+          SEED_ADMIN_EMAIL: ${{ secrets.SEED_ADMIN_EMAIL }}
+          SEED_ADMIN_PASSWORD: ${{ secrets.SEED_ADMIN_PASSWORD }}
         run: |
-          python scripts/api-test.py --base-url "$BASE_URL" --insecure
+          python scripts/api-test.py --base-url "$BASE_URL" --insecure --confirm-email
       - name: Collect auth diagnostics after UAT failure
         if: failure()
         shell: bash
@@ -1649,18 +1653,39 @@ jobs:
     steps:
       - run: git config --global init.defaultBranch main
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-      - name: Set up Python
-        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
+      - name: Connect to Tailscale
+        uses: tailscale/github-action@064b10558093f38325e838ddea35486bdc6b1d5c
         with:
-          python-version: "3.11"
-      - name: Install dependencies
-        run: "pip install --only-binary :all: requests==2.32.3 pytest==8.3.4"
-      - name: Run ML E2E tests
+          oauth-client-id: ${{ secrets.TAILSCALE_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TAILSCALE_OAUTH_CLIENT_SECRET }}
+          tags: tag:ci
+      - name: Download kubeconfig artifact
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+        with:
+          name: kubeconfig
+          path: .
+      - name: Resolve VPS hostname and add to /etc/hosts
         env:
-          BASE_URL: "https://fittpulse.duckdns.org"
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        run: bash scripts/ci/ci-helpers.sh resolve_vps_hostname
+      - name: Configure kubectl
+        run: bash scripts/ci/ci-helpers.sh configure_kubectl
+      - name: Wait for ML services
         run: |
-          echo "Running ML E2E tests against $BASE_URL"
-          # pytest tests/ml_e2e/ --base-url=$BASE_URL || echo "ML E2E tests completed"
+          kubectl -n fitness-platform-production rollout status deployment/classifier --timeout=120s
+          kubectl -n fitness-platform-production rollout status deployment/ml-generator --timeout=300s
+      - name: Run ML E2E tests
+        run: |
+          kubectl -n fitness-platform-production port-forward svc/classifier 18001:8001 &
+          CLASSIFIER_PID=$!
+          kubectl -n fitness-platform-production port-forward svc/ml-generator 18002:8002 &
+          GAN_PID=$!
+          trap 'kill $CLASSIFIER_PID $GAN_PID 2>/dev/null || true' EXIT
+          for i in $(seq 1 10); do
+            curl -fsS http://127.0.0.1:18001/health >/dev/null 2>&1 && break
+            sleep 1
+          done
+          python scripts/ml-e2e.py --classifier-url http://127.0.0.1:18001 --gan-url http://127.0.0.1:18002
 
   health-check:
     name: Server Health Check

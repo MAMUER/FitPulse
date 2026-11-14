@@ -1,0 +1,23 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-ingress-nginx-to-acme-solver
+  namespace: fitness-platform-production
+spec:
+  # cert-manager's HTTP-01 solver pods live in the app namespace and are
+  # selected by the cluster-wide default-deny-all policy. Without this allow
+  # rule ingress-nginx cannot reach the solver on port 8089, so Let's Encrypt
+  # validation never completes and the ingress keeps serving the fake cert.
+  podSelector:
+    matchLabels:
+      acme.cert-manager.io/http01-solver: "true"
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ingress-nginx
+      ports:
+        - protocol: TCP
+          port: 8089

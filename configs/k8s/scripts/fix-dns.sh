@@ -22,6 +22,21 @@ if [[ -f "$RESOLV_CONF" ]]; then
 	log_ok "Backup created: ${BACKUP_FILE}"
 fi
 
+# 1b. На WSL отключаем generateResolvConf, иначе WSL перезапишет resolv.conf
+# при каждом старте/сетевом событии и вернёт 10.255.255.254 (DNS Windows-хоста).
+if grep -qi microsoft /proc/version 2>/dev/null; then
+	if [[ -f /etc/wsl.conf ]] && grep -q '^\[network\]' /etc/wsl.conf; then
+		if grep -q '^[[:space:]]*generateResolvConf' /etc/wsl.conf; then
+			sed -i 's/^[[:space:]]*generateResolvConf[[:space:]]*=.*/generateResolvConf = false/' /etc/wsl.conf
+		else
+			sed -i '/^\[network\]/a generateResolvConf = false' /etc/wsl.conf
+		fi
+	else
+		printf '\n[network]\ngenerateResolvConf = false\n' >>/etc/wsl.conf
+	fi
+	log_ok "WSL generateResolvConf disabled (static resolv.conf will persist)"
+fi
+
 # 2. Перезаписываем на надежные DNS-серверы
 cat >"$RESOLV_CONF" <<EOF
 # Fixed DNS - managed by CI/CD

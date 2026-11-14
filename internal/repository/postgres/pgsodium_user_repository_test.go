@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"errors"
+	"regexp"
+	"strconv"
 	"testing"
 	"time"
 
@@ -2630,6 +2632,20 @@ func TestPgsodiumUserRepo_DeleteMenstrualCycle_Error(t *testing.T) {
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 
+func maxPlaceholder(t *testing.T, query string) int {
+	t.Helper()
+	re := regexp.MustCompile(`\$(\d+)`)
+	max := 0
+	for _, match := range re.FindAllStringSubmatch(query, -1) {
+		n, err := strconv.Atoi(match[1])
+		require.NoError(t, err)
+		if n > max {
+			max = n
+		}
+	}
+	return max
+}
+
 func TestPgsodiumUserRepo_BuildUserInsertQuery(t *testing.T) {
 	query, args := buildUserInsertQuery(userInsertData{
 		userID:         "user-1",
@@ -2645,10 +2661,11 @@ func TestPgsodiumUserRepo_BuildUserInsertQuery(t *testing.T) {
 	})
 
 	assert.Contains(t, query, "INSERT INTO users (id, email_encrypted, email_nonce, email_hash, password_hash, full_name_encrypted, full_name_nonce, full_name_hash, role, email_confirmed, created_at, updated_at) VALUES ($1, ")
-	assert.Contains(t, query, "NOW(), NOW())")
+	assert.Contains(t, query, "$12, NOW(), NOW())")
 
 	expectedArgs := []interface{}{"user-1", "test@example.com", []byte("email_nonce"), []byte("email_nonce"), "email_hash", "hash", "Test User", []byte("full_name_nonce"), []byte("full_name_nonce"), "full_name_hash", "user", true}
 	assert.Equal(t, expectedArgs, args)
+	assert.Equal(t, len(args), maxPlaceholder(t, query), "every arg must have a placeholder")
 }
 
 func TestPgsodiumUserRepo_BuildEmailVerificationInsertQuery(t *testing.T) {
@@ -2657,8 +2674,9 @@ func TestPgsodiumUserRepo_BuildEmailVerificationInsertQuery(t *testing.T) {
 	assert.Contains(t, query, "INSERT INTO email_verifications (user_id, email_encrypted, email_nonce, email_hash, token, token_encrypted, token_nonce, expires_at, used) VALUES ($1, ")
 	assert.Contains(t, query, "NOW() + INTERVAL '24 hours', false)")
 
-	expectedArgs := []interface{}{"user-1", "test@example.com", []byte("email_nonce"), []byte("email_nonce"), "email_hash", "token-1", []byte("token_nonce"), []byte("token_nonce")}
+	expectedArgs := []interface{}{"user-1", "test@example.com", []byte("email_nonce"), []byte("email_nonce"), "email_hash", "token-1", []byte("token_nonce")}
 	assert.Equal(t, expectedArgs, args)
+	assert.Equal(t, len(args), maxPlaceholder(t, query), "every arg must have a placeholder")
 }
 
 func TestPgsodiumUserRepo_BuildYandexUserInsertQuery(t *testing.T) {

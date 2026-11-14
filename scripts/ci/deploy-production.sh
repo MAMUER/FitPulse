@@ -55,6 +55,7 @@ main() {
 	run_migrations) run_migrations ;;
 	verify) verify_deployment ;;
 	verify_deployment) verify_deployment ;;
+	verify_tls) verify_tls ;;
 	ensure_service_account) ensure_service_account ;;
 	create_image_pull_secret) create_image_pull_secret ;;
 	wait_for_rabbitmq) wait_for_rabbitmq ;;

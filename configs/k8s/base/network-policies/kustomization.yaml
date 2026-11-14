@@ -11,6 +11,7 @@ resources:
   - allow-gateway-to-ml-generator.yaml
   - allow-ingress-nginx-to-frontend.yaml
   - allow-ingress-nginx-to-gateway.yaml
+  - allow-ingress-nginx-to-acme-solver.yaml
   - allow-ml-generator-egress.yaml
   - allow-ml-generator-ingress.yaml
   - allow-prometheus-to-rabbitmq.yaml

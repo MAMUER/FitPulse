@@ -43,7 +43,6 @@ data:
         Port            5044
         URI             /
         Format          json
-        Buffer_Size     1MB
         Retry_Limit     False
         Compress        gzip
 

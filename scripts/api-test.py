@@ -13,7 +13,9 @@ import http.client
 import json
 import os
 import random
+import re
 import ssl
+import subprocess
 import sys
 import time
 from datetime import datetime, timezone
@@ -36,9 +38,11 @@ BOLD = "\033[1m"
 
 
 class TestRunner:
-    def __init__(self, base_url, insecure=False):
+    def __init__(self, base_url, insecure=False, confirm_email=False):
         self.base_url = base_url.rstrip("/")
         self.token = None
+        self.last_set_cookie = ""
+        self.confirm_email = confirm_email
         self.passed = 0
         self.failed = 0
         self.skipped = 0
@@ -89,6 +93,7 @@ class TestRunner:
             try:
                 conn.request(method, path, body=data, headers=headers or {})
                 resp = conn.getresponse()
+                self.last_set_cookie = "; ".join(resp.msg.get_all("Set-Cookie") or [])
                 body = resp.read().decode("utf-8", errors="replace")
                 if not body:
                     return resp.status, {}
@@ -140,6 +145,12 @@ class TestRunner:
             time.sleep(65)
             status, resp_body = self.request(method, path, body, token=token)
         self.last_status = status
+        # The gateway stores the access token in an HttpOnly cookie, not in the
+        # JSON body. Capture it from Set-Cookie so authenticated tests work.
+        if status == 200 and self.last_set_cookie:
+            m = re.search(r"(?:^|;\s*)access_token=([^;]+)", self.last_set_cookie)
+            if m:
+                self.token = m.group(1)
 
         if status is None:
             error = resp_body.get("error", "unknown connection error")
@@ -171,8 +182,42 @@ def section(title):
 
 def test_health(t):
     section("0. HEALTH")
-    t.test("Health", "GET", "/health", expected=200)
+    body = t.test("Health", "GET", "/health", expected=200)
+    if isinstance(body, dict) and body.get("status") != "ok":
+        t.results.append(f"FAIL | GET /health | status={body.get('status')!r}")
+        t.failed += 1
+        t.passed -= 1
+        print(f"{RED}Health status is {body.get('status')!r}{RESET}")
     return t.last_status == 200
+
+
+def confirm_test_user_email(email: str) -> None:
+    """Confirm the test user's email via kubectl (CI only).
+
+    The API test runs against the production cluster; the registration email is
+    not delivered to a real mailbox. The test job has the kubeconfig, so mark
+    the user as confirmed directly in Postgres. This is a test-only helper and
+    never runs without --confirm-email.
+    """
+    script = (
+        'export PGPASSWORD="$(cat /etc/secrets/POSTGRES_PASSWORD)"\n'
+        'U="$(cat /etc/secrets/POSTGRES_USER)"\n'
+        'D="$(cat /etc/secrets/POSTGRES_DB)"\n'
+        'psql -U "$U" -d "$D" -v ON_ERROR_STOP=1 -c "UPDATE users SET email_confirmed = TRUE '
+        f"WHERE email_hash = encode(digest(lower('{email}'), 'sha256'), 'hex')\""
+    )
+    try:
+        subprocess.run(
+            ["kubectl", "exec", "-i", "-n", "fitness-platform-production", "postgres-0", "--", "sh", "-s"],
+            input=script,
+            text=True,
+            check=True,
+            capture_output=True,
+            timeout=30,
+        )
+        print("  Confirmed test user email via kubectl")
+    except Exception as exc:  # best-effort: the login test will surface the failure
+        print(f"  Warning: could not confirm test user email: {exc}")
 
 
 def test_auth(t, test_email):
@@ -184,8 +229,9 @@ def test_auth(t, test_email):
         "role": "client",
     }
     t.test("Register", "POST", REGISTER_PATH, body=reg_body, expected=200)
+    if t.confirm_email:
+        confirm_test_user_email(test_email)
 
-    # Email confirmation skipped in API tests (token delivered via email in production)
     t.test("Register (dup)", "POST", REGISTER_PATH, body=reg_body, expected=409)
     t.test(
         "Register (bad email)",
@@ -212,15 +258,24 @@ def test_auth(t, test_email):
         expected=400,
     )
 
-    login_resp = t.test(
+    t.test(
         "Login",
         "POST",
         LOGIN_PATH,
         body={"email": test_email, "password": TEST_PASSWORD},
         expected=200,
     )
-    if isinstance(login_resp, dict) and login_resp.get("access_token"):
-        t.token = login_resp["access_token"]
+    # test() captures the access_token from the Set-Cookie header. If the test
+    # user is still unconfirmed, fall back to the seeded admin so the remaining
+    # authenticated tests can run (the Login FAIL above is still reported).
+    if not t.token and os.getenv("SEED_ADMIN_EMAIL") and os.getenv("SEED_ADMIN_PASSWORD"):
+        t.test(
+            "Login (admin fallback)",
+            "POST",
+            LOGIN_PATH,
+            body={"email": os.getenv("SEED_ADMIN_EMAIL"), "password": os.getenv("SEED_ADMIN_PASSWORD")},
+            expected=200,
+        )
 
     t.test(
         "Login (wrong pw)",
@@ -297,7 +352,7 @@ def test_biometrics(t):
     t.test(
         "Get Biometrics",
         "GET",
-        "BIOMETRICS_PATH?metric_type=heart_rate&limit=10",
+        f"{BIOMETRICS_PATH}?metric_type=heart_rate&limit=10",
         token=t.token,
         expected=200,
     )
@@ -311,15 +366,14 @@ def test_post_logout(t):
     t.test("Profile (no token)", "GET", PROFILE_PATH, expected=404)
     t.test("Biometrics (no token)", "GET", BIOMETRICS_PATH, expected=404)
 
-    lr = t.test(
+    t.test(
         "Re-login",
         "POST",
         LOGIN_PATH,
         body={"email": t.test_email, "password": TEST_PASSWORD},
         expected=200,
     )
-    if isinstance(lr, dict) and lr.get("access_token"):
-        t.token = lr["access_token"]
+    # test() captures the new access token from the cookie.
 
 
 def test_training(t):
@@ -332,14 +386,7 @@ def test_training(t):
 
 def test_chat(t):
     section("6. Chat")
-    chat_resp = t.test(
-        "Chat",
-        "POST",
-        "/api/v1/chat",
-        token=t.token,
-        expected=200,
-        json={"message": "plan"},
-    )
+    chat_resp = t.test("Chat", "POST", "/api/v1/chat", token=t.token, body={"message": "plan"}, expected=200)
     if isinstance(chat_resp, dict) and chat_resp.get("answer"):
         print(f"       {GRAY}answer: {chat_resp['answer'][:50]}...{RESET}")
 
@@ -347,7 +394,7 @@ def test_chat(t):
 def test_totp(t):
     section("7. TOTP / 2FA")
     totp_setup = t.test(
-        "TOTP Setup", "POST", "/auth/2fa/setup", token=t.token, expected=200
+        "TOTP Setup", "POST", "/api/v1/auth/2fa/setup", token=t.token, expected=200
     )
     if (
         isinstance(totp_setup, dict)
@@ -359,7 +406,7 @@ def test_totp(t):
         t.test(
             "TOTP Confirm (invalid code)",
             "POST",
-            "/auth/2fa/confirm",
+            "/api/v1/auth/2fa/confirm",
             body={
                 "passcode": "000000",
                 "temp_secret": secret,
@@ -368,7 +415,7 @@ def test_totp(t):
             token=t.token,
             expected=400,
         )
-        t.test("TOTP Status", "GET", "/auth/2fa/status", token=t.token, expected=200)
+        t.test("TOTP Status", "GET", "/api/v1/auth/2fa/status", token=t.token, expected=200)
     else:
         t.skipped += 1
         print(f"       {YELLOW}SKIP: TOTP setup unavailable{RESET}")
@@ -412,9 +459,14 @@ def main():
     parser.add_argument(
         "--insecure", action="store_true", help="Disable SSL certificate verification"
     )
+    parser.add_argument(
+        "--confirm-email",
+        action="store_true",
+        help="Confirm the test user's email via kubectl (CI only)",
+    )
     args = parser.parse_args()
 
-    t = TestRunner(args.base_url, insecure=args.insecure)
+    t = TestRunner(args.base_url, insecure=args.insecure, confirm_email=args.confirm_email)
     test_email = f"apitest-{random.SystemRandom().randint(1000, 9999)}@example.com"
     t.test_email = test_email
 

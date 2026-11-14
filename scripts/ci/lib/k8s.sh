@@ -455,7 +455,7 @@ check_logs() {
 	echo "Checking logs for critical errors..." >&2
 	ERROR_FOUND=0
 	UNREADY_FOUND=0
-	for dep in user-service training-service rabbitmq; do
+	for dep in user-service training-service rabbitmq gateway; do
 		echo "=== Logs for $dep ==="
 		if [[ "$dep" == "rabbitmq" ]]; then
 			LOGS=$(kubectl logs statefulset/rabbitmq -n fitness-platform-production --tail=50 2>&1 || echo "Failed to get logs") >&2
@@ -487,8 +487,39 @@ check_logs() {
 	else
 		echo "✅ No critical errors found, all services are healthy" >&2
 	fi
+	# ELK/monitoring are not critical for the API, but a CrashLoop/Init:Error
+	# here means the deploy left the observability stack broken. Surface it.
+	for ns in elk monitoring; do
+		BAD_PODS=$(kubectl get pods -n "$ns" -o jsonpath='{range .items[*]}{.metadata.name}{" phase="}{.status.phase}{" ready="}{.status.containerStatuses[0].ready}{"\n"}{end}' 2>/dev/null | grep -Ev 'phase=Running ready=true|phase=Succeeded' || true)
+		if [[ -n "$BAD_PODS" ]]; then
+			echo "::warning::Unhealthy pods in $ns:" >&2
+			echo "$BAD_PODS" >&2
+			ERROR_FOUND=1
+		fi
+	done
 	if [[ "$UNREADY_FOUND" -eq 1 ]]; then
 		echo "::error::Production services are not Ready; stopping deployment before external tests" >&2
 		return 1
 	fi
+}
+
+verify_tls() {
+	local secret="fittpulse-duckdns-tls"
+	local domain="${FITPULSE_DOMAIN:-fittpulse.duckdns.org}"
+	if ! kubectl wait --for=condition=ready certificate/"$secret" \
+		-n fitness-platform-production --timeout=300s; then
+		echo "::error::Ingress TLS certificate $secret is not Ready" >&2
+		kubectl describe certificate/"$secret" -n fitness-platform-production >&2 || true
+		kubectl get order,challenge -n fitness-platform-production >&2 || true
+		kubectl get pods -n fitness-platform-production -l acme.cert-manager.io/http01-solver=true -o wide >&2 || true
+		kubectl describe networkpolicy -n fitness-platform-production allow-ingress-nginx-to-acme-solver >&2 || true
+		return 1
+	fi
+	echo "✅ Ingress TLS certificate $secret is Ready"
+	if ! curl -fsS --max-time 15 -o /dev/null "https://${domain}/health"; then
+		echo "::error::Public HTTPS endpoint does not serve the trusted certificate" >&2
+		curl -v --max-time 15 "https://${domain}/health" 2>&1 | sed -n '1,40p' >&2 || true
+		return 1
+	fi
+	echo "✅ Public HTTPS endpoint serves the trusted Let's Encrypt certificate"
 }
