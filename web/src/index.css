@@ -2206,9 +2206,14 @@ h3,
   padding: 14px;
   display: flex;
   align-items: flex-end;
+  width: 100%;
+  border: 1px solid var(--line);
   border-radius: var(--radius);
   background-position: center;
   background-size: cover;
+  color: #fff;
+  font: inherit;
+  text-align: left;
   cursor: pointer;
   transition: var(--transition);
 }
@@ -4629,4 +4634,46 @@ button:focus-visible {
       transition: none;
     }
   }
+}
+
+/* ===========================================
+   SUPPLEMENTARY COMPONENTS
+   =========================================== */
+.guest-banner {
+  margin-top: 12px;
+  padding: 13px 14px;
+  border: 1px solid #ffc10755;
+  border-radius: 16px;
+  background: #fff3cd14;
+}
+
+.guest-banner strong {
+  display: block;
+  font-size: 12px;
+}
+
+.guest-banner span {
+  display: block;
+  margin-top: 4px;
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+.fp-video-modal .fp-dialog {
+  width: 100%;
+  max-height: 92vh;
+  margin: auto 0 0;
+}
+
+.fp-video-actions {
+  display: flex;
+  gap: 7px;
+  margin-top: 10px;
+}
+
+.fp-video-actions button {
+  flex: 1;
+  padding: 11px;
+  border-radius: 12px;
+  font-size: 16px;
 }

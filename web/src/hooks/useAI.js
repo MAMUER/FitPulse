@@ -57,18 +57,21 @@ export function useAI({ state, update }) {
     [state.messages, update]
   );
 
-  const sendAI = useCallback(async () => {
-    const input = document.getElementById('aiInput');
-    const text = input?.value.trim();
-    if (!text) return;
+  const sendAI = useCallback(
+    async (text) => {
+      const input = document.getElementById('aiInput');
+      const value = (typeof text === 'string' ? text : input?.value || '').trim();
+      if (!value) return;
 
-    input.value = '';
-    await askAIRequest(text, api.sendAIMessage, {
-      id: `${Date.now()}-u`,
-      type: 'user',
-      text,
-    });
-  }, [askAIRequest]);
+      if (input) input.value = '';
+      await askAIRequest(value, api.sendAIMessage, {
+        id: `${Date.now()}-u`,
+        type: 'user',
+        text: value,
+      });
+    },
+    [askAIRequest]
+  );
 
   const quickAI = useCallback(
     async (text) => {

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { useApp } from '../contexts/AppContext';
 import Videos from './Videos';
@@ -7,82 +7,134 @@ vi.mock('../contexts/AppContext', () => ({
   useApp: vi.fn(),
 }));
 
+const trainingVideos = [
+  {
+    id: 'v1',
+    title: 'Утренняя зарядка',
+    description: 'Лёгкий комплекс для старта дня.',
+    image: '/video1.jpg',
+    duration: '12 мин',
+    level: 'Лёгкий',
+    equipment: ['Коврик'],
+  },
+  {
+    id: 'v2',
+    title: 'Силовая тренировка',
+    description: 'Базовые упражнения с гантелями.',
+    image: '/video2.jpg',
+    duration: '25 мин',
+    level: 'Средний',
+    equipment: ['Гантели'],
+  },
+];
+
+function makeContext(overrides = {}) {
+  const { state: stateOverrides, ...rest } = overrides;
+  return {
+    state: {
+      trainingVideos,
+      videos: [],
+      ...stateOverrides,
+    },
+    t: (ru, _en) => ru,
+    loadVideos: vi.fn(),
+    notify: vi.fn(),
+    ...rest,
+  };
+}
+
 describe('Videos', () => {
-  it('renders empty state', () => {
-    const loadVideos = vi.fn();
-    useApp.mockReturnValue({
-      state: { videos: [], trainingVideos: [] },
-      t: (ru, _en) => ru,
-      go: vi.fn(),
-      loadVideos,
-    });
+  it('loads and renders video lessons', () => {
+    const context = makeContext();
+    useApp.mockReturnValue(context);
 
     render(<Videos />);
-    expect(loadVideos).toHaveBeenCalled();
-    expect(screen.getByText('Нет видео')).toBeInTheDocument();
+
+    expect(context.loadVideos).toHaveBeenCalled();
+    expect(screen.getByText('Утренняя зарядка')).toBeInTheDocument();
+    expect(screen.getByText(/12 мин/)).toBeInTheDocument();
+    expect(screen.getByText('Силовая тренировка')).toBeInTheDocument();
   });
 
-  it('renders videos from trainingVideos fallback', () => {
-    const loadVideos = vi.fn();
-    const go = vi.fn();
-    useApp.mockReturnValue({
+  it('renders equipment cards', () => {
+    const context = makeContext();
+    useApp.mockReturnValue(context);
+
+    render(<Videos />);
+
+    expect(screen.getByText('Коврик')).toBeInTheDocument();
+    expect(screen.getByText('Гантели')).toBeInTheDocument();
+    expect(screen.getByText('Резинка')).toBeInTheDocument();
+    expect(screen.getByText('Таймер')).toBeInTheDocument();
+  });
+
+  it('opens a video modal and closes it', () => {
+    const context = makeContext();
+    useApp.mockReturnValue(context);
+
+    render(<Videos />);
+    fireEvent.click(screen.getByText('Утренняя зарядка'));
+
+    const dialog = screen.getByRole('dialog');
+    expect(
+      within(dialog).getByRole('heading', { name: 'Утренняя зарядка' })
+    ).toBeInTheDocument();
+    fireEvent.click(within(dialog).getByLabelText('Закрыть'));
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('switches between videos in the modal', () => {
+    const context = makeContext();
+    useApp.mockReturnValue(context);
+
+    render(<Videos />);
+    fireEvent.click(screen.getByText('Утренняя зарядка'));
+    fireEvent.click(screen.getByLabelText('Следующее видео'));
+
+    expect(
+      within(screen.getByRole('dialog')).getByRole('heading', {
+        name: 'Силовая тренировка',
+      })
+    ).toBeInTheDocument();
+  });
+
+  it('renders the FitPulse library when available', () => {
+    const context = makeContext({
       state: {
-        videos: [],
-        trainingVideos: [{ id: 1, title: 'Test', minutes: 10, kcal: 100 }],
+        videos: [
+          { id: 1, title: 'Растяжка', duration: 15 },
+          { id: 2, title: 'Кардио', minutes: 20 },
+        ],
       },
-      t: (ru, _en) => ru,
-      go,
-      loadVideos,
     });
+    useApp.mockReturnValue(context);
 
     render(<Videos />);
-    expect(screen.getByText('Test')).toBeInTheDocument();
-    expect(screen.getByText(/10/)).toBeInTheDocument();
+
+    expect(screen.getByText('Библиотека FitPulse')).toBeInTheDocument();
+    expect(screen.getByText('Растяжка')).toBeInTheDocument();
+    expect(screen.getByText('Кардио')).toBeInTheDocument();
   });
 
-  it('clicks start button', () => {
-    const loadVideos = vi.fn();
-    const go = vi.fn();
-    useApp.mockReturnValue({
-      state: {
-        videos: [],
-        trainingVideos: [{ id: 1, title: 'Test', minutes: 10, kcal: 100 }],
-      },
-      t: (ru, _en) => ru,
-      go,
-      loadVideos,
-    });
+  it('does not render the library section without videos', () => {
+    const context = makeContext();
+    useApp.mockReturnValue(context);
 
     render(<Videos />);
-    fireEvent.click(screen.getByText('Старт'));
-    expect(go).toHaveBeenCalledWith('training');
+
+    expect(screen.queryByText('Библиотека FitPulse')).not.toBeInTheDocument();
   });
 
-  it('renders videos from state.videos with fallback fields', () => {
-    const loadVideos = vi.fn();
-    const go = vi.fn();
-    useApp.mockReturnValue({
-      state: {
-        videos: [{ title: 'V1', duration: 20, calories: 150 }],
-        trainingVideos: [],
-      },
-      t: (ru, _en) => ru,
-      go,
-      loadVideos,
+  it('handles missing video collections', () => {
+    const context = makeContext({
+      state: { trainingVideos: null, videos: null },
     });
-    render(<Videos />);
-    expect(screen.getByText('V1')).toBeInTheDocument();
-  });
+    useApp.mockReturnValue(context);
 
-  it('renders empty state when trainingVideos is null', () => {
-    const loadVideos = vi.fn();
-    useApp.mockReturnValue({
-      state: { videos: [], trainingVideos: null },
-      t: (ru, _en) => ru,
-      go: vi.fn(),
-      loadVideos,
-    });
     render(<Videos />);
-    expect(screen.getByText('Нет видео')).toBeInTheDocument();
+
+    expect(screen.getByText('Оборудование для дома')).toBeInTheDocument();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 });

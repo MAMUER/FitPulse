@@ -1,30 +1,41 @@
 import { useEffect, useRef, useState } from 'react';
-import Panel from '../components/Panel';
 import { useApp } from '../contexts/AppContext';
 
+const AI_LOGO_URL =
+  'https://uploads.onecompiler.io/44temhxkf/1785230795002/fitai.jpg';
+
 export default function Ai() {
-  const { state, t, sendAI, go } = useApp();
+  const { state, t, sendAI, quickAI } = useApp();
   const [input, setInput] = useState('');
+  const messagesRef = useRef(null);
   const messages = state.messages || [];
   const classification = state.aiClassification;
   const plan = state.aiPlan;
   const diet = state.aiDiet;
-  const chatRef = useRef(null);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: scroll follows new messages
   useEffect(() => {
     /* v8 ignore next 3 */
-    if (chatRef.current) {
-      chatRef.current.scrollTop = chatRef.current.scrollHeight;
+    if (messagesRef.current) {
+      messagesRef.current.scrollTop = messagesRef.current.scrollHeight;
     }
-  }, []);
+  }, [messages]);
 
-  const handleSend = () => {
-    if (!input.trim()) return;
-    sendAI();
+  const handleSend = async () => {
+    const text = input.trim();
+    if (!text) return;
     setInput('');
+    await sendAI(text);
   };
 
-  const renderJSON = (data, title) => {
+  const quickQuestions = [
+    ['Меню', 'Составь меню на сегодня', 'Make a menu for today'],
+    ['Ужин', 'Замени ужин на лёгкий', 'Replace dinner with something light'],
+    ['Календарь', 'Добавь тренировку в календарь', 'Add a workout to the calendar'],
+    ['Тело', 'Как улучшить композицию тела?', 'How to improve body composition?'],
+  ];
+
+  const renderBlock = (data, title) => {
     if (!data) return null;
     return (
       <div className='ai-block'>
@@ -36,69 +47,83 @@ export default function Ai() {
 
   return (
     <section className='ai'>
-      <Panel
-        title={t('AI-советник', 'AI Advisor')}
-        right={
-          <button
-            type='button'
-            className='secondary'
-            onClick={() => go('home')}
-          >
-            {t('Назад', 'Back')}
-          </button>
-        }
-      >
-        <div className='panel-body'>
-          <div className='chat' ref={chatRef}>
-            {messages.map((m) => (
-              <div
-                key={m.id}
-                className={`msg ${m.type === 'user' ? 'user' : 'bot'}`}
-              >
-                <div>{m.text}</div>
-                {m.classification && (
-                  <div className='ai-meta'>
-                    {renderJSON(
-                      m.classification,
-                      t('Классификация', 'Classification')
-                    )}
-                  </div>
-                )}
-                {m.plan && (
-                  <div className='ai-meta'>
-                    {renderJSON(m.plan, t('План', 'Plan'))}
-                  </div>
-                )}
-                {m.diet && (
-                  <div className='ai-meta'>
-                    {renderJSON(m.diet, t('Питание', 'Diet'))}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-          {classification && !messages.some((m) => m.classification) && (
-            <div className='ai-summary'>
-              {renderJSON(classification, t('Классификация', 'Classification'))}
-              {renderJSON(plan, t('План', 'Plan'))}
-              {renderJSON(diet, t('Питание', 'Diet'))}
-            </div>
-          )}
-          <div className='field'>
-            <label htmlFor='aiInput'>{t('Запрос', 'Prompt')}</label>
-            <input
-              id='aiInput'
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder={t('Например: план на неделю', 'e.g. weekly plan')}
-              onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-            />
-          </div>
-          <button type='button' className='primary full' onClick={handleSend}>
-            {t('Отправить', 'Send')}
-          </button>
+      <div className='ai-head'>
+        <div className='ai-avatar'>
+          <img src={AI_LOGO_URL} alt='AI' />
         </div>
-      </Panel>
+        <div>
+          <h2>FitPulse AI</h2>
+          <span style={{ color: 'var(--blue)', fontSize: 9 }}>
+            {t('Тренер · нутрициолог · планировщик', 'Trainer · nutritionist · planner')}
+          </span>
+        </div>
+      </div>
+
+      <section className='card' style={{ marginTop: 17 }}>
+        <div className='eyebrow'>{t('УМНЫЙ ПОМОЩНИК', 'SMART ASSISTANT')}</div>
+        <h3 style={{ marginTop: 8 }}>
+          {t('Что планируем?', 'What are we planning?')}
+        </h3>
+        <p style={{ marginTop: 5, color: 'var(--muted)', fontSize: 10 }}>
+          {t(
+            'Напиши запрос обычными словами — я подберу подходящий вариант.',
+            "Write your request in plain words — I'll find the best option."
+          )}
+        </p>
+        <div className='quick-questions'>
+          {quickQuestions.map(([label, ru, en]) => (
+            <button
+              type='button'
+              key={label}
+              onClick={() => {
+                quickAI(t(ru, en));
+              }}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <div className='messages' ref={messagesRef}>
+        {messages.map((message, index) => (
+          <div
+            className={`message ${message.type}`}
+            key={message.id || index}
+          >
+            {message.text}
+          </div>
+        ))}
+      </div>
+
+      {renderBlock(classification, t('Классификация', 'Classification'))}
+      {renderBlock(plan, t('План тренировок', 'Training plan'))}
+      {renderBlock(diet, t('План питания', 'Nutrition plan'))}
+
+      <div className='chat'>
+        <input
+          id='aiInput'
+          value={input}
+          onChange={(event) => setInput(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter') {
+              event.preventDefault();
+              handleSend();
+            }
+          }}
+          placeholder={t(
+            'Например: у меня мало времени',
+            "E.g. I don't have much time"
+          )}
+        />
+        <button
+          type='button'
+          aria-label={t('Отправить', 'Send')}
+          onClick={handleSend}
+        >
+          <i className='fas fa-arrow-up' />
+        </button>
+      </div>
     </section>
   );
 }

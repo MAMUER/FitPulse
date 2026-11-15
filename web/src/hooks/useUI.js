@@ -54,6 +54,80 @@ export function useUI({ state, update, notify }) {
     update({ selectedAchievement: null });
   }, [update]);
 
+  const selectPlace = useCallback(
+    (place) => {
+      update({ selectedPlace: place });
+    },
+    [update]
+  );
+
+  const addPlace = useCallback(() => {
+    const name = prompt('Название точки', 'Новое место');
+    if (name === null || !name.trim()) return;
+    const icon = (
+      prompt('Иконка Font Awesome', 'fa-location-dot') || 'fa-location-dot'
+    ).trim();
+    const color =
+      prompt('Цвет точки (например #19d8da)', '#19d8da') || '#19d8da';
+    const x = Math.max(
+      3,
+      Math.min(97, Number(prompt('Позиция по горизонтали 0-100', '50')) || 50)
+    );
+    const y = Math.max(
+      3,
+      Math.min(90, Number(prompt('Позиция по вертикали 0-100', '50')) || 50)
+    );
+    update({
+      pinnedPlaces: [
+        ...(state.pinnedPlaces || []),
+        { name: name.trim(), icon, color, x, y },
+      ],
+    });
+  }, [state.pinnedPlaces, update]);
+
+  const editPlace = useCallback(
+    (index) => {
+      const places = state.pinnedPlaces || [];
+      const place = places[index];
+      if (!place) return;
+      const name = prompt('Название точки', place.name);
+      if (name === null) return;
+      const color =
+        prompt('Цвет точки', place.color || '#19d8da') ||
+        place.color ||
+        '#19d8da';
+      const x = Math.max(
+        3,
+        Math.min(
+          97,
+          Number(prompt('Позиция по горизонтали 0-100', String(place.x))) ||
+            place.x
+        )
+      );
+      const y = Math.max(
+        3,
+        Math.min(
+          90,
+          Number(prompt('Позиция по вертикали 0-100', String(place.y))) ||
+            place.y
+        )
+      );
+      update({
+        pinnedPlaces: places.map((item, itemIndex) =>
+          itemIndex === index
+            ? { ...item, name: name.trim() || item.name, color, x, y }
+            : item
+        ),
+      });
+    },
+    [state.pinnedPlaces, update]
+  );
+
+  const nextHack = useCallback(() => {
+    const total = state.hackList?.length || 1;
+    update({ hackIndex: ((state.hackIndex || 0) + 1) % total });
+  }, [state.hackIndex, state.hackList, update]);
+
   return {
     toggleTheme,
     toggleLanguage,
@@ -64,5 +138,9 @@ export function useUI({ state, update, notify }) {
     closeMetric,
     closeMeal,
     closeAchievement,
+    selectPlace,
+    addPlace,
+    editPlace,
+    nextHack,
   };
 }

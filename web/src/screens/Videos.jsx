@@ -1,51 +1,115 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import VideoModal from '../components/VideoModal';
 import { useApp } from '../contexts/AppContext';
 
+const EQUIPMENT = [
+  {
+    icon: 'fa-circle',
+    title: ['Коврик', 'Mat'],
+    note: ['Для пола и растяжки', 'For floor and stretching'],
+  },
+  {
+    icon: 'fa-dumbbell',
+    title: ['Гантели', 'Dumbbells'],
+    note: ['2 × 4–8 кг', '2 × 4–8 kg'],
+  },
+  {
+    icon: 'fa-circle-notch',
+    title: ['Резинка', 'Resistance band'],
+    note: ['Активация мышц', 'Muscle activation'],
+  },
+  {
+    icon: 'fa-stopwatch',
+    title: ['Таймер', 'Timer'],
+    note: ['Для интервалов', 'For intervals'],
+  },
+];
+
 export default function Videos() {
-  const { state, t, go, loadVideos } = useApp();
+  const { state, t, loadVideos } = useApp();
+  const [videoIndex, setVideoIndex] = useState(null);
 
   useEffect(() => {
     loadVideos();
   }, [loadVideos]);
 
-  const videos =
-    state.videos && state.videos.length > 0
-      ? state.videos
-      : state.trainingVideos || [];
+  const videos = state.trainingVideos || [];
+  const library = state.videos || [];
+
+  const changeVideo = (direction) => {
+    if (!videos.length) return;
+    setVideoIndex(
+      (current) => (current + direction + videos.length) % videos.length
+    );
+  };
 
   return (
     <section className='videos'>
-      <div className='panel'>
-        <div className='panel-head'>
-          <div className='panel-title'>
-            {t('Видео-тренировки', 'Video workouts')}
-          </div>
-        </div>
-        <div className='panel-body'>
-          {videos.length === 0 ? (
-            <div className='muted'>{t('Нет видео', 'No videos')}</div>
-          ) : (
-            videos.map((v, i) => (
-              <div key={v.id || i} className='list-row'>
-                <div>
-                  <div className='list-title'>{v.title}</div>
-                  <div className='muted'>
-                    {v.minutes || v.duration || ''} {t('мин', 'min')} ·{' '}
-                    {v.kcal || v.calories || 0} {t('ккал', 'kcal')}
-                  </div>
-                </div>
-                <button
-                  type='button'
-                  className='primary'
-                  onClick={() => go('training')}
-                >
-                  {t('Старт', 'Start')}
-                </button>
-              </div>
-            ))
-          )}
-        </div>
+      <div className='page-title'>
+        <div className='eyebrow'>FITPULSE MOTION</div>
+        <h2>{t('Видео и оборудование', 'Videos and equipment')}</h2>
+        <p>{t('Короткие тренировки для дома.', 'Short workouts for home.')}</p>
       </div>
+
+      {videos.map((video, index) => (
+        <button
+          type='button'
+          className='video-card'
+          key={video.id || index}
+          style={{ backgroundImage: `url('${video.image}')` }}
+          onClick={() => setVideoIndex(index)}
+        >
+          <span className='play'>
+            <i className='fas fa-play' />
+          </span>
+          <span className='video-text'>
+            <strong>{video.title}</strong>
+            <small>
+              {video.level} · {video.duration}
+            </small>
+          </span>
+        </button>
+      ))}
+
+      {library.length > 0 && (
+        <>
+          <div className='section'>
+            <h3>{t('Библиотека FitPulse', 'FitPulse library')}</h3>
+          </div>
+          <section className='card'>
+            {library.map((item, index) => (
+              <div className='body-row' key={item.id || index}>
+                <span>{item.title}</span>
+                <b>
+                  {item.duration || item.minutes || ''} {t('мин', 'min')}
+                </b>
+              </div>
+            ))}
+          </section>
+        </>
+      )}
+
+      <div className='section'>
+        <h3>{t('Оборудование для дома', 'Home equipment')}</h3>
+      </div>
+      <section className='grid-2'>
+        {EQUIPMENT.map((item) => (
+          <article className='card equipment' key={item.icon}>
+            <i className={`fas ${item.icon}`} />
+            <strong>{t(...item.title)}</strong>
+            <small>{t(...item.note)}</small>
+          </article>
+        ))}
+      </section>
+
+      {videoIndex !== null && (
+        <VideoModal
+          videos={videos}
+          index={videoIndex}
+          onChange={changeVideo}
+          onClose={() => setVideoIndex(null)}
+        />
+      )}
     </section>
   );
 }

@@ -2,21 +2,28 @@ import { useCallback } from 'react';
 import { t } from '../utils/i18n';
 
 export function useMedia({ state, update, notify }) {
-  const addCustomExercise = useCallback(() => {
-    const name = document.getElementById('customExerciseName')?.value.trim();
-    const sets = document.getElementById('customExerciseSets')?.value.trim();
-    if (!name || !sets) {
-      notify(t('Заполните все поля', 'Please fill all fields'));
-      return;
-    }
-    update({
-      customExercises: [...(state.customExercises || []), { name, sets }],
-    });
-    if (document.getElementById('customExerciseName'))
-      document.getElementById('customExerciseName').value = '';
-    if (document.getElementById('customExerciseSets'))
-      document.getElementById('customExerciseSets').value = '';
-  }, [state.customExercises, update, notify]);
+  const addCustomExercise = useCallback(
+    (exercise) => {
+      const name = (
+        exercise?.name ?? document.getElementById('customExerciseName')?.value
+      )?.trim();
+      const sets = (
+        exercise?.sets ?? document.getElementById('customExerciseSets')?.value
+      )?.trim();
+      if (!name || !sets) {
+        notify(t('Заполните все поля', 'Please fill all fields'));
+        return;
+      }
+      update({
+        customExercises: [...(state.customExercises || []), { name, sets }],
+      });
+      if (document.getElementById('customExerciseName'))
+        document.getElementById('customExerciseName').value = '';
+      if (document.getElementById('customExerciseSets'))
+        document.getElementById('customExerciseSets').value = '';
+    },
+    [state.customExercises, update, notify]
+  );
 
   const removeCustomExercise = useCallback(
     (index) => {

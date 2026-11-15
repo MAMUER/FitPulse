@@ -32,10 +32,14 @@ describe('useUI', () => {
   it('returns all ui callbacks', () => {
     setup();
     expect(Object.keys(result.current).sort()).toEqual([
+      'addPlace',
       'closeAchievement',
       'closeMeal',
       'closeMetric',
+      'editPlace',
+      'nextHack',
       'openMetric',
+      'selectPlace',
       'showNotification',
       'toggleHighContrast',
       'toggleLanguage',
@@ -141,5 +145,100 @@ describe('useUI', () => {
     setup();
     result.current.closeAchievement();
     expect(update).toHaveBeenCalledWith({ selectedAchievement: null });
+  });
+
+  it('selectPlace updates the selected place', () => {
+    setup();
+    result.current.selectPlace('Бассейн');
+    expect(update).toHaveBeenCalledWith({ selectedPlace: 'Бассейн' });
+  });
+
+  it('addPlace appends a pinned place', () => {
+    setup();
+    window.prompt = vi
+      .fn()
+      .mockReturnValueOnce('Парк')
+      .mockReturnValueOnce('fa-tree')
+      .mockReturnValueOnce('#6fae20')
+      .mockReturnValueOnce('40')
+      .mockReturnValueOnce('60');
+    result.current.addPlace();
+    expect(update).toHaveBeenCalledWith({
+      pinnedPlaces: [
+        expect.objectContaining({
+          name: 'Парк',
+          icon: 'fa-tree',
+          color: '#6fae20',
+          x: 40,
+          y: 60,
+        }),
+      ],
+    });
+  });
+
+  it('addPlace keeps existing pinned places', () => {
+    setup({ pinnedPlaces: [{ name: 'Дом', icon: 'fa-house', x: 20, y: 30 }] });
+    window.prompt = vi
+      .fn()
+      .mockReturnValueOnce('Зал')
+      .mockReturnValueOnce('fa-dumbbell')
+      .mockReturnValueOnce('#19d8da')
+      .mockReturnValueOnce('70')
+      .mockReturnValueOnce('20');
+    result.current.addPlace();
+    const payload = update.mock.calls[0][0];
+    expect(payload.pinnedPlaces).toHaveLength(2);
+    expect(payload.pinnedPlaces[0].name).toBe('Дом');
+  });
+
+  it('addPlace ignores cancelled prompts', () => {
+    setup();
+    window.prompt = vi.fn().mockReturnValue(null);
+    result.current.addPlace();
+    expect(update).not.toHaveBeenCalled();
+  });
+
+  it('editPlace updates a pinned place', () => {
+    setup({
+      pinnedPlaces: [
+        { name: 'Дом', icon: 'fa-house', color: '#19d8da', x: 20, y: 30 },
+        { name: 'Зал', icon: 'fa-dumbbell', color: '#6fae20', x: 60, y: 40 },
+      ],
+    });
+    window.prompt = vi
+      .fn()
+      .mockReturnValueOnce('Зал 2')
+      .mockReturnValueOnce('#ff6375')
+      .mockReturnValueOnce('55')
+      .mockReturnValueOnce('45');
+    result.current.editPlace(1);
+    const payload = update.mock.calls[0][0];
+    expect(payload.pinnedPlaces[1]).toMatchObject({
+      name: 'Зал 2',
+      color: '#ff6375',
+      x: 55,
+      y: 45,
+    });
+    expect(payload.pinnedPlaces[0].name).toBe('Дом');
+  });
+
+  it('editPlace ignores unknown index', () => {
+    setup({ pinnedPlaces: [] });
+    window.prompt = vi.fn();
+    result.current.editPlace(3);
+    expect(update).not.toHaveBeenCalled();
+    expect(window.prompt).not.toHaveBeenCalled();
+  });
+
+  it('nextHack advances and wraps the tip index', () => {
+    setup({ hackIndex: 1, hackList: [['a'], ['b'], ['c']] });
+    result.current.nextHack();
+    expect(update).toHaveBeenCalledWith({ hackIndex: 2 });
+  });
+
+  it('nextHack wraps around at the end', () => {
+    setup({ hackIndex: 2, hackList: [['a'], ['b'], ['c']] });
+    result.current.nextHack();
+    expect(update).toHaveBeenCalledWith({ hackIndex: 0 });
   });
 });

@@ -78,6 +78,7 @@ describe('useCalendar', () => {
       'addEvent',
       'addEventToDay',
       'changeCalendar',
+      'closeCalendarPage',
       'closeDateModal',
       'deleteCalendarEvent',
       'loadCalendarEvents',
@@ -213,13 +214,20 @@ describe('useCalendar', () => {
     expect(update).toHaveBeenCalledWith({
       calendarMonthIndex: now.getMonth(),
       calendarYear: now.getFullYear(),
+      calendarOpen: true,
     });
   });
 
   it('openCalendarPage keeps month when no reset requested', () => {
     setup();
     result.current.openCalendarPage(false);
-    expect(update).not.toHaveBeenCalled();
+    expect(update).toHaveBeenCalledWith({ calendarOpen: true });
+  });
+
+  it('closeCalendarPage hides the calendar page', () => {
+    setup();
+    result.current.closeCalendarPage();
+    expect(update).toHaveBeenCalledWith({ calendarOpen: false });
   });
 
   it('selectCalendarDay opens day modal', () => {
@@ -272,7 +280,7 @@ describe('useCalendar', () => {
     });
     expect(update).toHaveBeenCalledWith({
       calendarEvents: {
-        '4 Октябрь': [
+        '2026-10-04': [
           expect.objectContaining({
             id: 42,
             title: 'План',
@@ -352,7 +360,7 @@ describe('useCalendar', () => {
     setup({
       selectedCalendarDay: 4,
       calendarEvents: {
-        '4 Октябрь': [
+        '2026-10-04': [
           {
             id: 1,
             title: 'Старое',
@@ -378,7 +386,7 @@ describe('useCalendar', () => {
       });
     });
     const payload = update.mock.calls[0][0];
-    expect(payload.calendarEvents['4 Октябрь']).toHaveLength(2);
+    expect(payload.calendarEvents['2026-10-04']).toHaveLength(2);
     expect(payload.calendarEventsList).toHaveLength(2);
     expect(payload.calendarEventsList[1]).toEqual(
       expect.objectContaining({ id: 42, dateLabel: '4 Октябрь' })

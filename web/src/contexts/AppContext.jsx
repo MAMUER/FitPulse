@@ -66,6 +66,7 @@ export function AppProvider({ children }) {
         status: state.profile.status,
         friendsCount: state.profile.friends,
         calendarEvents: state.calendarEvents,
+        weightHistory: state.weightHistory,
         customExercises: state.customExercises,
         customMeals: state.customMeals,
         waterIntake: state.waterIntake,

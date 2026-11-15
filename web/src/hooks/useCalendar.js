@@ -90,11 +90,18 @@ export function useCalendar({
         update({
           calendarMonthIndex: now.getMonth(),
           calendarYear: now.getFullYear(),
+          calendarOpen: true,
         });
+        return;
       }
+      update({ calendarOpen: true });
     },
     [update]
   );
+
+  const closeCalendarPage = useCallback(() => {
+    update({ calendarOpen: false });
+  }, [update]);
 
   const selectCalendarDay = useCallback(
     (day) => {
@@ -152,9 +159,14 @@ export function useCalendar({
         if (data?.event) {
           const newEvents = { ...state.calendarEvents };
           const dateLabel = `${day} ${getMonthNameFn(state.calendarMonthIndex, language)}`;
-          if (!newEvents[dateLabel]) newEvents[dateLabel] = [];
-          newEvents[dateLabel] = [
-            ...newEvents[dateLabel],
+          const dateKey = getDateKey(
+            state.calendarYear,
+            state.calendarMonthIndex,
+            day
+          );
+          if (!newEvents[dateKey]) newEvents[dateKey] = [];
+          newEvents[dateKey] = [
+            ...newEvents[dateKey],
             {
               id: data.event.id,
               title: data.event.title,
@@ -262,6 +274,7 @@ export function useCalendar({
     changeCalendar,
     quickAddEvent,
     openCalendarPage,
+    closeCalendarPage,
     selectCalendarDay,
     closeDateModal,
     addEventToDay,

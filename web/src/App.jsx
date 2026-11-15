@@ -25,16 +25,16 @@ import Videos from './screens/Videos';
 function TabBar() {
   const { state, t, go } = useApp();
   const tabs = [
-    { key: 'home', label: t('Главная', 'Home'), icon: 'fas fa-home' },
+    { key: 'home', label: t('Главная', 'Home'), icon: 'fas fa-house' },
     {
       key: 'nutrition',
       label: t('Питание', 'Nutrition'),
-      icon: 'fas fa-apple-alt',
+      icon: 'fas fa-utensils',
     },
     {
       key: 'calendar',
       label: t('Календарь', 'Calendar'),
-      icon: 'fas fa-calendar',
+      icon: 'fas fa-calendar-alt',
     },
     {
       key: 'training',
@@ -42,12 +42,20 @@ function TabBar() {
       icon: 'fas fa-dumbbell',
     },
     { key: 'ai', label: 'AI', icon: 'fas fa-robot' },
-    { key: 'chat', label: t('Чат', 'Chat'), icon: 'fas fa-comment' },
+    {
+      key: 'chat',
+      label: t('Чат', 'Chat'),
+      icon: 'fas fa-comments',
+      chatOnly: true,
+    },
   ];
+  const visibleTabs = tabs.filter(
+    (tab) => !tab.chatOnly || state.screen === 'chat' || state.screen === 'chatDetail'
+  );
 
   return (
     <nav className='bottom-nav'>
-      {tabs.map((tab) => (
+      {visibleTabs.map((tab) => (
         <button
           type='button'
           key={tab.key}

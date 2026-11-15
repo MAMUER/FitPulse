@@ -1,234 +1,268 @@
-import { render, screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
-import { MemoryRouter } from 'react-router-dom';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { AppProvider, useApp } from '../contexts/AppContext';
+import { fireEvent, render, screen, within } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
+import { useApp } from '../contexts/AppContext';
 import Training from './Training';
 
-vi.mock('../contexts/AppContext', async () => {
-  const actual = await vi.importActual('../contexts/AppContext');
-  return {
-    ...actual,
-    useApp: vi.fn(),
-  };
-});
+vi.mock('../contexts/AppContext', () => ({
+  useApp: vi.fn(),
+}));
 
-const makePlan = (overrides = {}) => ({
-  plan_id: 'plan-1',
-  plan_data: { name: 'Базовый план', training_goal: 'Выносливость' },
-  training_goal: 'Выносливость',
-  ...overrides,
-});
-
-const baseContext = (overrides = {}) => ({
-  state: {
-    screen: 'training',
-    theme: 'dark',
-    highContrast: false,
-    language: 'ru',
-    trainingPlans: [],
-    ...overrides.state,
+const videos = [
+  {
+    id: 'v1',
+    title: 'Утренняя зарядка',
+    description: 'Лёгкий комплекс для старта дня.',
+    image: '/video1.jpg',
+    duration: '12 мин',
+    level: 'Лёгкий',
+    equipment: ['Коврик'],
   },
-  t: (ru, _en) => ru,
-  startWorkout: vi.fn(),
-  go: vi.fn(),
-  loadTrainingPlans: vi.fn(),
-  generatePlan: vi.fn().mockResolvedValue({}),
-  getPlanDetails: vi.fn(),
-  ...overrides,
-});
+  {
+    id: 'v2',
+    title: 'Силовая тренировка',
+    description: 'Базовые упражнения с гантелями.',
+    image: '/video2.jpg',
+    duration: '25 мин',
+    level: 'Средний',
+    equipment: ['Гантели', 'Коврик'],
+  },
+];
 
-function renderTraining(context) {
-  useApp.mockReturnValue(context);
-  return render(
-    <MemoryRouter>
-      <AppProvider>
-        <Training />
-      </AppProvider>
-    </MemoryRouter>
-  );
+const trainingPlans = [
+  { id: 1, title: 'План на месяц', duration_weeks: 4 },
+  { id: 2, name: 'План на неделю', durationWeeks: 1 },
+];
+
+function makeContext(overrides = {}) {
+  const { state: stateOverrides, ...rest } = overrides;
+  return {
+    state: {
+      language: 'ru',
+      trainingPeriod: 'day',
+      trainingData: {
+        day: {
+          completed: 1,
+          goal: 3,
+          calories: 620,
+          minutes: 55,
+          workouts: ['Силовая база', 'Мобильность'],
+        },
+        week: {
+          completed: 2,
+          goal: 5,
+          calories: 1200,
+          minutes: 120,
+          workouts: ['Кардио', 'Силовая'],
+        },
+        month: {
+          completed: 8,
+          goal: 16,
+          calories: 5200,
+          minutes: 520,
+          workouts: ['Кардио', 'Силовая', 'Плавание'],
+        },
+      },
+      completedWorkouts: [],
+      selectedWorkout: null,
+      trainingVideos: videos,
+      trainingPlans,
+      instructions: {
+        gym: 'Протирай тренажёры после использования.',
+        pool: 'Принимай душ до и после бассейна.',
+        hygiene: 'Используй личное полотенце.',
+      },
+      customExercises: [{ name: 'Отжимания', sets: '3 × 15' }],
+      ...stateOverrides,
+    },
+    t: (ru, _en) => ru,
+    formatRelativeDate: vi.fn((offset) => `date-${offset}`),
+    startWorkout: vi.fn(),
+    toggleWorkout: vi.fn(),
+    setTrainingPeriod: vi.fn(),
+    loadTrainingPlans: vi.fn(),
+    generatePlan: vi.fn(),
+    addCustomExercise: vi.fn(),
+    removeCustomExercise: vi.fn(),
+    quickAI: vi.fn(),
+    notify: vi.fn(),
+    ...rest,
+  };
 }
 
 describe('Training', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
+  it('renders the training screen and loads plans', () => {
+    const context = makeContext();
+    useApp.mockReturnValue(context);
+
+    render(<Training />);
+
+    expect(context.loadTrainingPlans).toHaveBeenCalled();
+    expect(screen.getByText('План тренировок')).toBeInTheDocument();
+    expect(screen.getByText('1/3')).toBeInTheDocument();
+    expect(screen.getByText('Силовая база')).toBeInTheDocument();
+    expect(screen.getByText('Мобильность и восстановление')).toBeInTheDocument();
+    expect(screen.getByText('Кардио в бассейне')).toBeInTheDocument();
+    expect(screen.getByText('Правила в зале')).toBeInTheDocument();
   });
 
-  it('renders training screen', () => {
-    renderTraining(baseContext());
-    expect(screen.getByText('Тренировки')).toBeInTheDocument();
+  it('switches the training period', () => {
+    const context = makeContext();
+    useApp.mockReturnValue(context);
+
+    render(<Training />);
+    fireEvent.click(screen.getByRole('button', { name: 'Неделя' }));
+
+    expect(context.setTrainingPeriod).toHaveBeenCalledWith('week');
   });
 
-  it('loads training plans on mount', () => {
-    const loadTrainingPlans = vi.fn();
-    renderTraining(baseContext({ loadTrainingPlans }));
-    expect(loadTrainingPlans).toHaveBeenCalledTimes(1);
+  it('toggles workout details', () => {
+    const context = makeContext();
+    useApp.mockReturnValue(context);
+
+    render(<Training />);
+    fireEvent.click(screen.getAllByText('Упражнения')[0]);
+
+    expect(context.toggleWorkout).toHaveBeenCalledWith(1);
   });
 
-  it('renders plans tab with generate button and empty state', () => {
-    renderTraining(baseContext());
-    expect(screen.getByText('Планы')).toBeInTheDocument();
-    expect(screen.getByText('Создать план')).toBeInTheDocument();
-    expect(screen.getByText('Нет планов')).toBeInTheDocument();
+  it('starts a workout', () => {
+    const context = makeContext();
+    useApp.mockReturnValue(context);
+
+    render(<Training />);
+    fireEvent.click(screen.getAllByText('Начать')[0]);
+
+    expect(context.startWorkout).toHaveBeenCalledWith('Силовая база');
   });
 
-  it('renders timer tab label', () => {
-    renderTraining(baseContext());
-    expect(screen.getByText('Таймер')).toBeInTheDocument();
+  it('shows completed workouts as disabled', () => {
+    const context = makeContext({
+      state: { completedWorkouts: ['Силовая база'] },
+    });
+    useApp.mockReturnValue(context);
+
+    render(<Training />);
+
+    const completed = screen.getByText('Выполнено');
+    expect(completed.closest('button')).toBeDisabled();
   });
 
-  it('switches to start tab and shows workout controls', async () => {
-    const user = userEvent.setup();
-    renderTraining(baseContext());
-    await user.click(screen.getByText('Таймер'));
-    expect(screen.getByText('Начать тренировку')).toBeInTheDocument();
-    expect(screen.getByText('На главную')).toBeInTheDocument();
-    expect(screen.queryByText('Создать план')).not.toBeInTheDocument();
-  });
+  it('marks a workout as completed for the selected period', () => {
+    const context = makeContext({ state: { trainingPeriod: 'week' } });
+    useApp.mockReturnValue(context);
 
-  it('starts workout from start tab', async () => {
-    const user = userEvent.setup();
-    const startWorkout = vi.fn();
-    renderTraining(baseContext({ startWorkout }));
-    await user.click(screen.getByText('Таймер'));
-    await user.click(screen.getByText('Начать тренировку'));
-    expect(startWorkout).toHaveBeenCalledWith('Тренировка');
-  });
+    render(<Training />);
 
-  it('navigates home from start tab', async () => {
-    const user = userEvent.setup();
-    const go = vi.fn();
-    renderTraining(baseContext({ go }));
-    await user.click(screen.getByText('Таймер'));
-    await user.click(screen.getByText('На главную'));
-    expect(go).toHaveBeenCalledWith('home');
-  });
-
-  it('renders training plans list with details buttons', () => {
-    const plans = [
-      makePlan({ plan_id: 'p1' }),
-      makePlan({
-        plan_id: 'p2',
-        plan_data: { name: 'Интенсив', training_goal: 'Сила' },
-      }),
-    ];
-    renderTraining(baseContext({ state: { trainingPlans: plans } }));
-    expect(screen.getByText('Базовый план')).toBeInTheDocument();
-    expect(screen.getByText('Интенсив')).toBeInTheDocument();
-    const detailsButtons = screen.getAllByText('Подробнее');
-    expect(detailsButtons).toHaveLength(2);
-  });
-
-  it('uses plan_id as title when plan_data name is missing', () => {
-    const plans = [makePlan({ plan_id: 'abc-123', plan_data: null })];
-    renderTraining(baseContext({ state: { trainingPlans: plans } }));
-    expect(screen.getByText('abc-123')).toBeInTheDocument();
-  });
-
-  it('uses training_goal as subtitle', () => {
-    const plans = [makePlan({ plan_id: 'p1', training_goal: 'Кардио' })];
-    renderTraining(baseContext({ state: { trainingPlans: plans } }));
+    expect(screen.getByText('2/5')).toBeInTheDocument();
     expect(screen.getByText('Кардио')).toBeInTheDocument();
   });
 
-  it('falls back to plan_data.training_goal for subtitle', () => {
-    const plans = [
-      makePlan({
-        plan_id: 'p1',
-        training_goal: null,
-        plan_data: { training_goal: 'Гибкость' },
-      }),
-    ];
-    renderTraining(baseContext({ state: { trainingPlans: plans } }));
-    expect(screen.getByText('Гибкость')).toBeInTheDocument();
+  it('adds a custom exercise', () => {
+    const context = makeContext();
+    useApp.mockReturnValue(context);
+
+    render(<Training />);
+    fireEvent.change(screen.getByLabelText('Название упражнения'), {
+      target: { value: 'Приседания' },
+    });
+    fireEvent.change(screen.getByLabelText('Подходы × Повторения'), {
+      target: { value: '4 × 12' },
+    });
+    fireEvent.click(screen.getByText('Добавить'));
+
+    expect(context.addCustomExercise).toHaveBeenCalledWith({
+      name: 'Приседания',
+      sets: '4 × 12',
+    });
   });
 
-  it('opens plan details when details button is clicked', async () => {
-    const user = userEvent.setup();
-    const getPlanDetails = vi.fn();
-    const plans = [makePlan({ plan_id: 'p1' })];
-    renderTraining(
-      baseContext({ state: { trainingPlans: plans }, getPlanDetails })
+  it('renders and removes custom exercises', () => {
+    const context = makeContext();
+    useApp.mockReturnValue(context);
+
+    render(<Training />);
+
+    expect(screen.getByText('Отжимания')).toBeInTheDocument();
+    fireEvent.click(screen.getByLabelText('Удалить упражнение'));
+
+    expect(context.removeCustomExercise).toHaveBeenCalledWith(0);
+  });
+
+  it('opens a video and switches to the next one', () => {
+    const context = makeContext();
+    useApp.mockReturnValue(context);
+
+    render(<Training />);
+    fireEvent.click(screen.getByText('Утренняя зарядка'));
+
+    let dialog = screen.getByRole('dialog');
+    expect(within(dialog).getByRole('heading', { name: 'Утренняя зарядка' })).toBeInTheDocument();
+    fireEvent.click(within(dialog).getByLabelText('Следующее видео'));
+
+    dialog = screen.getByRole('dialog');
+    expect(
+      within(dialog).getByRole('heading', { name: 'Силовая тренировка' })
+    ).toBeInTheDocument();
+  });
+
+  it('closes the video modal', () => {
+    const context = makeContext();
+    useApp.mockReturnValue(context);
+
+    render(<Training />);
+    fireEvent.click(screen.getByText('Утренняя зарядка'));
+    fireEvent.click(screen.getByLabelText('Закрыть'));
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('renders FitPulse plans and generates a new one', () => {
+    const context = makeContext();
+    useApp.mockReturnValue(context);
+
+    render(<Training />);
+
+    expect(screen.getByText('Планы FitPulse')).toBeInTheDocument();
+    expect(screen.getByText('План на месяц')).toBeInTheDocument();
+    fireEvent.click(screen.getByText('Сгенерировать'));
+
+    expect(context.generatePlan).toHaveBeenCalledWith({ durationWeeks: 4 });
+  });
+
+  it('asks AI for a home exercise', () => {
+    const context = makeContext();
+    useApp.mockReturnValue(context);
+
+    render(<Training />);
+    fireEvent.click(screen.getByText('Спросить AI'));
+
+    expect(context.quickAI).toHaveBeenCalledWith(
+      'Предложи упражнение для дома'
     );
-    const detailsButtons = screen.getAllByText('Подробнее');
-    await user.click(detailsButtons[0]);
-    expect(getPlanDetails).toHaveBeenCalledWith('p1');
   });
 
-  it('generates plan and returns to plans tab', async () => {
-    const user = userEvent.setup();
-    let resolveGenerate;
-    const generatePlan = vi.fn(
-      () =>
-        new Promise((resolve) => {
-          resolveGenerate = resolve;
-        })
-    );
-    renderTraining(baseContext({ generatePlan }));
-    await user.click(screen.getByText('Создать план'));
-    expect(screen.getByText('Генерация...')).toBeInTheDocument();
-    expect(generatePlan).toHaveBeenCalledWith({
-      durationWeeks: 4,
-      availableDays: [1, 3, 5],
-      class: 'endurance_basic',
-      confidence: 0.8,
+  it('renders training instructions', () => {
+    const context = makeContext();
+    useApp.mockReturnValue(context);
+
+    render(<Training />);
+
+    expect(screen.getByText('Правила в бассейне')).toBeInTheDocument();
+    expect(screen.getByText('Гигиена')).toBeInTheDocument();
+    expect(
+      screen.getByText('Протирай тренажёры после использования.')
+    ).toBeInTheDocument();
+  });
+
+  it('renders without videos and plans', () => {
+    const context = makeContext({
+      state: { trainingVideos: null, trainingPlans: null },
     });
-    resolveGenerate({});
-    await waitFor(() => {
-      expect(screen.queryByText('Генерация...')).not.toBeInTheDocument();
-    });
-    expect(screen.getByText('Создать план')).toBeInTheDocument();
-  });
+    useApp.mockReturnValue(context);
 
-  it('uses English translations when language is en', () => {
-    const enContext = baseContext({
-      state: { language: 'en' },
-      t: (_ru, en) => en,
-    });
-    renderTraining(enContext);
-    expect(screen.getByText('Workouts')).toBeInTheDocument();
-    expect(screen.getByText('Plans')).toBeInTheDocument();
-    expect(screen.getByText('Timer')).toBeInTheDocument();
-    expect(screen.getByText('Generate plan')).toBeInTheDocument();
-    expect(screen.getByText('No plans')).toBeInTheDocument();
-  });
+    render(<Training />);
 
-  it('renders empty state in English', () => {
-    const enContext = baseContext({
-      state: { language: 'en' },
-      t: (_ru, en) => en,
-    });
-    renderTraining(enContext);
-    expect(screen.getByText('No plans')).toBeInTheDocument();
-  });
-
-  it('renders details button in English', () => {
-    const plans = [makePlan({ plan_id: 'p1' })];
-    const enContext = baseContext({
-      state: { language: 'en', trainingPlans: plans },
-      t: (_ru, en) => en,
-    });
-    renderTraining(enContext);
-    expect(screen.getByText('Details')).toBeInTheDocument();
-  });
-
-  it('clicks plans tab button', async () => {
-    const user = userEvent.setup();
-    renderTraining(baseContext());
-    await user.click(screen.getByText('Таймер'));
-    await user.click(screen.getByText('Планы'));
-    expect(screen.getByText('Создать план')).toBeInTheDocument();
-  });
-
-  it('uses empty subtitle when no training goal present', () => {
-    const plans = [
-      makePlan({
-        plan_id: 'p1',
-        training_goal: null,
-        plan_data: { name: 'Без цели' },
-      }),
-    ];
-    renderTraining(baseContext({ state: { trainingPlans: plans } }));
-    expect(screen.getByText('Без цели')).toBeInTheDocument();
+    expect(screen.queryByText('Видео-уроки')).toBeInTheDocument();
+    expect(screen.queryByText('Планы FitPulse')).not.toBeInTheDocument();
   });
 });

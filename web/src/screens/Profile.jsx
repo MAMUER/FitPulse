@@ -53,6 +53,11 @@ export default function Profile() {
       0
     );
   const completedAchievements = achievements.filter((item) => item.done).length;
+  const level = state.level || 1;
+  const points = state.points || 0;
+  const streak = state.streak || 0;
+  const maxStreak = state.maxStreak || 0;
+  const pct = Math.min(100, (points % 1000) / 10);
   const friendStatus = (status) => {
     const labels = {
       gym: t('В зале', 'At gym'),
@@ -161,6 +166,59 @@ export default function Profile() {
           >
             <i className='fas fa-comments' /> {t('Чат', 'Chat')}
           </button>
+        </div>
+      </div>
+
+      <div className='fp-level-card'>
+        <div className='fp-level-title'>
+          <strong>
+            ⭐ {t('Уровень', 'Level')} {level}
+          </strong>
+          <span>
+            {points} / {level * 1000} XP
+          </span>
+        </div>
+        <p style={{ marginTop: 7, color: 'var(--muted)', fontSize: 10 }}>
+          {t(
+            'Продолжай серию, чтобы открыть новый уровень.',
+            'Keep your streak to unlock the next level.'
+          )}
+        </p>
+        <div className='fp-xp'>
+          <i style={{ width: `${pct}%` }} />
+        </div>
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            marginTop: 6,
+            fontSize: 8,
+            color: 'var(--muted)',
+          }}
+        >
+          <span>
+            🔥 {t('Серия', 'Streak')}: {streak} {t('дней', 'days')}
+          </span>
+          <span>
+            🏆 {t('Макс. серия', 'Max streak')}: {maxStreak}
+          </span>
+        </div>
+      </div>
+      <div className='fp-trophy-grid'>
+        <div className='fp-trophy'>
+          <i className='fas fa-trophy' />
+          <strong>{level}</strong>
+          <small>{t('уровень', 'level')}</small>
+        </div>
+        <div className='fp-trophy'>
+          <i className='fas fa-medal' />
+          <strong>{completedAchievements}</strong>
+          <small>{t('наград', 'awards')}</small>
+        </div>
+        <div className='fp-trophy'>
+          <i className='fas fa-star' />
+          <strong>{streak}</strong>
+          <small>{t('серия', 'streak')}</small>
         </div>
       </div>
 

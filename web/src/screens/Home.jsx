@@ -1,4 +1,6 @@
 import { useEffect, useRef } from 'react';
+import PlaceMap from '../components/PlaceMap';
+import WaterTracker from '../components/WaterTracker';
 import { useApp } from '../contexts/AppContext';
 
 const WEEKDAYS = {
@@ -48,7 +50,6 @@ export default function Home() {
     getMonthName,
     go,
     toggleTheme,
-    drinkWater,
     openMetric,
     changeCalendar,
     openCalendarPage,
@@ -61,6 +62,8 @@ export default function Home() {
     loadTrainingPlans,
     loadAchievements,
     loadProgress,
+    showNotification,
+    nextHack,
   } = useApp();
   const storyStrip = useRef(null);
 
@@ -70,6 +73,11 @@ export default function Home() {
     loadAchievements();
     loadProgress();
   }, [loadBiometrics, loadTrainingPlans, loadAchievements, loadProgress]);
+
+  useEffect(() => {
+    const timer = setInterval(() => nextHack(), 10000);
+    return () => clearInterval(timer);
+  }, [nextHack]);
 
   const profileName = state.profile?.name || 'Михаил';
   const stories = state.stories || [];
@@ -82,9 +90,6 @@ export default function Home() {
   const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
   const calendarEvents = state.calendarEvents || {};
   const today = now.getDate();
-  const waterIntake = state.waterIntake || 0;
-  const waterGoal = state.waterGoal || 8;
-  const waterProgress = Math.min(100, (waterIntake / waterGoal) * 100);
 
   const scrollStories = (direction) => {
     storyStrip.current?.scrollBy({
@@ -110,6 +115,14 @@ export default function Home() {
           </h1>
         </div>
         <div className='row' style={{ gap: 7 }}>
+          <button
+            type='button'
+            className='notification'
+            aria-label={t('Уведомления', 'Notifications')}
+            onClick={showNotification}
+          >
+            <i className='fas fa-bell' />
+          </button>
           <button
             type='button'
             className='icon'
@@ -341,43 +354,37 @@ export default function Home() {
         </div>
       </section>
 
-      <div className='water-tracker'>
-        <div className='water-icon'>
-          <i className='fas fa-droplet' />
-        </div>
-        <div className='water-info'>
-          <strong>{t('Вода', 'Water')}</strong>
-          <small>
-            {waterIntake} / {waterGoal} {t('стаканов', 'glasses')}
-          </small>
-        </div>
-        <div className='water-progress'>
-          <div style={{ width: `${waterProgress}%` }} />
-        </div>
-        <button
-          type='button'
-          className='water-btn'
-          aria-label={t('Добавить стакан воды', 'Add a glass of water')}
-          onClick={drinkWater}
-        >
-          <i className='fas fa-plus' />
-        </button>
+      <WaterTracker />
+
+      <div className='section'>
+        <h3>{t('Место тренировки', 'Training place')}</h3>
       </div>
+      <PlaceMap />
 
       <div className='section'>
         <h3>{t('Лайфхак', 'Life hack')}</h3>
       </div>
-      <div className='fp-hack'>
-        <strong>
-          {t('Восстановление после тренировки', 'Post-workout recovery')}
-        </strong>
-        <p>
-          {t(
-            'Пейте воду и оставляйте время на восстановление между интенсивными тренировками.',
-            'Hydrate and allow time to recover between intense workouts.'
-          )}
-        </p>
-      </div>
+      {(() => {
+        const hacks = state.hackList || [];
+        const hack = hacks[(state.hackIndex || 0) % (hacks.length || 1)];
+        if (!hack) return null;
+        return (
+          <div className='fp-hack'>
+            <strong>
+              <i className={`fas ${hack[0]}`} style={{ color: 'var(--gold)' }} />{' '}
+              {hack[1]}
+            </strong>
+            <p>{hack[2]}</p>
+            <button
+              type='button'
+              aria-label={t('Следующий лайфхак', 'Next tip')}
+              onClick={nextHack}
+            >
+              <i className='fas fa-arrow-right' />
+            </button>
+          </div>
+        );
+      })()}
 
       {state.selectedStory && (
         <div className='fp-story-viewer'>
