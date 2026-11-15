@@ -30,7 +30,6 @@
 │       │   ├── namespace.yaml
 │       │   ├── resource-quota.yaml
 │       │   ├── serviceaccount.yaml
-│       │   ├── storage-class-encrypted.yaml
 │       │   └── kustomization.yaml
 │       ├── overlays/
 │       │   └── production/
@@ -251,10 +250,10 @@ component: "Prometheus + Grafana"
 purpose: "Сбор, хранение и визуализация метрик"
 
 implementation:
-  - "Prometheus развёрнут в Kubernetes (configs/monitoring/prometheus/)"
-  - "Grafana с provisioned дашборадами"
-  - "Alertmanager с базовыми алертами (вебхук)"
-  - "Service discovery через Kubernetes annotations"
+  - "Prometheus развёрнут в Kubernetes (configs/k8s/base/monitoring/prometheus-deployment.yaml)"
+  - "Grafana с provisioned дашбордами (configs/k8s/base/monitoring/)"
+  - "Alertmanager с базовыми алертами, вебхук на oncall-bot (configs/k8s/base/monitoring/)"
+  - "Service discovery через Kubernetes annotations (prometheus.io/scrape)"
 
 current_state:
   - "Scrape configs настроены для всех сервисов"

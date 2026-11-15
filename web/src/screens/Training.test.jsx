@@ -71,9 +71,11 @@ function makeContext(overrides = {}) {
         pool: 'Принимай душ до и после бассейна.',
         hygiene: 'Используй личное полотенце.',
       },
-      customExercises: [{ name: 'Отжимания', sets: '3 × 15' }],
       ...stateOverrides,
     },
+    // useTraining exposes customExercises at the top level of the context
+    // value, not inside state — Training.jsx reads it from useApp().
+    customExercises: [{ name: 'Становая тяга', sets: '3 × 5' }],
     t: (ru, _en) => ru,
     formatRelativeDate: vi.fn((offset) => `date-${offset}`),
     startWorkout: vi.fn(),
@@ -99,7 +101,8 @@ describe('Training', () => {
     expect(context.loadTrainingPlans).toHaveBeenCalled();
     expect(screen.getByText('План тренировок')).toBeInTheDocument();
     expect(screen.getByText('1/3')).toBeInTheDocument();
-    expect(screen.getByText('Силовая база')).toBeInTheDocument();
+    // "Силовая база" is rendered both in the plan summary and in the workout card.
+    expect(screen.getAllByText('Силовая база').length).toBeGreaterThan(0);
     expect(
       screen.getByText('Мобильность и восстановление')
     ).toBeInTheDocument();
@@ -145,8 +148,9 @@ describe('Training', () => {
 
     render(<Training />);
 
-    const completed = screen.getByText('Выполнено');
-    expect(completed.closest('button')).toBeDisabled();
+    // "Выполнено" appears both as a status label and as the disabled button.
+    const completed = screen.getByRole('button', { name: 'Выполнено' });
+    expect(completed).toBeDisabled();
   });
 
   it('marks a workout as completed for the selected period', () => {
@@ -184,7 +188,7 @@ describe('Training', () => {
 
     render(<Training />);
 
-    expect(screen.getByText('Отжимания')).toBeInTheDocument();
+    expect(screen.getByText('Становая тяга')).toBeInTheDocument();
     fireEvent.click(screen.getByLabelText('Удалить упражнение'));
 
     expect(context.removeCustomExercise).toHaveBeenCalledWith(0);

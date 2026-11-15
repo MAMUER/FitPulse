@@ -84,24 +84,6 @@ data:
               summary: "RabbitMQ queue depth high"
               description: "Queue {{ $labels.queue }} has {{ $value }} messages ready."
 
-          - alert: PostgreSQLDown
-            expr: pg_up == 0
-            for: 1m
-            labels:
-              severity: critical
-            annotations:
-              summary: "PostgreSQL is down"
-              description: "PostgreSQL instance {{ $labels.instance }} is unreachable."
-
-          - alert: ValkeyDown
-            expr: redis_up == 0
-            for: 1m
-            labels:
-              severity: critical
-            annotations:
-              summary: "Valkey/Redis is down"
-              description: "Valkey instance {{ $labels.instance }} is unreachable."
-
   slo.yml: |
     groups:
       - name: fitness-platform-slo

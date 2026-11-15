@@ -188,7 +188,6 @@ run_semgrep() {
 		--config p/security-audit \
 		--config p/owasp-top-ten \
 		--exclude cmd/classifier/classifier_integration_test.go \
-		--exclude configs/monitoring/node-exporter/daemonset.yaml \
 		--exclude configs/k8s/base/local-path-provisioner.yaml \
 		--sarif -o sarif-results/semgrep-results.sarif .
 }

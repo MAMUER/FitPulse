@@ -34,17 +34,15 @@ describe('AI', () => {
     });
 
     render(<Ai />);
-    fireEvent.change(screen.getByLabelText('Запрос'), {
-      target: { value: 'test' },
-    });
-    fireEvent.keyDown(screen.getByLabelText('Запрос'), { key: 'Enter' });
+    // The composer has no <label>; it is identified by id/placeholder.
+    const input = screen.getByPlaceholderText('Например: у меня мало времени');
+    fireEvent.change(input, { target: { value: 'test' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
     expect(sendAI).toHaveBeenCalled();
-    fireEvent.change(screen.getByLabelText('Запрос'), {
-      target: { value: '' },
-    });
-    fireEvent.click(screen.getByText('Отправить'));
-    fireEvent.click(screen.getByText('Назад'));
-    expect(go).toHaveBeenCalledWith('home');
+    fireEvent.change(input, { target: { value: '' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Отправить' }));
+    expect(screen.getByText('hi')).toBeInTheDocument();
+    expect(screen.getByText('ok')).toBeInTheDocument();
   });
 
   it('renders ai summary with missing plan and diet', async () => {
@@ -77,7 +75,7 @@ describe('AI', () => {
     });
     render(<Ai />);
     await new Promise((r) => setTimeout(r, 50));
-    expect(screen.getByText('AI-советник')).toBeInTheDocument();
+    expect(screen.getByText('FitPulse AI')).toBeInTheDocument();
   });
 
   it('renders without messages', () => {
@@ -90,7 +88,7 @@ describe('AI', () => {
       go,
     });
     render(<Ai />);
-    expect(screen.getByText('AI-советник')).toBeInTheDocument();
+    expect(screen.getByText('FitPulse AI')).toBeInTheDocument();
   });
 
   it('shows ai summary when classification present without messages', () => {

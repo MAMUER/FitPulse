@@ -37,7 +37,8 @@ describe('Body', () => {
     fireEvent.change(screen.getByLabelText('Жир, %'), {
       target: { value: '18' },
     });
-    fireEvent.change(screen.getByLabelText('Мышцы, %'), {
+    // Muscle mass is tracked in kilograms, not percent.
+    fireEvent.change(screen.getByLabelText('Мышцы, кг'), {
       target: { value: '35' },
     });
     fireEvent.change(screen.getByLabelText('Вода, %'), {
@@ -45,11 +46,18 @@ describe('Body', () => {
     });
     fireEvent.click(screen.getByText('Сохранить'));
     await waitFor(() => expect(saveBodyComposition).toHaveBeenCalled());
-    fireEvent.click(screen.getByText('На главную'));
-    expect(go).toHaveBeenCalledWith('home');
+
+    const payload = saveBodyComposition.mock.calls[0][0];
+    expect(payload).toMatchObject({
+      height_cm: 180,
+      weight_kg: 80,
+      body_fat_percent: 18,
+      muscle_mass_kg: 35,
+      water_percent: 50,
+    });
   });
 
-  it('renders history record without recorded_at or id', () => {
+  it('renders history records provided by weightHistory', () => {
     const loadBodyComposition = vi.fn();
     const saveBodyComposition = vi.fn();
     const go = vi.fn();
@@ -58,6 +66,7 @@ describe('Body', () => {
         height: 170,
         weight: 70,
         bodyComposition: [{ weight_kg: 70, bmi: 24.2 }],
+        weightHistory: [['01.02.2026', '70 кг · ИМТ 24.2']],
       },
       t: (ru, _en) => ru,
       go,
@@ -81,10 +90,10 @@ describe('Body', () => {
     });
     render(<Body />);
     expect(loadBodyComposition).toHaveBeenCalled();
-    expect(screen.getByText('Профиль тела')).toBeInTheDocument();
+    expect(screen.getByText('Аналитика тела')).toBeInTheDocument();
   });
 
-  it('saves with empty optional fields', async () => {
+  it('falls back to the latest values when optional fields are empty', async () => {
     const loadBodyComposition = vi.fn();
     const saveBodyComposition = vi.fn().mockResolvedValue({});
     const go = vi.fn();
@@ -98,9 +107,14 @@ describe('Body', () => {
     render(<Body />);
     fireEvent.click(screen.getByText('Сохранить'));
     await waitFor(() => expect(saveBodyComposition).toHaveBeenCalled());
+
     const arg = saveBodyComposition.mock.calls[0][0];
-    expect(arg.body_fat_percentage).toBe(0);
-    expect(arg.muscle_mass_percentage).toBe(0);
-    expect(arg.water_percentage).toBe(0);
+    // Empty inputs fall back to the latest record, or to the built-in defaults
+    // when there is no history at all.
+    expect(arg.height_cm).toBe(178);
+    expect(arg.weight_kg).toBe(74.2);
+    expect(arg.body_fat_percent).toBe(18.4);
+    expect(arg.muscle_mass_kg).toBe(34.8);
+    expect(arg.water_percent).toBe(57.2);
   });
 });

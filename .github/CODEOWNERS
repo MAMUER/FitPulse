@@ -5,7 +5,6 @@
 
 /.github/ @MAMUER
 /configs/k8s/ @MAMUER
-/configs/monitoring/ @MAMUER
 /scripts/ @MAMUER
 /deploy/ @MAMUER
 /Makefile @MAMUER

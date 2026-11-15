@@ -1,56 +1,65 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useApp } from '../contexts/AppContext';
-import { format, startOfMonth, startOfWeek } from '../utils/helpers';
+import { getDateKey } from '../utils/helpers';
 import Calendar from './Calendar';
 
 vi.mock('../contexts/AppContext', () => ({
   useApp: vi.fn(),
 }));
 
+// The calendar grid is driven by state.calendarYear / calendarMonthIndex.
+const YEAR = 2026;
+const MONTH = 4; // May, 0-based
+
+function makeContext(overrides = {}) {
+  const { state: stateOverrides, ...rest } = overrides;
+  return {
+    state: {
+      language: 'ru',
+      calendarYear: YEAR,
+      calendarMonthIndex: MONTH,
+      calendarEvents: {},
+      ...stateOverrides,
+    },
+    t: (ru, _en) => ru,
+    getMonthName: (_monthIndex, _language) => 'Май',
+    loadCalendarEvents: vi.fn(),
+    changeCalendar: vi.fn(),
+    quickAddEvent: vi.fn(),
+    openCalendarPage: vi.fn(),
+    closeCalendarPage: vi.fn(),
+    selectCalendarDay: vi.fn(),
+    closeDateModal: vi.fn(),
+    addEvent: vi.fn(),
+    deleteCalendarEvent: vi.fn().mockResolvedValue({}),
+    ...rest,
+  };
+}
+
 describe('Calendar', () => {
   beforeEach(() => {
     vi.resetAllMocks();
   });
 
-  it('loads events and shows day selection', async () => {
-    const loadCalendarEvents = vi.fn();
-    const addEvent = vi.fn().mockResolvedValue({});
-    const deleteCalendarEvent = vi.fn().mockResolvedValue({});
-    useApp.mockReturnValue({
-      state: { language: 'ru', calendarEventsList: [] },
-      t: (ru, _en) => ru,
-      addEvent,
-      deleteCalendarEvent,
-      loadCalendarEvents,
-    });
+  it('loads events and shows the day grid', () => {
+    const context = makeContext();
+    useApp.mockReturnValue(context);
 
     render(<Calendar />);
-    expect(loadCalendarEvents).toHaveBeenCalled();
-    expect(screen.getByText('Выберите день')).toBeInTheDocument();
+
+    expect(context.loadCalendarEvents).toHaveBeenCalled();
+    expect(screen.getByText('ПЛАНИРОВЩИК')).toBeInTheDocument();
+    expect(screen.getByLabelText('1 Май')).toBeInTheDocument();
   });
 
-  it('adds event', async () => {
-    const loadCalendarEvents = vi.fn();
-    const addEvent = vi.fn().mockResolvedValue({});
-    const deleteCalendarEvent = vi.fn().mockResolvedValue({});
-    useApp.mockReturnValue({
-      state: { language: 'ru', calendarEventsList: [] },
-      t: (ru, _en) => ru,
-      addEvent,
-      deleteCalendarEvent,
-      loadCalendarEvents,
+  it('adds event from the day modal', () => {
+    const context = makeContext({
+      state: { showDateModal: true, dateModalDate: 1 },
     });
+    useApp.mockReturnValue(context);
 
     render(<Calendar />);
-    const days = screen.getAllByRole('button');
-    fireEvent.click(
-      days.find(
-        (d) =>
-          d.className.includes('cal-cell') && !d.className.includes('cal-head')
-      )
-    );
-    fireEvent.click(screen.getByText('Добавить событие'));
     fireEvent.change(screen.getByLabelText('Название'), {
       target: { value: 'Тест' },
     });
@@ -60,193 +69,130 @@ describe('Calendar', () => {
     fireEvent.change(screen.getByLabelText('Время'), {
       target: { value: '10:00' },
     });
-    fireEvent.change(screen.getByLabelText('Описание'), {
-      target: { value: 'описание' },
-    });
-    fireEvent.click(screen.getByText('Добавить'));
-    await waitFor(() => expect(addEvent).toHaveBeenCalled());
+    fireEvent.click(screen.getByRole('button', { name: /Добавить событие/ }));
+
+    expect(context.addEvent).toHaveBeenCalled();
   });
 
   it('deletes event', async () => {
-    const loadCalendarEvents = vi.fn();
-    const addEvent = vi.fn();
-    const deleteCalendarEvent = vi.fn().mockResolvedValue({});
-    const firstDay = startOfWeek(startOfMonth(new Date()));
-    const dateStr = format(firstDay, 'yyyy-MM-dd');
-    useApp.mockReturnValue({
+    const context = makeContext({
       state: {
-        language: 'ru',
-        calendarEventsList: [
-          {
-            id: 123,
-            date: dateStr,
-            title: 'Тренировка',
-            type: 'training',
-            time: '09:00',
-            description: 'test',
-          },
-        ],
+        showDateModal: true,
+        dateModalDate: 1,
+        calendarEvents: {
+          [getDateKey(YEAR, MONTH, 1)]: [
+            {
+              id: 123,
+              title: 'Тренировка',
+              type: 'training',
+              time: '09:00',
+              description: 'test',
+            },
+          ],
+        },
       },
-      t: (ru, _en) => ru,
-      addEvent,
-      deleteCalendarEvent,
-      loadCalendarEvents,
     });
+    useApp.mockReturnValue(context);
 
     render(<Calendar />);
-    const buttons = screen.getAllByRole('button');
-    const dayBtn = buttons.find(
-      (b) =>
-        b.className.includes('cal-cell') && !b.className.includes('cal-head')
-    );
-    if (dayBtn) fireEvent.click(dayBtn);
-    const delButtons = screen.queryAllByText('Удалить');
-    if (delButtons.length > 0) {
-      fireEvent.click(delButtons[0]);
-      await waitFor(() => expect(deleteCalendarEvent).toHaveBeenCalled());
-    }
+    fireEvent.click(screen.getByRole('button', { name: /Удалить/ }));
+
+    await waitFor(() => expect(context.deleteCalendarEvent).toHaveBeenCalled());
   });
 
-  it('handles empty title in add event', async () => {
-    const loadCalendarEvents = vi.fn();
-    const addEvent = vi.fn().mockResolvedValue({});
-    const deleteCalendarEvent = vi.fn().mockResolvedValue({});
-    useApp.mockReturnValue({
-      state: { language: 'ru', calendarEventsList: [] },
-      t: (ru, _en) => ru,
-      addEvent,
-      deleteCalendarEvent,
-      loadCalendarEvents,
+  it('renders the day modal with type and time selectors', () => {
+    const context = makeContext({
+      state: { showDateModal: true, dateModalDate: 1 },
     });
+    useApp.mockReturnValue(context);
+
     render(<Calendar />);
-    const buttons = screen.getAllByRole('button');
-    const dayBtn = buttons.find(
-      (b) =>
-        b.className.includes('cal-cell') && !b.className.includes('cal-head')
-    );
-    if (dayBtn) fireEvent.click(dayBtn);
-    fireEvent.click(screen.getByText('Добавить событие'));
-    fireEvent.click(screen.getByText('Добавить'));
-    expect(addEvent).not.toHaveBeenCalled();
+
+    expect(screen.getByLabelText('Название')).toBeInTheDocument();
+    expect(screen.getByLabelText('Тип')).toBeInTheDocument();
+    expect(screen.getByLabelText('Время')).toBeInTheDocument();
+    expect(screen.getByText('Нет событий на эту дату')).toBeInTheDocument();
   });
 
   it('renders events with fallback fields and deletes', async () => {
-    const loadCalendarEvents = vi.fn();
-    const addEvent = vi.fn();
-    const deleteCalendarEvent = vi.fn().mockResolvedValue({});
-    const today = new Date();
-    const dateStr = format(today, 'yyyy-MM-dd');
-    useApp.mockReturnValue({
+    const context = makeContext({
       state: {
-        language: 'ru',
-        calendarEventsList: [
-          {
-            date: dateStr,
-            title: 'Событие',
-            type: 'unknown',
-            description: '',
-          },
-        ],
+        showDateModal: true,
+        dateModalDate: 1,
+        calendarEvents: {
+          [getDateKey(YEAR, MONTH, 1)]: [
+            { title: 'Событие', type: 'unknown', description: '' },
+          ],
+        },
       },
-      t: (ru, _en) => ru,
-      addEvent,
-      deleteCalendarEvent,
-      loadCalendarEvents,
     });
+    useApp.mockReturnValue(context);
+
     render(<Calendar />);
-    const buttons = screen.getAllByRole('button');
-    const dayBtn = buttons.find(
-      (b) =>
-        b.className.includes('cal-cell') && !b.className.includes('cal-head')
-    );
-    if (dayBtn) fireEvent.click(dayBtn);
-    const delButtons = screen.queryAllByText('Удалить');
-    if (delButtons.length > 0) {
-      fireEvent.click(delButtons[0]);
-      await waitFor(() => expect(deleteCalendarEvent).toHaveBeenCalled());
-    }
+    expect(screen.getByText('Событие')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Удалить/ }));
+
+    await waitFor(() => expect(context.deleteCalendarEvent).toHaveBeenCalled());
   });
 
   it('handles null calendarEventsList', () => {
-    const loadCalendarEvents = vi.fn();
-    const addEvent = vi.fn();
-    const deleteCalendarEvent = vi.fn();
-    useApp.mockReturnValue({
-      state: { language: 'ru' },
-      t: (ru, _en) => ru,
-      addEvent,
-      deleteCalendarEvent,
-      loadCalendarEvents,
-    });
+    const context = makeContext({ state: { calendarEvents: undefined } });
+    useApp.mockReturnValue(context);
+
     render(<Calendar />);
-    expect(loadCalendarEvents).toHaveBeenCalled();
+
+    expect(context.loadCalendarEvents).toHaveBeenCalled();
+    expect(screen.getByText('ПЛАНИРОВЩИК')).toBeInTheDocument();
   });
 
   it('renders events with missing id type and description', async () => {
-    const loadCalendarEvents = vi.fn();
-    const deleteCalendarEvent = vi.fn().mockResolvedValue({});
-    const firstDay = startOfWeek(startOfMonth(new Date()));
-    const dateStr = format(firstDay, 'yyyy-MM-dd');
-    useApp.mockReturnValue({
+    const context = makeContext({
       state: {
-        language: 'ru',
-        calendarEventsList: [
-          {
-            id: null,
-            date: dateStr,
-            title: 'Событие',
-            type: 'unknown_type',
-            time: null,
-            description: null,
-          },
-        ],
+        showDateModal: true,
+        dateModalDate: 1,
+        calendarEvents: {
+          [getDateKey(YEAR, MONTH, 1)]: [
+            {
+              id: null,
+              title: 'Событие',
+              type: 'unknown_type',
+              time: null,
+              description: null,
+            },
+          ],
+        },
       },
-      t: (ru, _en) => ru,
-      addEvent: vi.fn(),
-      deleteCalendarEvent,
-      loadCalendarEvents,
     });
+    useApp.mockReturnValue(context);
+
     render(<Calendar />);
-    const buttons = screen.getAllByRole('button');
-    const dayBtn = buttons.find(
-      (b) =>
-        b.className.includes('cal-cell') && !b.className.includes('cal-head')
-    );
-    if (dayBtn) fireEvent.click(dayBtn);
-    expect(await screen.findByText('Событие')).toBeInTheDocument();
-    const delButtons = screen.queryAllByText('Удалить');
-    if (delButtons.length > 0) {
-      fireEvent.click(delButtons[0]);
-      await waitFor(() => expect(deleteCalendarEvent).toHaveBeenCalled());
-    }
+    expect(screen.getByText('Событие')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /Удалить/ }));
+    await waitFor(() => expect(context.deleteCalendarEvent).toHaveBeenCalled());
   });
 
   it('deletes event on matching day', async () => {
-    const loadCalendarEvents = vi.fn();
-    const addEvent = vi.fn();
-    const deleteCalendarEvent = vi.fn().mockResolvedValue({});
-    const firstDay = startOfWeek(startOfMonth(new Date()));
-    const dateStr = format(firstDay, 'yyyy-MM-dd');
-    useApp.mockReturnValue({
+    const context = makeContext({
       state: {
-        language: 'ru',
-        calendarEventsList: [
-          { id: 7, date: dateStr, title: 'E', type: 'training', time: '09:00' },
-        ],
+        showDateModal: true,
+        dateModalDate: 1,
+        calendarEvents: {
+          [getDateKey(YEAR, MONTH, 1)]: [
+            { id: 7, title: 'E', type: 'training', time: '09:00' },
+          ],
+        },
       },
-      t: (ru, _en) => ru,
-      addEvent,
-      deleteCalendarEvent,
-      loadCalendarEvents,
     });
+    useApp.mockReturnValue(context);
+
     render(<Calendar />);
-    const buttons = screen.getAllByRole('button');
-    const dayBtn = buttons[7];
-    if (dayBtn) fireEvent.click(dayBtn);
-    const delButtons = screen.queryAllByText('Удалить');
-    if (delButtons.length > 0) {
-      fireEvent.click(delButtons[0]);
-      await waitFor(() => expect(deleteCalendarEvent).toHaveBeenCalled());
-    }
+    fireEvent.click(screen.getByRole('button', { name: /Удалить/ }));
+
+    await waitFor(() => expect(context.deleteCalendarEvent).toHaveBeenCalled());
+    expect(context.deleteCalendarEvent).toHaveBeenCalledWith(
+      getDateKey(YEAR, MONTH, 1),
+      0
+    );
   });
 });

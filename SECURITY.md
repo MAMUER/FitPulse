@@ -97,7 +97,7 @@
   Для PII (email, full_name, nickname) используется рандомизированный AEAD `pgsodium.crypto_aead_aegis256_encrypt` + blind index (HMAC-индекс для поиск).
   Ключ импортируется в keyring `pgsodium.key` из `DB_ENCRYPTION_KEY` при старте `user-service` (`ensurePgsodiumKey`); legacy-данные, зашифрованные через `pgcrypto`, автоматически перекодируются (`reencryptPIIFromPgcrypto`).
   TOTP-секреты и refresh-токены — envelope encryption AES-256-GCM на уровне приложения (`internal/crypto`), используется только в `cmd/user-service/main.go`; схема — `db/migrations/V1__full_schema.sql`; образ БД — `ghcr.io/mamuer/project/postgres-pgsodium:pg18`.
-- Шифрование tablespace на уровне ОС (dm-crypt/LUKS для `/var/lib/rancher/k3s/storage`, настраивается через `configs/k8s/scripts/configure-storage-encryption.sh`; `storage-class-encrypted.yaml` для PVC)
+- Шифрование tablespace на уровне ОС (dm-crypt/LUKS для `/var/lib/rancher/k3s/storage`, настраивается через `configs/k8s/scripts/configure-storage-encryption.sh`; PVC создаются через StorageClass `local-path`)
 - Резервные копии: AES-256
 
 **In transit:**
@@ -120,14 +120,11 @@
 
 | Правило | Файл | Обоснование |
 | ------- | ---- | ----------- |
-| `KSV-0121` | `configs/monitoring/node-exporter/daemonset.yaml` | HostPath `/proc`, `/sys`, `/` необходимы node-exporter'у для сбора метрик хоста. Без них мониторинг невозможен. |
-| `KSV-0010` | `configs/monitoring/node-exporter/daemonset.yaml` | `hostPID: true` требуется для доступа к `/proc/[pid]` всех процессов хоста. |
 | `KSV-0009` | `configs/k8s/base/ingress-nginx/deployment.yaml` | `hostNetwork: true` необходим ingress-nginx на bare-metal/VPS для приёма трафика на порты 80/443 без внешнего балансировщика. |
 | `KSV-0109` | `configs/k8s/base/ingress-nginx/configmap.yaml` | Ложноположительное: ключ `server-tokens: "false"` — это не секрет, а настройка скрытия версии nginx в заголовках ответа. |
 | `KSV-0117` | `configs/k8s/base/ingress-nginx/deployment.yaml` | Принятый риск: ingress-nginx обязан слушать привилегированные порты 80/443 для обработки HTTP/HTTPS трафика. Без этого работа контроллера невозможна. |
 | `KSV-01010` | `configs/k8s/base/ingress-nginx/configmap.yaml`, `configs/k8s/base/deployments/valkey-config.yaml`, `configs/k8s/base/configmap.yaml` | Ложноположительное: в ConfigMap только общедоступные параметры (HSTS, `valkey.conf`, порты). Секреты хранятся в Kubernetes Secrets, не в ConfigMap. |
-| `KSV-0116` | `configs/k8s/base/local-path-provisioner.yaml`, `configs/monitoring/node-exporter/daemonset.yaml` | Принятый риск: оба компонента работают с root GID по дизайну. local-path-provisioner требует root для управления правами на хостовой ФС при создании PV. node-exporter требует root для доступа к `/proc`, `/sys` и `/host/root`. |
-| `KSV-0105` | `configs/monitoring/node-exporter/daemonset.yaml` | Принятый риск: node-exporter по дизайну работает с UID 0 для доступа к хостовым `/proc`, `/sys` и `/host/root`. Без root доступ сборка метрик невозможна. |
+| `KSV-0116` | `configs/k8s/base/local-path-provisioner.yaml` | Принятый риск: компонент работает с root GID по дизайну. local-path-provisioner требует root для управления правами на хостовой ФС при создании PV. |
 | `KSV-0020` | `monitoring/grafana`, `elk/fluent-bit`, `jobs/seed-admin`, `jobs/migrate-db`, `deployments/rabbitmq-statefulset`, `deployments/postgres` | Официальные образы используют низкие UID по дизайну (Grafana 472, Fluent-bit 1000, PostgreSQL 999, RabbitMQ 1000, Flyway 1000). |
 | `KSV-0021` | `monitoring/grafana`, `elk/fluent-bit`, `jobs/seed-admin`, `jobs/migrate-db`, `deployments/rabbitmq-statefulset`, `deployments/postgres` | Официальные образы используют низкие GID по дизайну (Grafana 472, Fluent-bit 1000, PostgreSQL 999, RabbitMQ 1000). |
 | `KSV-0039` | `.trivyignore` (global ignore) | Глобально игнорируется: Trivy file scanner не сопоставляет LimitRange с workload'ами из разных файлов/директорий, хотя политики существуют для `fitness-platform-production`, `ingress-nginx` и `local-path-storage`. |
@@ -146,21 +143,14 @@ Kubescape scan запускается в CI на директорию `configs/k
 | `C-0045` | `configs/k8s/base/local-path-provisioner.yaml` | Принятый риск | Helper pods используют привилегированный контекст безопасности для настройки прав на директориях хоста. Стандартный паттерн local-path provisioner. |
 | `C-0055` | `configs/k8s/base/local-path-provisioner.yaml` | Принятый риск | Helper pods создаются с elevated privileges для управления хостовой ФС. |
 | `C-0056` / `C-0018` | `configs/k8s/base/elk/fluent-bit-daemonset.yaml` | Принятый риск | fluent-bit требует доступа к `/var/log`, `/var/lib/docker/containers`, `/run/log` для сбора логов хоста. |
-| `C-0016` | `configs/monitoring/node-exporter/daemonset.yaml`, `configs/k8s/base/ingress-nginx/` | Принятый риск | node-exporter: `hostPID: true` необходим для доступа к `/proc` и `/sys` хоста. ingress-nginx: `hostNetwork: true` на bare-metal/VPS для приёма трафика на 80/443 без внешнего LB. |
-| `C-0021` | `configs/k8s/base/`, `configs/monitoring/` | Принятый риск | Сервисы используют отдельные ServiceAccount с минимально необходимыми правами. Отдельные pods требуют automountServiceAccountToken=false, другие — явное указание ServiceAccount. |
-| `C-0022` / `C-0010` | `configs/monitoring/node-exporter/daemonset.yaml` | Принятый риск | node-exporter по дизайну работает с UID 0 (`runAsUser: 0`) для доступа к хостовым `/proc`, `/sys` и `/host/root`. |
+| `C-0016` | `configs/k8s/base/ingress-nginx/` | Принятый риск | ingress-nginx: `hostNetwork: true` на bare-metal/VPS для приёма трафика на 80/443 без внешнего LB. |
+| `C-0021` | `configs/k8s/base/` | Принятый риск | Сервисы используют отдельные ServiceAccount с минимально необходимыми правами. Отдельные pods требуют automountServiceAccountToken=false, другие — явное указание ServiceAccount. |
 | `C-0009` | `configs/k8s/base/ingress-nginx/` | Принятый риск | ingress-nginx на bare-metal/VPS использует `hostNetwork: true` для приёма HTTP/HTTPS трафика на порты 80/443 без внешнего балансировщика. |
-| `C-0237` | `configs/k8s/base/`, `configs/monitoring/` | Исправлено | Image signing реализован через cosign в CI/CD (`.github/workflows/ci.yml`). Все production-образы подписываются при пуше в `main`. В PR выполняется проверка сигнатуры через `COSIGN_PUBLIC_KEY`. |
+| `C-0237` | `configs/k8s/base/` | Исправлено | Image signing реализован через cosign в CI/CD (`.github/workflows/ci.yml`). Все production-образы подписываются при пуше в `main`. В PR выполняется проверка сигнатуры через `COSIGN_PUBLIC_KEY`. |
 | `GHSA-qwww-vcr4-c8h2` | `web/package-lock.json` | Ложноположительное | уязвимость касается только unstable RSC API, которые не используются в проекте (нет директив `use server`/`use client` в `web/src`). |
-| `KSV-0125` | `configs/monitoring/node-exporter/daemonset.yaml` | Ложноположительное | официальный образ `prom/node-exporter` из `docker.io` (trusted). |
-| `KSV-0125` | `configs/monitoring/grafana/deployment.yaml` | Ложноположительное | официальный образ `grafana/grafana` из `docker.io` (trusted). |
 | `KSV-0125` | `configs/k8s/base/elk/fluent-bit-daemonset.yaml` | Ложноположительное | официальный образ `fluent/fluent-bit` из `docker.io` (trusted). |
 | `KSV-0125` | `configs/k8s/base/local-path-provisioner.yaml` | Ложноположительное | официальный образ `rancher/local-path-provisioner` из `docker.io` (trusted). |
-| `KSV-0125` | `configs/monitoring/alertmanager/deployment.yaml` | Ложноположительное | официальный образ `prom/alertmanager` из `docker.io` (trusted). |
-| `KSV-0125` | `configs/monitoring/prometheus/deployment.yaml` | Ложноположительное | официальный образ `prom/prometheus` из `docker.io` (trusted). |
-| `KSV-0023` | `configs/monitoring/node-exporter/daemonset.yaml` | Принятый риск | HostPath `/proc`, `/sys`, `/` необходимы node-exporter'у для сбора метрик хоста. Без них мониторинг невозможен. |
 | `KSV-0023` | `configs/k8s/base/elk/fluent-bit-daemonset.yaml` | Принятый риск | HostPath `/var/log`, `/var/lib/docker/containers`, `/run/log` необходимы fluent-bit'у для сбора логов хоста и контейнеров. Без них логирование невозможно. |
-| `KSV-0012` | `configs/monitoring/node-exporter/daemonset.yaml` | Принятый риск | node-exporter требует root для доступа к `/proc` и `/sys` хоста. |
 | `KSV-0012` | `configs/k8s/base/local-path-provisioner.yaml` | Принятый риск | local-path-provisioner требует root и `DAC_OVERRIDE` для управления правами на PersistentVolumes. |
 | `KSV-0022` | `configs/k8s/base/local-path-provisioner.yaml` | Принятый риск | `DAC_OVERRIDE` необходим для управления правами на директории хоста при создании PersistentVolumes. |
 | `KSV-0049` | `configs/k8s/base/local-path-provisioner.yaml` | Исправлено | в ClusterRole `local-path-provisioner-role` удалены лишние права `create`, `update`, `patch`, `delete` для configmaps. Provisioner только читает `local-path-config`. |
@@ -199,7 +189,6 @@ Semgrep OSS находит в них использование пакета `un
 
 | Манифест | Строки | Обоснование |
 | --- | --- | -------- |
-| `configs/monitoring/node-exporter/daemonset.yaml` | 21-22 (pod-level), 42-43 (container-level) | node-exporter требует root и `hostPID: true` для доступа к `/proc`, `/sys`, `/host/root` хоста для сбора метрик. Без root работа невозможна. |
 | `configs/k8s/base/local-path-provisioner.yaml` | 152-154 | local-path-provisioner требует `runAsUser: 0` и `DAC_OVERRIDE` для создания директорий на хостовой ФС и изменения их владельца при создании PersistentVolumes. Без этого работа provisioner невозможна. |
 
 Комментарии `# nosemgrep run-as-non-root-unsafe-value` размещаются **на отдельных строках непосредственно перед** `runAsNonRoot: false`, чтобы Semgrep корректно их распознавал.

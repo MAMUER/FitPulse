@@ -162,13 +162,16 @@ describe('Nutrition', () => {
     useApp.mockReturnValue(context);
 
     render(<Nutrition />);
-    fireEvent.change(screen.getByLabelText('Название'), {
+    // "Название"/"Калории" exist twice: once in the custom-meal card and once
+    // in the diary form. Scope the queries to the diary card.
+    const diary = screen.getByText('Добавить в дневник').closest('section');
+    fireEvent.change(within(diary).getByLabelText('Название'), {
       target: { value: 'Рис' },
     });
-    fireEvent.change(screen.getByLabelText('Калории'), {
+    fireEvent.change(within(diary).getByLabelText('Калории'), {
       target: { value: '300' },
     });
-    fireEvent.change(screen.getByLabelText('Время'), {
+    fireEvent.change(within(diary).getByLabelText('Время'), {
       target: { value: '12:00' },
     });
     fireEvent.click(screen.getByText('Добавить в дневник'));
