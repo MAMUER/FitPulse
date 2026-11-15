@@ -1288,6 +1288,52 @@ jobs:
           VPS_HOST: ${{ secrets.VPS_HOST }}
           VPS_PORT: ${{ secrets.VPS_PORT }}
         run: bash scripts/ci/ci-helpers.sh check_connectivity
+      - name: Store DuckDNS token in Kubernetes
+        if: steps.connectivity.outputs.reachable == 'true'
+        env:
+          DUCKDNS_TOKEN: ${{ secrets.DUCKDNS_TOKEN }}
+        run: |
+          set -euo pipefail
+          test -n "$DUCKDNS_TOKEN" || {
+            echo "::error::DUCKDNS_TOKEN secret is required for DNS-01 certificate validation"
+            exit 1
+          }
+          token_file="$(mktemp "$RUNNER_TEMP/duckdns-token.XXXXXX")"
+          trap 'rm -f "$token_file"' EXIT
+          printf '%s' "$DUCKDNS_TOKEN" > "$token_file"
+          kubectl -n cert-manager create secret generic duckdns-token \
+            --from-file=token="$token_file" \
+            --dry-run=client -o yaml | kubectl apply -f -
+      - name: Set up Helm
+        if: steps.connectivity.outputs.reachable == 'true'
+        uses: Azure/setup-helm@2f5e7bc67f1f9972ab16657bb795f36d8f04de0e
+        with:
+          version: v3.19.0
+      - name: Install DuckDNS cert-manager webhook
+        if: steps.connectivity.outputs.reachable == 'true'
+        env:
+          DUCKDNS_WEBHOOK_VERSION: v1.2.3
+          DUCKDNS_WEBHOOK_COMMIT: bbda4a2b5b1f2b81954d6b6d4093fc652a9dc7dd
+        run: |
+          set -euo pipefail
+          chart_dir="$RUNNER_TEMP/cert-manager-webhook-duckdns"
+          git clone --depth 1 --branch "$DUCKDNS_WEBHOOK_VERSION" \
+            https://github.com/ebrianne/cert-manager-webhook-duckdns.git \
+            "$chart_dir"
+          actual_commit="$(git -C "$chart_dir" rev-parse HEAD)"
+          if [[ "$actual_commit" != "$DUCKDNS_WEBHOOK_COMMIT" ]]; then
+            echo "::error::DuckDNS webhook tag resolved to unexpected commit $actual_commit"
+            exit 1
+          fi
+          helm upgrade --install cert-manager-webhook-duckdns \
+            "$chart_dir/deploy/cert-manager-webhook-duckdns" \
+            --namespace cert-manager \
+            --wait \
+            --timeout 5m \
+            --set secret.existingSecret=true \
+            --set secret.existingSecretName=duckdns-token \
+            --set clusterIssuer.staging.create=false \
+            --set clusterIssuer.production.create=false
       - name: Create image pull secret for GHCR
         if: steps.connectivity.outputs.reachable == 'true'
         env:

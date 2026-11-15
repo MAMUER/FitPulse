@@ -10,8 +10,11 @@ spec:
     privateKeySecretRef:
       name: letsencrypt-staging-account-key
     solvers:
-      - http01:
-          ingress:
-            class: nginx
-            podTemplate:
-              spec: {}
+      - dns01:
+          webhook:
+            groupName: acme.duckdns.org
+            solverName: duckdns
+            config:
+              apiTokenSecretRef:
+                name: duckdns-token
+                key: token
