@@ -1309,6 +1309,13 @@ jobs:
         uses: Azure/setup-helm@2f5e7bc67f1f9972ab16657bb795f36d8f04de0e
         with:
           version: v3.19.0
+      - name: Import DuckDNS webhook image into k3s
+        if: steps.connectivity.outputs.reachable == 'true'
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+        run: bash scripts/ci/deploy-production.sh import_duckdns_webhook_image
       - name: Install DuckDNS cert-manager webhook
         if: steps.connectivity.outputs.reachable == 'true'
         env:
@@ -1535,7 +1542,7 @@ jobs:
       - name: Check service logs and readiness
         if: steps.connectivity.outputs.reachable == 'true'
         run: bash scripts/ci/deploy-production.sh check_logs
-      - name: Debug pod status after deploy
+      - name: Collect cluster, DNS, cert-manager, and application diagnostics
         if: always() && steps.connectivity.outputs.reachable == 'true'
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}

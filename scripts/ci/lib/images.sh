@@ -68,6 +68,38 @@ import_fluent_bit() {
 	log_info "Imported $img"
 }
 
+import_duckdns_webhook_image() {
+	local img="docker.io/ebrianne/cert-manager-webhook-duckdns:v1.2.3"
+	local pinned_img="docker.io/ebrianne/cert-manager-webhook-duckdns@sha256:b5fdc5eaf273ba5f7c461d9baca3703b1d13e67d5d44f23139afbf1cc53e9a00"
+	local tar_file="${RUNNER_TEMP:-/tmp}/duckdns-webhook-image.tar"
+	local image_id
+
+	log_info "Checking whether $img is already present in k3s containerd..."
+	if bash scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" \
+		"sudo k3s ctr -n k8s.io images ls -q | grep -Fxq '${img}'"; then
+		log_info "Image already present on VPS: $img"
+		return 0
+	fi
+
+	log_info "Pulling pinned DuckDNS webhook image on the runner: $pinned_img"
+	docker pull --platform linux/amd64 "$pinned_img"
+	image_id=$(docker image inspect --format='{{.Id}}' "$pinned_img")
+	log_info "Pulled image $image_id ($(docker image inspect --format='{{.Os}}/{{.Architecture}}' "$pinned_img"))"
+	docker tag "$image_id" "$img"
+	docker save "$img" -o "$tar_file"
+
+	log_info "Uploading DuckDNS webhook image archive to VPS..."
+	bash scripts/ssh-retry.sh scp "$tar_file" "${VPS_USER}@${VPS_HOST}:/tmp/duckdns-webhook-image.tar"
+	log_info "Importing image into k3s containerd and verifying the tag..."
+	bash scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "
+		sudo k3s ctr -n k8s.io images import /tmp/duckdns-webhook-image.tar &&
+		sudo rm -f /tmp/duckdns-webhook-image.tar &&
+		sudo k3s ctr -n k8s.io images ls -q | grep -Fx '${img}'
+	"
+	rm -f "$tar_file"
+	log_info "Imported $img into k3s containerd"
+}
+
 import_problem_images() {
 	log_info "=== Importing problem images manually via runner ==="
 	# Authenticate to Docker Hub to avoid anonymous pull rate limits.

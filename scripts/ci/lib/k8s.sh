@@ -431,6 +431,107 @@ deploy_open_wearables() {
 	echo "✅ Open Wearables deployed"
 }
 
+collect_cluster_diagnostics() {
+	local namespace="fitness-platform-production"
+	local workload logs dns_errors
+
+	echo "::group::Kubernetes nodes and CoreDNS"
+	kubectl get nodes -o wide 2>&1 || true
+	kubectl -n kube-system get pods -o wide 2>&1 || true
+	kubectl -n kube-system get pods -l k8s-app=kube-dns -o wide 2>&1 || true
+	kubectl -n kube-system describe pods -l k8s-app=kube-dns 2>&1 || true
+	kubectl -n kube-system get service kube-dns -o yaml 2>&1 || true
+	kubectl -n kube-system get endpoints kube-dns -o yaml 2>&1 || true
+	kubectl -n kube-system get endpointslices.discovery.k8s.io \
+		-l kubernetes.io/service-name=kube-dns -o wide 2>&1 || true
+	kubectl -n kube-system get configmap coredns -o yaml 2>&1 || true
+	echo "--- CoreDNS current logs (last 30 minutes) ---"
+	kubectl -n kube-system logs -l k8s-app=kube-dns --all-containers=true \
+		--prefix --timestamps --since=30m --tail=200 2>&1 || true
+	echo "--- CoreDNS previous-container logs ---"
+	kubectl -n kube-system logs -l k8s-app=kube-dns --all-containers=true \
+		--prefix --timestamps --previous --tail=200 2>&1 || true
+	kubectl -n kube-system get events --field-selector=type=Warning \
+		--sort-by=.metadata.creationTimestamp 2>&1 | tail -n 100 || true
+	echo "::endgroup::"
+
+	echo "::group::cert-manager, DuckDNS webhook, and ACME resources"
+	kubectl -n cert-manager get pods,deployments,services,endpoints -o wide 2>&1 || true
+	kubectl get certificates,certificaterequests,orders,challenges -A -o wide 2>&1 || true
+	kubectl get apiservice v1alpha1.acme.duckdns.org -o yaml 2>&1 || true
+	echo "--- cert-manager controller logs (last 30 minutes) ---"
+	kubectl -n cert-manager logs deployment/cert-manager --all-containers=true \
+		--prefix --timestamps --since=30m --tail=200 2>&1 || true
+	echo "--- DuckDNS webhook logs (last 30 minutes) ---"
+	kubectl -n cert-manager logs deployment/cert-manager-webhook-duckdns \
+		--all-containers=true --prefix --timestamps --since=30m --tail=200 2>&1 || true
+	kubectl -n cert-manager get events --field-selector=type=Warning \
+		--sort-by=.metadata.creationTimestamp 2>&1 | tail -n 100 || true
+	echo "::endgroup::"
+
+	echo "::group::Recent application DNS errors"
+	kubectl -n "$namespace" get pods -o wide 2>&1 || true
+	for workload in user-service training-service biometric-service gateway device-aggregator classifier; do
+		echo "--- DNS-related log lines: deployment/$workload (current, last 30 minutes) ---"
+		logs=$(kubectl -n "$namespace" logs "deployment/$workload" \
+			--all-containers=true --prefix --timestamps --since=30m --tail=500 2>&1 || true)
+		dns_errors=$(printf '%s\n' "$logs" |
+			grep -Ei '(^|[^[:alpha:]])(dns|lookup|no such host|connection refused|i/o timeout|temporary failure in name resolution)([^[:alpha:]]|$)|:53' ||
+			true)
+		if [[ -n "$dns_errors" ]]; then
+			printf '%s\n' "$dns_errors"
+		else
+			echo "No DNS-related errors found in available current logs."
+		fi
+
+		echo "--- DNS-related log lines: deployment/$workload (previous container) ---"
+		logs=$(kubectl -n "$namespace" logs "deployment/$workload" \
+			--all-containers=true --prefix --timestamps --previous --tail=500 2>&1 || true)
+		dns_errors=$(printf '%s\n' "$logs" |
+			grep -Ei '(^|[^[:alpha:]])(dns|lookup|no such host|connection refused|i/o timeout|temporary failure in name resolution)([^[:alpha:]]|$)|:53' ||
+			true)
+		if [[ -n "$dns_errors" ]]; then
+			printf '%s\n' "$dns_errors"
+		else
+			echo "No DNS-related errors found in available previous-container logs."
+		fi
+	done
+	echo "::endgroup::"
+}
+
+collect_vps_diagnostics() {
+	local remote_command
+
+	if [[ -z "${VPS_HOST:-}" || -z "${VPS_USER:-}" ]]; then
+		echo "::warning::Skipping VPS diagnostics because VPS_HOST or VPS_USER is unavailable"
+		return 0
+	fi
+
+	remote_command=$(cat <<'REMOTE'
+echo '=== k3s service state ==='
+sudo systemctl show k3s --property=ActiveState,SubState,MainPID --no-pager 2>&1 || true
+echo '=== k3s version ==='
+sudo k3s --version 2>&1 || true
+echo '=== VPS resolver configuration ==='
+cat /etc/resolv.conf 2>&1 || true
+echo '=== Recent k3s networking and DNS messages ==='
+sudo journalctl -u k3s --since '30 minutes ago' --no-pager -n 500 2>&1 |
+	grep -Ei 'coredns|dns|cni|flannel|kube-proxy|iptables|nft|network|no route|refused|timeout' |
+	tail -n 200 || true
+echo '=== DuckDNS webhook image in k3s containerd ==='
+sudo k3s ctr -n k8s.io images ls 2>&1 |
+	grep -F 'cert-manager-webhook-duckdns' || true
+REMOTE
+	)
+
+	echo "::group::VPS k3s, resolver, and containerd diagnostics"
+	if ! SSH_RETRY_MAX_ATTEMPTS=1 SSH_RETRY_TIMEOUT=90 \
+		bash scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "$remote_command" 2>&1; then
+		echo "::warning::Could not collect VPS diagnostics over SSH"
+	fi
+	echo "::endgroup::"
+}
+
 debug_pod_status() {
 	for i in {1..30}; do
 		if kubectl get --raw /healthz &>/dev/null; then
@@ -445,6 +546,8 @@ debug_pod_status() {
 	done
 	diagnose_unready_pods fitness-platform-production
 	diagnose_unready_pods ingress-nginx
+	collect_cluster_diagnostics
+	collect_vps_diagnostics
 }
 
 check_logs() {
