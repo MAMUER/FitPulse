@@ -32,6 +32,19 @@ def request(method, url, payload=None, timeout=30):
         except json.JSONDecodeError:
             body = {"_raw": body}
         return exc.code, body
+    except (urllib.error.URLError, OSError) as exc:
+        # Connection refused / DNS failure / TLS error / timeout: report it the
+        # same way as any other failed check instead of dumping a traceback.
+        return None, {"error": str(exc)}
+
+
+def fail(step, status, body):
+    """Print a FAIL line and exit non-zero."""
+    if status is None:
+        print(f"FAIL {step}: service unreachable ({body.get('error', 'connection error')})")
+    else:
+        print(f"FAIL {step}: {status} {body}")
+    sys.exit(1)
 
 
 def main():
@@ -43,11 +56,9 @@ def main():
     # 1. Classifier health + model loaded.
     status, body = request("GET", f"{args.classifier_url}/health", timeout=15)
     if status != 200:
-        print(f"FAIL classifier /health: {status} {body}")
-        sys.exit(1)
+        fail("classifier /health", status, body)
     if body.get("model_loaded") is False:
-        print(f"FAIL classifier model not loaded: {body}")
-        sys.exit(1)
+        fail("classifier /health", status, body)
     print(f"OK classifier /health: model_loaded={body.get('model_loaded')}")
 
     # 2. Classifier inference.
@@ -76,8 +87,7 @@ def main():
         "POST", f"{args.classifier_url}/classify", payload=payload, timeout=60
     )
     if status != 200 or not body.get("state"):
-        print(f"FAIL classifier /classify: {status} {body}")
-        sys.exit(1)
+        fail("classifier /classify", status, body)
     print(
         f"OK classifier /classify: state={body.get('state')} "
         f"predicted_class={body.get('predicted_class')}"
@@ -86,8 +96,7 @@ def main():
     # 3. GAN service health.
     status, body = request("GET", f"{args.gan_url}/health", timeout=15)
     if status != 200 or body.get("status") != "healthy":
-        print(f"FAIL gan /health: {status} {body}")
-        sys.exit(1)
+        fail("gan /health", status, body)
     print(f"OK gan /health: {body}")
 
     # 4. GAN plan generation (loads the local model; can take a while).
@@ -104,8 +113,7 @@ def main():
         "POST", f"{args.gan_url}/gan/generate", payload=gan_payload, timeout=120
     )
     if status != 200 or not body.get("plans"):
-        print(f"FAIL gan /gan/generate: {status} {body}")
-        sys.exit(1)
+        fail("gan /gan/generate", status, body)
     print(f"OK gan /gan/generate: plans={len(body['plans'])}")
     print("ML E2E PASSED")
 

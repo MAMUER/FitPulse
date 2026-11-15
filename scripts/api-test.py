@@ -148,7 +148,13 @@ class TestRunner:
         # The gateway stores the access token in an HttpOnly cookie, not in the
         # JSON body. Capture it from Set-Cookie so authenticated tests work.
         if status == 200 and self.last_set_cookie:
-            m = re.search(r"(?:^|;\s*)access_token=([^;]+)", self.last_set_cookie)
+            # The gateway names the cookie "fitpulse-access-token"
+            # (cmd/gateway/handlers_auth.go: accessTokenCookieName), so accept
+            # both the prefixed and the legacy unprefixed spelling.
+            m = re.search(
+                r"(?:^|;\s*)(?:fitpulse-)?access[-_]token=([^;]+)",
+                self.last_set_cookie,
+            )
             if m:
                 self.token = m.group(1)
 

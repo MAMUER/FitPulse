@@ -30,31 +30,79 @@ SCRIPT_DIR = Path(__file__).parent
 LOAD_TEST_K6 = SCRIPT_DIR.parent / "load-test.k6"
 
 
+def percentile(values, pct):
+    """Nearest-rank percentile over a sorted-able list of numbers."""
+    if not values:
+        return None
+    ordered = sorted(values)
+    index = min(len(ordered) - 1, max(0, round(pct / 100 * len(ordered) + 0.5) - 1))
+    return ordered[index]
+
+
 def print_results(results_file):
-    """Parse and print k6 JSON results summary"""
-    try:
-        if not Path(results_file).exists():
-            return
+    """Parse the k6 JSON stream and print the metrics that were measured.
 
-        with open(results_file, "r") as f:
-            lines = f.readlines()
+    k6 `--out json=` emits one JSON object per line: `Metric` definitions and
+    `Point` samples. Aggregating the points here means the summary reflects the
+    run instead of printing fixed placeholders.
+    """
+    if not Path(results_file).exists():
+        return
 
-        if not lines:
-            return
+    durations = []
+    counters = {}
+    rates = {}
+    with open(results_file, "r", encoding="utf-8", errors="replace") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                record = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if record.get("type") != "Point":
+                continue
+            metric = record.get("metric")
+            value = record.get("data", {}).get("value")
+            if not metric or value is None:
+                continue
+            if metric == "http_req_duration":
+                durations.append(value)
+            elif metric in ("http_reqs", "iterations", "api_errors_total"):
+                counters[metric] = counters.get(metric, 0) + value
+            elif metric in ("errors", "checks"):
+                rates.setdefault(metric, []).append(value)
 
-        # Get last line with metrics
-        last_metric = json.loads(lines[-1])
-        if last_metric.get("type") == "Point" and last_metric.get("metric"):
-            print("\nKey Metrics:")
-            print("  HTTP requests: 200 OK")
-            print("  Error rate: < 10%")
-            print("  P95 response time: < 500ms")
-            print("  P99 response time: < 1s")
-    except Exception:
-        # nosemgrep: python.lang.security.audit.empty-except.empty-except
-        # Intentionally ignoring unhandled exceptions from the main logic block
-        # as this is an optional load-test wrapper; real error handling is done above.
-        pass
+    if not durations and not counters:
+        print(f"{YELLOW}No k6 metrics found in {results_file}{RESET}")
+        return
+
+    print("\nKey Metrics:")
+    print(f"  HTTP requests : {int(counters.get('http_reqs', 0))}")
+    if durations:
+        p95 = percentile(durations, 95)
+        p99 = percentile(durations, 99)
+        print(f"  P95 response  : {p95:.0f} ms")
+        print(f"  P99 response  : {p99:.0f} ms")
+        print(
+            f"  {GREEN}P95 < 2000 ms{RESET}"
+            if p95 < 2000
+            else f"  {RED}P95 >= 2000 ms{RESET}"
+        )
+        print(
+            f"  {GREEN}P99 < 5000 ms{RESET}"
+            if p99 < 5000
+            else f"  {RED}P99 >= 5000 ms{RESET}"
+        )
+    if "errors" in rates and rates["errors"]:
+        error_rate = rates["errors"][-1]
+        print(f"  Error rate    : {error_rate * 100:.2f}%")
+        if error_rate >= 0.1:
+            print(f"  {RED}Error rate >= 10%{RESET}")
+    if "checks" in rates and rates["checks"]:
+        print(f"  Checks passed : {rates['checks'][-1] * 100:.2f}%")
+    print()
 
 
 def find_k6():
@@ -67,6 +115,15 @@ def find_k6():
             "~/bin/k6",
             "./k6",
         ]
+        if os.name == "nt":
+            common_paths = [
+                os.path.join(os.environ.get("ProgramFiles", r"C:\Program Files"), "k6", "k6.exe"),
+                os.path.join(
+                    os.environ.get("LOCALAPPDATA", ""), "Microsoft", "WinGet", "Links", "k6.exe"
+                ),
+                "k6.exe",
+                "./k6.exe",
+            ]
         for path in common_paths:
             expanded_path = os.path.expanduser(path)
             if os.path.isfile(expanded_path) and os.access(expanded_path, os.X_OK):
@@ -83,6 +140,12 @@ def build_k6_command(k6_path, args):
         str(LOAD_TEST_K6),
         "--env",
         f"BASE_URL={args.base_url}",
+        "--env",
+        f"K6_DURATION={args.duration}",
+        "--env",
+        f"K6_VUS={args.vus}",
+        "--env",
+        f"INSECURE_SKIP_TLS_VERIFY={'true' if args.insecure else 'false'}",
     ]
     return cmd
 
@@ -145,10 +208,16 @@ Examples:
         print(
             f"{YELLOW}Install from: https://k6.io/docs/getting-started/installation/{RESET}"
         )
-        print(
-            f"Or download and place in one of: /usr/local/bin/k6, "
-            f"/usr/bin/k6, /opt/homebrew/bin/k6{RESET}\n"
-        )
+        if os.name == "nt":
+            print(
+                f"{YELLOW}Windows: winget install k6 --source winget "
+                f"(k6.exe must be on PATH){RESET}\n"
+            )
+        else:
+            print(
+                f"{YELLOW}Or download and place in one of: /usr/local/bin/k6, "
+                f"/usr/bin/k6, /opt/homebrew/bin/k6{RESET}\n"
+            )
         sys.exit(1)
 
     if not LOAD_TEST_K6.exists():
@@ -172,9 +241,10 @@ Examples:
     print(f"{YELLOW}Running load test...{RESET}\n")
 
     exit_code = run_load_test(cmd)
-    if exit_code == 0 and Path(args.output).exists():
+    # Print the measured summary whenever k6 produced one — including threshold
+    # failures (k6 exits 99), where the metrics matter most.
+    if Path(args.output).exists():
         print_results(args.output)
-        print()
     sys.exit(exit_code)
 
 
