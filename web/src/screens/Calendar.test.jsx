@@ -49,10 +49,13 @@ describe('Calendar', () => {
     render(<Calendar />);
 
     expect(context.loadCalendarEvents).toHaveBeenCalled();
-    // The page-title eyebrow is hardcoded ("PLANNER"), the planner header below
-    // the month controls is translated.
+    // The page-title eyebrow is hardcoded ("PLANNER").
     expect(screen.getByText('PLANNER')).toBeInTheDocument();
-    expect(screen.getByLabelText('1 Май')).toBeInTheDocument();
+    // The card view renders a mini month grid: one button per day. The
+    // "N Month" aria-labels belong to the full calendar page view, not this one.
+    const dayButtons = document.querySelectorAll('.month button');
+    expect(dayButtons.length).toBeGreaterThanOrEqual(28);
+    expect(dayButtons[0].textContent).toContain('1');
   });
 
   it('adds event from the day modal', () => {
