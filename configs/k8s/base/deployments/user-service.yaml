@@ -131,6 +131,11 @@ spec:
               mountPath: /etc/db-credentials
               readOnly: true
           env:
+            # Without GOMEMLIMIT the Go runtime does not know the cgroup limit
+            # and grows the heap past 128Mi, which ends in OOMKilled (exit 137)
+            # and 500 "database error" responses during login/register bursts.
+            - name: GOMEMLIMIT
+              value: "220MiB"
             - name: DB_HOST
               valueFrom:
                 configMapKeyRef:
@@ -219,5 +224,5 @@ spec:
               ephemeral-storage: "100Mi"
             limits:
               cpu: "150m"
-              memory: "128Mi"
+              memory: "256Mi"
               ephemeral-storage: "200Mi"

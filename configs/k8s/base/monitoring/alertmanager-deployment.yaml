@@ -43,13 +43,13 @@ spec:
               drop: ["ALL"]
           resources:
             requests:
-              cpu: 10m
+              cpu: 5m
+              memory: 16Mi
+              ephemeral-storage: 64Mi
+            limits:
+              cpu: 30m
               memory: 32Mi
               ephemeral-storage: 128Mi
-            limits:
-              cpu: 50m
-              memory: 64Mi
-              ephemeral-storage: 256Mi
           livenessProbe:
             httpGet:
               path: /-/healthy
