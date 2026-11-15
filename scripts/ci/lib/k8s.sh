@@ -532,7 +532,8 @@ collect_vps_diagnostics() {
 		return 0
 	fi
 
-	remote_command=$(cat <<'REMOTE'
+	remote_command=$(
+		cat <<'REMOTE'
 echo '=== k3s service state ==='
 sudo systemctl show k3s --property=ActiveState,SubState,MainPID --no-pager 2>&1 || true
 echo '=== k3s version ==='
@@ -554,7 +555,7 @@ echo '=== DuckDNS webhook image in k3s containerd ==='
 sudo k3s ctr -n k8s.io images ls 2>&1 |
 	grep -F 'cert-manager-webhook-duckdns' || true
 REMOTE
-)
+	)
 
 	echo "::group::VPS k3s, resolver, and containerd diagnostics"
 	if ! SSH_RETRY_MAX_ATTEMPTS=1 SSH_RETRY_TIMEOUT=90 \

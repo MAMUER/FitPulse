@@ -100,6 +100,13 @@ CREATE TABLE IF NOT EXISTS email_verifications (
     created_at      TIMESTAMPTZ DEFAULT NOW()
 );
 
+ALTER TABLE email_verifications
+    ADD COLUMN IF NOT EXISTS email_encrypted BYTEA,
+    ADD COLUMN IF NOT EXISTS email_nonce BYTEA,
+    ADD COLUMN IF NOT EXISTS email_hash VARCHAR(64),
+    ADD COLUMN IF NOT EXISTS token_encrypted BYTEA,
+    ADD COLUMN IF NOT EXISTS token_nonce BYTEA;
+
 CREATE INDEX IF NOT EXISTS idx_email_verifications_token ON email_verifications(token);
 CREATE INDEX IF NOT EXISTS idx_email_verifications_user ON email_verifications(user_id);
 

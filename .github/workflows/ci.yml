@@ -1637,13 +1637,28 @@ jobs:
             fi
             printf '%s\n' "$logs" | jq -Rrc '
               try fromjson catch empty
-              | select((.message // "") | test("^(Register|Login)"))
+              | select(
+                  ((.message // "") | test("^(Register|Login)"))
+                  or (
+                    (.level // "") == "error"
+                    and ((.message // "") | test("email verification|registration|login"; "i"))
+                  )
+                )
               | {
                   timestamp,
                   level,
                   message,
                   http_code,
-                  grpc_code: (try (.error | capture("code = (?<code>[^ ]+)").code) catch null)
+                  grpc_code: (try (.error | capture("code = (?<code>[^ ]+)").code) catch null),
+                  error: (
+                    if (.level // "") == "error" then
+                      ((.error // "") | tostring
+                        | gsub("[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}"; "[redacted-email]")
+                        | gsub("(?i)(password|token|secret)[=: ]+[^ ,;]+"; "[redacted]")
+                        | gsub("(?i)bearer [^ ,;]+"; "Bearer [redacted]")
+                        | .[0:300])
+                    else null end
+                  )
                 }
             '
           }
@@ -1727,7 +1742,7 @@ jobs:
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         with:
           name: kubeconfig
-          path: .
+          path: ./kubeconfig
       - name: Resolve VPS hostname and add to /etc/hosts
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}

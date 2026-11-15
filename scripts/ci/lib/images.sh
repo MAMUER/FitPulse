@@ -72,7 +72,7 @@ import_duckdns_webhook_image() {
 	local img="docker.io/ebrianne/cert-manager-webhook-duckdns:v1.2.3"
 	local pinned_img="docker.io/ebrianne/cert-manager-webhook-duckdns@sha256:b5fdc5eaf273ba5f7c461d9baca3703b1d13e67d5d44f23139afbf1cc53e9a00"
 	local tar_file="${RUNNER_TEMP:-/tmp}/duckdns-webhook-image.tar"
-	local image_id
+	local image_id pull_output
 	local remote_images
 
 	log_info "Checking whether $img is already present in k3s containerd..."
@@ -83,8 +83,12 @@ import_duckdns_webhook_image() {
 		return 0
 	fi
 
-	log_info "Pulling pinned DuckDNS webhook image on the runner: $pinned_img"
-	docker pull --platform linux/amd64 "$pinned_img"
+	log_info "Pulling pinned DuckDNS webhook image on the runner: $pinned_img (download progress hidden)"
+	if ! pull_output=$(docker pull --platform linux/amd64 "$pinned_img" 2>&1); then
+		echo "::error::Failed to pull DuckDNS webhook image; last 40 lines:" >&2
+		printf '%s\n' "$pull_output" | tail -n 40 >&2
+		return 1
+	fi
 	image_id=$(docker image inspect --format='{{.Id}}' "$pinned_img")
 	log_info "Pulled image $image_id ($(docker image inspect --format='{{.Os}}/{{.Architecture}}' "$pinned_img"))"
 	docker tag "$image_id" "$img"
@@ -139,6 +143,36 @@ import_problem_images() {
 	log_info "=== Problem images import completed ==="
 }
 
+pull_remote_ctr_image() {
+	local img="$1"
+	local tag_as="${2:-}"
+	local remote_script
+	remote_script=$(
+		printf 'IMAGE=%q\nTAG_AS=%q\n' "$img" "$tag_as"
+		cat <<'REMOTE'
+set -euo pipefail
+
+if pull_output=$(sudo k3s ctr -n k8s.io images pull "$IMAGE" 2>&1); then
+	echo "Pulled image: $IMAGE"
+else
+	status=$?
+	echo "::error::Failed to pull $IMAGE; last 40 lines:" >&2
+	printf '%s\n' "$pull_output" | tail -n 40 >&2
+	exit "$status"
+fi
+
+if [[ -n "$TAG_AS" ]]; then
+	sudo k3s ctr -n k8s.io images tag "$IMAGE" "$TAG_AS"
+	echo "Tagged $IMAGE as $TAG_AS"
+fi
+REMOTE
+	)
+	if ! printf '%s\n' "$remote_script" |
+		./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "bash -s"; then
+		return 1
+	fi
+}
+
 pre_pull_public_images() {
 	# These images are not in the k3s airgap bundle and are not GHCR images, so
 	# pull them directly on the VPS (it has working DNS/egress after fix_dns).
@@ -155,8 +189,8 @@ pre_pull_public_images() {
 			log_info "Image already present on VPS: $img"
 			continue
 		fi
-		log_info "-> Pulling $img directly on VPS..."
-		if ./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "sudo k3s ctr -n k8s.io images pull '${img}'"; then
+		log_info "-> Pulling $img directly on VPS (download progress hidden)..."
+		if pull_remote_ctr_image "$img"; then
 			continue
 		fi
 		# Direct Docker Hub auth is reset on this VPS. The daocloud mirror is
@@ -165,7 +199,7 @@ pre_pull_public_images() {
 		local mirror="${img/docker.io\//docker.m.daocloud.io/}"
 		if [[ "$mirror" != "$img" ]]; then
 			log_warn "Direct pull failed; trying mirror $mirror"
-			if ./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "sudo k3s ctr -n k8s.io images pull '${mirror}' && sudo k3s ctr -n k8s.io images tag '${mirror}' '${img}'"; then
+			if pull_remote_ctr_image "$mirror" "$img"; then
 				continue
 			fi
 		fi
@@ -206,15 +240,19 @@ images=(
 )
 
 for img in "${images[@]}"; do
-	echo "-> Pulling $img..."
-	if sudo k3s ctr -n k8s.io images pull --user "${GITHUB_ACTOR}:${GHCR_TOKEN}" "$img"; then
+	echo "-> Pulling $img (download progress hidden)..."
+	if ctr_output=$(sudo k3s ctr -n k8s.io images pull --user "${GITHUB_ACTOR}:${GHCR_TOKEN}" "$img" 2>&1); then
+		echo "Pulled $img"
 		continue
 	fi
 	echo "::warning::containerd pull failed for $img; retrying through CRI"
-	if sudo k3s crictl pull --creds "${GITHUB_ACTOR}:${GHCR_TOKEN}" "$img"; then
+	if cri_output=$(sudo k3s crictl pull --creds "${GITHUB_ACTOR}:${GHCR_TOKEN}" "$img" 2>&1); then
+		echo "Pulled $img through CRI"
 		continue
 	fi
-	echo "::error::Failed to pull $img from GHCR" >&2
+	echo "::error::Failed to pull $img from GHCR; last 30 lines from each method:" >&2
+	printf '%s\n' "${ctr_output//"$GHCR_TOKEN"/[REDACTED]}" | tail -n 30 >&2
+	printf '%s\n' "${cri_output//"$GHCR_TOKEN"/[REDACTED]}" | tail -n 30 >&2
 	exit 1
 done
 REMOTE
