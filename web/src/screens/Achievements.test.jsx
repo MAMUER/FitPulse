@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AppProvider, useApp } from '../contexts/AppContext';
@@ -44,14 +44,17 @@ describe('Achievements', () => {
     vi.clearAllMocks();
   });
 
-  it('renders achievements screen', () => {
+  it('renders achievements screen', async () => {
     renderAchievements(baseContext());
     expect(screen.getByText('Достижения')).toBeInTheDocument();
+    // The screen loads achievements in an effect; flush it inside act().
+    await act(async () => {});
   });
 
-  it('shows loading state initially', () => {
+  it('shows loading state initially', async () => {
     renderAchievements(baseContext());
     expect(screen.getByText('Загрузка...')).toBeInTheDocument();
+    await act(async () => {});
   });
 
   it('shows no achievements when empty after loading completes', async () => {
@@ -62,10 +65,11 @@ describe('Achievements', () => {
     expect(screen.getByText('Нет достижений')).toBeInTheDocument();
   });
 
-  it('loads achievements on mount', () => {
+  it('loads achievements on mount', async () => {
     const loadAchievements = vi.fn(() => Promise.resolve());
     renderAchievements(baseContext({ loadAchievements }));
     expect(loadAchievements).toHaveBeenCalledTimes(1);
+    await act(async () => {});
   });
 
   it('renders achievements from achievementsBackend', async () => {
@@ -169,11 +173,12 @@ describe('Achievements', () => {
     expect(screen.getByText('Описание только')).toBeInTheDocument();
   });
 
-  it('navigates back home', () => {
+  it('navigates back home', async () => {
     const go = vi.fn();
     renderAchievements(baseContext({ go }));
     screen.getByText('Назад').click();
     expect(go).toHaveBeenCalledWith('home');
+    await act(async () => {});
   });
 
   it('uses English translations when language is en', async () => {

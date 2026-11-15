@@ -1,4 +1,10 @@
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { useApp } from '../contexts/AppContext';
 import Nutrition from './Nutrition';
@@ -157,7 +163,7 @@ describe('Nutrition', () => {
     );
   });
 
-  it('adds a meal from the diary form', () => {
+  it('adds a meal from the diary form', async () => {
     const context = makeContext();
     useApp.mockReturnValue(context);
 
@@ -176,7 +182,11 @@ describe('Nutrition', () => {
     });
     fireEvent.click(screen.getByText('Добавить в дневник'));
 
-    expect(context.createMeal).toHaveBeenCalledWith('Рис', 300, '12:00');
+    // handleAddToDiary awaits createMeal() and then resets the form fields, so
+    // the state updates land after the click — wait for them inside act().
+    await waitFor(() =>
+      expect(context.createMeal).toHaveBeenCalledWith('Рис', 300, '12:00')
+    );
   });
 
   it('adds a meal with defaults when the form is empty', () => {

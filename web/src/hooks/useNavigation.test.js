@@ -59,7 +59,7 @@ describe('useNavigation', () => {
       showDateModal: true,
       selectedChat: 'Анна',
     });
-    result.current.go('body');
+    act(() => result.current.go('body'));
     expect(update).toHaveBeenCalledWith({
       screen: 'body',
       selectedMeal: null,
@@ -73,7 +73,7 @@ describe('useNavigation', () => {
 
   it('go keeps selected chat when leaving another screen', () => {
     setup({ screen: 'chatDetail', selectedChat: 'Анна' });
-    result.current.go('home');
+    act(() => result.current.go('home'));
     expect(update).toHaveBeenCalledWith(
       expect.objectContaining({ screen: 'home', selectedChat: 'Анна' })
     );
@@ -81,7 +81,7 @@ describe('useNavigation', () => {
 
   it('go clears chat selection when entering chat screen', () => {
     setup({ screen: 'home', selectedChat: 'Анна' });
-    result.current.go('chat');
+    act(() => result.current.go('chat'));
     expect(update).toHaveBeenCalledWith(
       expect.objectContaining({ screen: 'chat', selectedChat: null })
     );
@@ -95,13 +95,13 @@ describe('useNavigation', () => {
 
   it('go ignores same screen without overlays', () => {
     setup({ screen: 'home' });
-    result.current.go('home');
+    act(() => result.current.go('home'));
     expect(update).not.toHaveBeenCalled();
   });
 
   it('go reopens screen to close meal modal', () => {
     setup({ screen: 'nutrition', selectedMeal: 'lunch' });
-    result.current.go('nutrition');
+    act(() => result.current.go('nutrition'));
     expect(update).toHaveBeenCalledWith(
       expect.objectContaining({ screen: 'nutrition', selectedMeal: null })
     );
@@ -109,7 +109,7 @@ describe('useNavigation', () => {
 
   it('go reopens screen to close story modal', () => {
     setup({ screen: 'home', selectedStory: { id: 's1' } });
-    result.current.go('home');
+    act(() => result.current.go('home'));
     expect(update).toHaveBeenCalledWith(
       expect.objectContaining({ selectedStory: null })
     );
@@ -117,7 +117,7 @@ describe('useNavigation', () => {
 
   it('go reopens screen to close achievement modal', () => {
     setup({ screen: 'profile', selectedAchievement: { name: 'Цель' } });
-    result.current.go('profile');
+    act(() => result.current.go('profile'));
     expect(update).toHaveBeenCalledWith(
       expect.objectContaining({ selectedAchievement: null })
     );
@@ -135,7 +135,7 @@ describe('useNavigation', () => {
 
   it('openLegal remembers home as return for guest terms', () => {
     setup({ screen: 'login', guest: true });
-    result.current.openLegal('terms');
+    act(() => result.current.openLegal('terms'));
     expect(update).toHaveBeenCalledWith({
       legalReturnScreen: 'home',
       screen: 'terms',
@@ -144,7 +144,7 @@ describe('useNavigation', () => {
 
   it('openLegal keeps existing return screen', () => {
     setup({ guest: true, legalReturnScreen: 'body' });
-    result.current.openLegal('privacy');
+    act(() => result.current.openLegal('privacy'));
     expect(update).toHaveBeenCalledWith({
       legalReturnScreen: 'body',
       screen: 'privacy',
@@ -153,7 +153,7 @@ describe('useNavigation', () => {
 
   it('openLegal stores current screen for other screens', () => {
     setup({ screen: 'profile', guest: false });
-    result.current.openLegal('support');
+    act(() => result.current.openLegal('support'));
     expect(update).toHaveBeenCalledWith({
       legalReturnScreen: 'profile',
       screen: 'support',
@@ -172,7 +172,7 @@ describe('useNavigation', () => {
 
   it('backFromLegal falls back to home for guest', () => {
     setup({ legalReturnScreen: null, guest: true });
-    result.current.backFromLegal();
+    act(() => result.current.backFromLegal());
     expect(update).toHaveBeenCalledWith({
       legalReturnScreen: null,
       screen: 'home',
@@ -181,7 +181,7 @@ describe('useNavigation', () => {
 
   it('backFromLegal falls back to login for user', () => {
     setup({ legalReturnScreen: null, guest: false });
-    result.current.backFromLegal();
+    act(() => result.current.backFromLegal());
     expect(update).toHaveBeenCalledWith({
       legalReturnScreen: null,
       screen: 'login',

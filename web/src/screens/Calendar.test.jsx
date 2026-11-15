@@ -49,7 +49,9 @@ describe('Calendar', () => {
     render(<Calendar />);
 
     expect(context.loadCalendarEvents).toHaveBeenCalled();
-    expect(screen.getByText('ПЛАНИРОВЩИК')).toBeInTheDocument();
+    // The page-title eyebrow is hardcoded ("PLANNER"), the planner header below
+    // the month controls is translated.
+    expect(screen.getByText('PLANNER')).toBeInTheDocument();
     expect(screen.getByLabelText('1 Май')).toBeInTheDocument();
   });
 
@@ -142,7 +144,9 @@ describe('Calendar', () => {
     render(<Calendar />);
 
     expect(context.loadCalendarEvents).toHaveBeenCalled();
-    expect(screen.getByText('ПЛАНИРОВЩИК')).toBeInTheDocument();
+    // The page-title eyebrow is hardcoded ("PLANNER"), the planner header below
+    // the month controls is translated.
+    expect(screen.getByText('PLANNER')).toBeInTheDocument();
   });
 
   it('renders events with missing id type and description', async () => {
