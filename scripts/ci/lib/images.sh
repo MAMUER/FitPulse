@@ -73,10 +73,12 @@ import_duckdns_webhook_image() {
 	local pinned_img="docker.io/ebrianne/cert-manager-webhook-duckdns@sha256:b5fdc5eaf273ba5f7c461d9baca3703b1d13e67d5d44f23139afbf1cc53e9a00"
 	local tar_file="${RUNNER_TEMP:-/tmp}/duckdns-webhook-image.tar"
 	local image_id
+	local remote_images
 
 	log_info "Checking whether $img is already present in k3s containerd..."
-	if bash scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" \
-		"sudo k3s ctr -n k8s.io images ls -q | grep -Fxq '${img}'"; then
+	remote_images=$(bash scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" \
+		"sudo k3s ctr -n k8s.io images ls -q")
+	if printf '%s\n' "$remote_images" | grep -Fxq "$img"; then
 		log_info "Image already present on VPS: $img"
 		return 0
 	fi
@@ -173,30 +175,54 @@ pre_pull_public_images() {
 }
 
 pre_pull_images() {
-	local image_tag
+	local image_tag remote_script
 	image_tag=$(git rev-parse --short HEAD)
-	log_info "-> Pre-pulling application images on VPS..."
-	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "
-		for img in \\
-			\\\"ghcr.io/mamuer/project/user-service:${image_tag}\\\" \\
-			\\\"ghcr.io/mamuer/project/biometric-service:${image_tag}\\\" \\
-			\\\"ghcr.io/mamuer/project/training-service:${image_tag}\\\" \\
-			\\\"ghcr.io/mamuer/project/gateway:${image_tag}\\\" \\
-			\\\"ghcr.io/mamuer/project/classifier:${image_tag}\\\" \\
-			\\\"ghcr.io/mamuer/project/device-aggregator:${image_tag}\\\" \\
-			\\\"ghcr.io/mamuer/project/ml-generator:${image_tag}\\\" \\
-			\\\"ghcr.io/mamuer/project/open-wearables-backend:${image_tag}\\\" \\
-			\\\"ghcr.io/mamuer/project/open-wearables-frontend:${image_tag}\\\" \\
-			\\\"ghcr.io/mamuer/project/data-processor:${image_tag}\\\" \\
-			\\\"ghcr.io/mamuer/project/postgres-pgsodium:pg18\\\" \\
-			\\\"ghcr.io/mamuer/project/backup-tools:pg18\\\" \
-			\\\"ghcr.io/mamuer/project/oncall-bot:${image_tag}\\\"; do
+	if [[ -z "${GITHUB_ACTOR:-}" || -z "${GHCR_TOKEN:-}" ]]; then
+		echo "::error::GITHUB_ACTOR and GHCR_TOKEN are required to pre-pull private GHCR images" >&2
+		return 1
+	fi
 
-			echo \\\"Pulling \\\$img...\\\"
-			sudo k3s ctr -n k8s.io images pull --user \"${GITHUB_ACTOR}:${GHCR_TOKEN}\" \"\\\$img\" >/dev/null 2>&1 || \\
-			sudo k3s crictl pull --creds \"${GITHUB_ACTOR}:${GHCR_TOKEN}\" \"\\\$img\" >/dev/null 2>&1 || \\
-			true
-		done
-	"
+	log_info "-> Pre-pulling application images on VPS..."
+	remote_script=$(
+		printf 'GITHUB_ACTOR=%q\nGHCR_TOKEN=%q\nIMAGE_TAG=%q\n' \
+			"$GITHUB_ACTOR" "$GHCR_TOKEN" "$image_tag"
+		cat <<'REMOTE'
+set -euo pipefail
+
+images=(
+	"ghcr.io/mamuer/project/user-service:${IMAGE_TAG}"
+	"ghcr.io/mamuer/project/biometric-service:${IMAGE_TAG}"
+	"ghcr.io/mamuer/project/training-service:${IMAGE_TAG}"
+	"ghcr.io/mamuer/project/gateway:${IMAGE_TAG}"
+	"ghcr.io/mamuer/project/classifier:${IMAGE_TAG}"
+	"ghcr.io/mamuer/project/device-aggregator:${IMAGE_TAG}"
+	"ghcr.io/mamuer/project/ml-generator:${IMAGE_TAG}"
+	"ghcr.io/mamuer/project/open-wearables-backend:${IMAGE_TAG}"
+	"ghcr.io/mamuer/project/open-wearables-frontend:${IMAGE_TAG}"
+	"ghcr.io/mamuer/project/data-processor:${IMAGE_TAG}"
+	"ghcr.io/mamuer/project/postgres-pgsodium:pg18"
+	"ghcr.io/mamuer/project/backup-tools:pg18"
+	"ghcr.io/mamuer/project/oncall-bot:${IMAGE_TAG}"
+)
+
+for img in "${images[@]}"; do
+	echo "-> Pulling $img..."
+	if sudo k3s ctr -n k8s.io images pull --user "${GITHUB_ACTOR}:${GHCR_TOKEN}" "$img"; then
+		continue
+	fi
+	echo "::warning::containerd pull failed for $img; retrying through CRI"
+	if sudo k3s crictl pull --creds "${GITHUB_ACTOR}:${GHCR_TOKEN}" "$img"; then
+		continue
+	fi
+	echo "::error::Failed to pull $img from GHCR" >&2
+	exit 1
+done
+REMOTE
+	)
+	if ! printf '%s\n' "$remote_script" |
+		bash scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "bash -s"; then
+		echo "::error::Failed to pre-pull application images; stopping deployment" >&2
+		return 1
+	fi
 	log_info "Pre-pull step completed"
 }

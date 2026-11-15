@@ -184,23 +184,48 @@ verify_postgres() {
 }
 
 run_migrations() {
+	local namespace="fitness-platform-production"
+	local job="migrate-db"
+	local job_conditions job_query_error
+
 	echo "Running database migrations (V1__full_schema.sql)..."
-	kubectl delete job migrate-db -n fitness-platform-production --ignore-not-found=true || true
-	kubectl apply -f configs/k8s/base/jobs/migrate-db.yaml -n fitness-platform-production
-	echo "Waiting for migrate-db job to complete..."
-	if kubectl wait --for=condition=complete job/migrate-db -n fitness-platform-production --timeout=300s; then
-		echo "✅ Database migrations completed successfully"
-	else
-		# A failed migration used to only warn, which let the deploy continue with
-		# an empty schema: every service then crash-looped (user-service fatal on
-		# "relation pgsodium.key does not exist"). Surface the reason and stop.
-		echo "::error::migrate-db job did not complete — dumping diagnostics" >&2
-		kubectl describe job migrate-db -n fitness-platform-production || true
-		kubectl describe pod -n fitness-platform-production -l app=migrate-db || true
-		kubectl logs job/migrate-db -n fitness-platform-production --all-containers --tail=100 || true
-		kubectl get pods -n fitness-platform-production -l app=migrate-db -o wide || true
-		return 1
-	fi
+	kubectl delete job "$job" -n "$namespace" --ignore-not-found=true --wait=true
+	kubectl apply -f configs/k8s/base/jobs/migrate-db.yaml -n "$namespace"
+	echo "Waiting for migrate-db job to complete or fail..."
+	for attempt in {1..60}; do
+		job_query_error=""
+		if job_conditions=$(kubectl get job "$job" -n "$namespace" \
+			-o jsonpath='{range .status.conditions[*]}{.type}={.status}{"\n"}{end}' 2>&1); then
+			if grep -q '^Complete=True$' <<<"$job_conditions"; then
+				echo "✅ Database migrations completed successfully"
+				if ! kubectl logs "job/$job" -n "$namespace" --all-containers=true \
+					--timestamps --tail=200 2>&1; then
+					echo "::warning::Could not retrieve completed migration logs" >&2
+				fi
+				break
+			fi
+			if grep -q '^Failed=True$' <<<"$job_conditions"; then
+				echo "::error::migrate-db job failed; collecting diagnostics before pod TTL cleanup" >&2
+				diagnose_job "$namespace" "$job"
+				return 1
+			fi
+		else
+			job_query_error="$job_conditions"
+		fi
+		if ((attempt % 6 == 0)); then
+			if [[ -n "$job_query_error" ]]; then
+				echo "::warning::Unable to read migrate-db job status: $job_query_error" >&2
+			else
+				echo "  [$(date +%H:%M:%S)] Job still active after $((attempt * 5)) seconds"
+			fi
+		fi
+		if [[ "$attempt" -eq 60 ]]; then
+			echo "::error::migrate-db job did not complete within 300 seconds" >&2
+			diagnose_job "$namespace" "$job"
+			return 1
+		fi
+		sleep 5
+	done
 	echo "Verifying tables were created..."
 	kubectl exec -n fitness-platform-production postgres-0 -- \
 		psql -U "${POSTGRES_USER:-fitness_admin}" -d "${POSTGRES_DB:-fitness}" -c "SELECT table_name FROM information_schema.tables WHERE table_schema='public' ORDER BY table_name;" || echo "::warning::table verification failed" >&2
@@ -514,6 +539,13 @@ echo '=== k3s version ==='
 sudo k3s --version 2>&1 || true
 echo '=== VPS resolver configuration ==='
 cat /etc/resolv.conf 2>&1 || true
+echo '=== K3s pod resolver configuration ==='
+cat /etc/rancher/k3s/resolv.conf 2>&1 || true
+echo '=== DNS lookups from the VPS ==='
+for domain in ghcr.io registry-1.docker.io acme-v02.api.letsencrypt.org; do
+	echo "--- $domain ---"
+	getent ahostsv4 "$domain" 2>&1 | head -n 5 || true
+done
 echo '=== Recent k3s networking and DNS messages ==='
 sudo journalctl -u k3s --since '30 minutes ago' --no-pager -n 500 2>&1 |
 	grep -Ei 'coredns|dns|cni|flannel|kube-proxy|iptables|nft|network|no route|refused|timeout' |
@@ -522,7 +554,7 @@ echo '=== DuckDNS webhook image in k3s containerd ==='
 sudo k3s ctr -n k8s.io images ls 2>&1 |
 	grep -F 'cert-manager-webhook-duckdns' || true
 REMOTE
-	)
+)
 
 	echo "::group::VPS k3s, resolver, and containerd diagnostics"
 	if ! SSH_RETRY_MAX_ATTEMPTS=1 SSH_RETRY_TIMEOUT=90 \

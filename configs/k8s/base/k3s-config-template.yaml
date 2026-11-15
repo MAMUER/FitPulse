@@ -8,6 +8,7 @@ disable:
   - local-storage
   - traefik
 flannel-backend: vxlan
+resolv-conf: "/etc/rancher/k3s/resolv.conf"
 write-kubeconfig-mode: "644"
 kubelet-arg:
   - "max-pods=110"
