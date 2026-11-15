@@ -18,6 +18,7 @@ describe('Login', () => {
     const socialLogin = vi.fn();
     const forgotPassword = vi.fn();
     const go = vi.fn();
+    const openLegal = vi.fn();
     useApp.mockReturnValue({
       t: (ru, _en) => ru,
       doLogin,
@@ -25,6 +26,7 @@ describe('Login', () => {
       socialLogin,
       forgotPassword,
       go,
+      openLegal,
     });
     render(<Login />);
     fireEvent.click(screen.getByText('Войти'));
@@ -36,13 +38,13 @@ describe('Login', () => {
     fireEvent.click(screen.getByText('Продолжить как гость'));
     expect(continueAsGuest).toHaveBeenCalled();
     fireEvent.click(screen.getByText('Пользовательское соглашение'));
-    expect(go).toHaveBeenCalledWith('legal', 'terms');
+    expect(openLegal).toHaveBeenCalledWith('terms');
     fireEvent.click(
       screen.getByText('соглашение об использовании персональных данных')
     );
-    expect(go).toHaveBeenCalledWith('legal', 'consent');
+    expect(openLegal).toHaveBeenCalledWith('consent');
     fireEvent.click(screen.getByText('Политику конфиденциальности'));
-    expect(go).toHaveBeenCalledWith('legal', 'privacy');
+    expect(openLegal).toHaveBeenCalledWith('privacy');
     fireEvent.click(screen.getByText(/Яндекс/));
     expect(socialLogin).toHaveBeenCalledWith('yandex');
   });

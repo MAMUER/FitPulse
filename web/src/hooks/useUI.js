@@ -39,6 +39,13 @@ export function useUI({ state, update, notify }) {
     update({ selectedMetric: null });
   }, [update]);
 
+  const openMetric = useCallback(
+    (metric) => {
+      update({ selectedMetric: metric });
+    },
+    [update]
+  );
+
   const closeMeal = useCallback(() => {
     update({ selectedMeal: null });
   }, [update]);
@@ -53,6 +60,7 @@ export function useUI({ state, update, notify }) {
     toggleHighContrast,
     toggleTwoFactor,
     showNotification,
+    openMetric,
     closeMetric,
     closeMeal,
     closeAchievement,

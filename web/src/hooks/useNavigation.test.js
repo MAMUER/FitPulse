@@ -1,6 +1,16 @@
-﻿import { renderHook } from '@testing-library/react';
+import { act, renderHook } from '@testing-library/react';
+import { createElement } from 'react';
+import { MemoryRouter, useLocation } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useNavigation } from './useNavigation';
+
+function Wrapper({ children }) {
+  return createElement(
+    MemoryRouter,
+    { initialEntries: ['/home'] },
+    children
+  );
+}
 
 function makeState(overrides = {}) {
   return {
@@ -24,7 +34,13 @@ let result;
 function setup(overrides = {}) {
   state = makeState(overrides);
   update = vi.fn();
-  result = renderHook(() => useNavigation({ state, update })).result;
+  result = renderHook(
+    () => ({
+      ...useNavigation({ state, update }),
+      location: useLocation(),
+    }),
+    { wrapper: Wrapper }
+  ).result;
 }
 
 beforeEach(() => {
@@ -34,7 +50,7 @@ beforeEach(() => {
 describe('useNavigation', () => {
   it('returns all navigation callbacks', () => {
     setup();
-    expect(Object.keys(result.current).sort()).toEqual([
+    expect(Object.keys(result.current).filter((key) => key !== 'location').sort()).toEqual([
       'backFromLegal',
       'go',
       'openLegal',
@@ -75,6 +91,12 @@ describe('useNavigation', () => {
     );
   });
 
+  it('go updates the route to match the selected screen', () => {
+    setup();
+    act(() => result.current.go('nutrition'));
+    expect(result.current.location.pathname).toBe('/nutrition');
+  });
+
   it('go ignores same screen without overlays', () => {
     setup({ screen: 'home' });
     result.current.go('home');
@@ -107,11 +129,12 @@ describe('useNavigation', () => {
 
   it('openLegal remembers login as return for privacy', () => {
     setup({ screen: 'ai', guest: false });
-    result.current.openLegal('privacy');
+    act(() => result.current.openLegal('privacy'));
     expect(update).toHaveBeenCalledWith({
       legalReturnScreen: 'login',
       screen: 'privacy',
     });
+    expect(result.current.location.pathname).toBe('/privacy');
   });
 
   it('openLegal remembers home as return for guest terms', () => {
@@ -143,11 +166,12 @@ describe('useNavigation', () => {
 
   it('backFromLegal returns to stored screen', () => {
     setup({ legalReturnScreen: 'body', guest: true });
-    result.current.backFromLegal();
+    act(() => result.current.backFromLegal());
     expect(update).toHaveBeenCalledWith({
       legalReturnScreen: null,
       screen: 'body',
     });
+    expect(result.current.location.pathname).toBe('/body');
   });
 
   it('backFromLegal falls back to home for guest', () => {

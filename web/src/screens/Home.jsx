@@ -1,21 +1,68 @@
-import { useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import Panel from '../components/Panel';
+import { useEffect, useRef } from 'react';
 import { useApp } from '../contexts/AppContext';
+
+const WEEKDAYS = {
+  ru: ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'],
+  en: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+};
+
+const METRICS = [
+  {
+    key: 'pulse',
+    icon: 'fa-heart-pulse',
+    value: '72',
+    unit: 'bpm',
+    label: ['Пульс', 'Pulse'],
+    color: 'var(--red)',
+  },
+  {
+    key: 'sleep',
+    icon: 'fa-moon',
+    value: '7.2',
+    unit: ['часа', 'hours'],
+    label: ['Сон', 'Sleep'],
+    color: 'var(--purple)',
+  },
+  {
+    key: 'oxygen',
+    icon: 'fa-lungs',
+    value: '98',
+    unit: '%',
+    label: ['Кислород', 'Oxygen'],
+    color: 'var(--blue)',
+  },
+  {
+    key: 'stress',
+    icon: 'fa-brain',
+    value: '32',
+    unit: ['уровень', 'level'],
+    label: ['Стресс', 'Stress'],
+    color: 'var(--orange)',
+  },
+];
 
 export default function Home() {
   const {
     state,
     t,
-    drinkWater,
-    startWorkout,
+    getMonthName,
     go,
+    toggleTheme,
+    drinkWater,
+    openMetric,
+    changeCalendar,
+    openCalendarPage,
+    openStory,
+    showAllStories,
+    closeStory,
+    nextStory,
+    prevStory,
     loadBiometrics,
     loadTrainingPlans,
     loadAchievements,
     loadProgress,
   } = useApp();
-  const navigate = useNavigate();
+  const storyStrip = useRef(null);
 
   useEffect(() => {
     loadBiometrics();
@@ -24,110 +71,368 @@ export default function Home() {
     loadProgress();
   }, [loadBiometrics, loadTrainingPlans, loadAchievements, loadProgress]);
 
-  const biometrics = state.biometrics || [];
-  const latestHR = biometrics.find((b) => b.metric_type === 'heart_rate');
-  const latestSpO2 = biometrics.find((b) => b.metric_type === 'spo2');
-  const latestTemp = biometrics.find((b) => b.metric_type === 'temperature');
-  const bmi =
-    state.height > 0 && state.weight > 0
-      ? +(state.weight / (state.height / 100) ** 2).toFixed(1)
-      : null;
+  const profileName = state.profile?.name || 'Михаил';
+  const stories = state.stories || [];
+  const storySeen = state.storySeen || [];
+  const now = new Date();
+  const monthIndex = state.calendarMonthIndex ?? now.getMonth();
+  const year = state.calendarYear ?? now.getFullYear();
+  const firstDay = new Date(year, monthIndex, 1);
+  const startOffset = (firstDay.getDay() + 6) % 7;
+  const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
+  const calendarEvents = state.calendarEvents || {};
+  const today = now.getDate();
+  const waterIntake = state.waterIntake || 0;
+  const waterGoal = state.waterGoal || 8;
+  const waterProgress = Math.min(100, (waterIntake / waterGoal) * 100);
 
-  const bmiText = bmi ? `ИМТ ${bmi}` : 'ИМТ —';
-  const weightSubtitle = state.weight ? `${state.weight} кг · ${bmiText}` : '—';
+  const scrollStories = (direction) => {
+    storyStrip.current?.scrollBy({
+      left: direction * 180,
+      behavior: 'smooth',
+    });
+  };
+
+  const openMonth = () => {
+    openCalendarPage(true);
+    go('calendar');
+  };
+
+  const selectedStoryIndex = stories.indexOf(state.selectedStory);
 
   return (
     <section className='home'>
-      <Panel
-        title={t('Прогресс', 'Progress')}
-        subtitle={weightSubtitle}
-        right={
-          <button type='button' className='link' onClick={() => go('body')}>
-            {t('Профиль тела', 'Body profile')}
+      <header className='topbar'>
+        <div>
+          <div className='eyebrow'>FITPULSE · {t('СЕГОДНЯ', 'TODAY')}</div>
+          <h1>
+            {t('Привет', 'Hello')}, {profileName}
+          </h1>
+        </div>
+        <div className='row' style={{ gap: 7 }}>
+          <button
+            type='button'
+            className='icon'
+            aria-label={t('Сменить тему', 'Toggle theme')}
+            onClick={toggleTheme}
+          >
+            <i
+              className={`fas ${state.theme === 'dark' ? 'fa-sun' : 'fa-moon'}`}
+            />
           </button>
-        }
-      >
-        <div className='panel-body'>
-          <div className='metric'>
-            <div className='metric-val'>
-              {state.waterCount || 0}
-              <span className='muted'> / {state.waterGoal || 2000}</span>
-            </div>
-            <div className='metric-label'>{t('Вода, мл', 'Water, ml')}</div>
-            <button type='button' className='primary full' onClick={drinkWater}>
-              +250 {t('мл', 'ml')}
+          <button
+            type='button'
+            className='photo'
+            aria-label={t('Профиль', 'Profile')}
+            onClick={() => go('profile')}
+          >
+            {state.profileImage ? (
+              <img src={state.profileImage} alt='' />
+            ) : (
+              profileName[0]
+            )}
+          </button>
+        </div>
+      </header>
+
+      {!state.surveyCompleted && (
+        <div className='guest-banner'>
+          <strong>
+            {t(
+              'Персонализация не завершена',
+              'Personalization is not complete'
+            )}
+          </strong>
+          <span className='muted'>
+            {t(
+              'FitPulse пока использует базовые рекомендации. Завершите опрос, чтобы учитывать ваши цели, ограничения и предпочтения.',
+              'FitPulse is using basic recommendations. Complete the survey to account for your goals, restrictions and preferences.'
+            )}
+          </span>
+          <button
+            type='button'
+            className='secondary full'
+            style={{ marginTop: 8 }}
+            onClick={() => go('survey')}
+          >
+            {t('Продолжить опрос', 'Continue survey')}
+          </button>
+        </div>
+      )}
+
+      <section className='hero'>
+        <div className='eyebrow'>FITPULSE DAILY RHYTHM</div>
+        <h2>{t('Готов к движению', 'Ready to move')}</h2>
+        <p>
+          {t(
+            'Сегодня тело готово к силовой нагрузке и полноценному восстановлению.',
+            'Today your body is ready for strength training and full recovery.'
+          )}
+        </p>
+        <button
+          type='button'
+          className='primary'
+          onClick={() => go('training')}
+        >
+          {t('Начать тренировку', 'Start workout')}{' '}
+          <i className='fas fa-arrow-right' />
+        </button>
+        <div className='readiness'>
+          <span>87</span>
+        </div>
+      </section>
+
+      <div className='between section'>
+        <h3>{t('Истории', 'Stories')}</h3>
+        <button type='button' className='link' onClick={showAllStories}>
+          {t('Все истории', 'All stories')}
+        </button>
+      </div>
+      <div className='fp-story-carousel'>
+        <button
+          type='button'
+          className='fp-story-arrow left'
+          aria-label={t('Предыдущие истории', 'Previous stories')}
+          onClick={() => scrollStories(-1)}
+        >
+          <i className='fas fa-chevron-left' />
+        </button>
+        <div className='fp-story-strip' ref={storyStrip}>
+          {stories.map((story, index) => (
+            <button
+              type='button'
+              key={story.id || story.title}
+              className={`fp-story-card ${storySeen[index] ? 'seen' : ''}`}
+              style={{ backgroundImage: `url('${story.image}')` }}
+              onClick={() => openStory(index)}
+            >
+              <span className='fp-story-seen-dot' aria-hidden='true' />
+              <strong>{story.title}</strong>
+              <small>{story.description}</small>
+            </button>
+          ))}
+        </div>
+        <button
+          type='button'
+          className='fp-story-arrow right'
+          aria-label={t('Следующие истории', 'Next stories')}
+          onClick={() => scrollStories(1)}
+        >
+          <i className='fas fa-chevron-right' />
+        </button>
+      </div>
+
+      <div className='between section'>
+        <h3>{t('Биоритм сегодня', 'Biorhythm today')}</h3>
+        <button type='button' className='link' onClick={() => go('body')}>
+          {t('Открыть всё', 'View all')}
+        </button>
+      </div>
+      <section className='metrics'>
+        {METRICS.map((metric) => (
+          <button
+            type='button'
+            key={metric.key}
+            className='card metric'
+            style={{ '--metric-color': metric.color }}
+            onClick={() => openMetric(metric.key)}
+          >
+            <i className={`fas ${metric.icon}`} />
+            <strong>{metric.value}</strong>
+            <small>
+              {Array.isArray(metric.unit) ? t(...metric.unit) : metric.unit}
+            </small>
+            <p>{t(...metric.label)}</p>
+          </button>
+        ))}
+      </section>
+
+      <div className='between section'>
+        <h3>{t('Календарь', 'Calendar')}</h3>
+        <button type='button' className='link' onClick={openMonth}>
+          {t('Все дни', 'All days')}
+        </button>
+      </div>
+      <section className='card'>
+        <div className='between'>
+          <span className='eyebrow'>
+            {getMonthName(monthIndex)} {year}
+          </span>
+          <div className='row' style={{ gap: 6 }}>
+            <button
+              type='button'
+              className='secondary'
+              aria-label={t('Предыдущий месяц', 'Previous month')}
+              onClick={() => changeCalendar(-1)}
+            >
+              <i className='fas fa-chevron-left' />
+            </button>
+            <button
+              type='button'
+              className='secondary'
+              aria-label={t('Следующий месяц', 'Next month')}
+              onClick={() => changeCalendar(1)}
+            >
+              <i className='fas fa-chevron-right' />
             </button>
           </div>
-          {latestHR && (
-            <div className='metric'>
-              <div className='metric-val'>{latestHR.value}</div>
-              <div className='metric-label'>{t('Пульс', 'Heart rate')}</div>
-            </div>
-          )}
-          {latestSpO2 && (
-            <div className='metric'>
-              <div className='metric-val'>{latestSpO2.value}%</div>
-              <div className='metric-label'>{t('SpO2', 'SpO2')}</div>
-            </div>
-          )}
-          {latestTemp && (
-            <div className='metric'>
-              <div className='metric-val'>{latestTemp.value}°</div>
-              <div className='metric-label'>
-                {t('Температура', 'Temperature')}
-              </div>
-            </div>
-          )}
         </div>
-      </Panel>
-      <Panel title={t('Тренировки', 'Workouts')}>
-        <div className='panel-body'>
-          <button type='button' className='primary full' onClick={startWorkout}>
-            {t('Начать тренировку', 'Start workout')}
-          </button>
-          <button
-            type='button'
-            className='secondary full'
-            onClick={() => go('training')}
-          >
-            {t('Планы тренировок', 'Training plans')}
-          </button>
+        <div className='week' style={{ marginTop: 10 }}>
+          {(WEEKDAYS[state.language] || WEEKDAYS.ru).map((weekday) => (
+            <div className='day' key={weekday}>
+              {weekday}
+            </div>
+          ))}
         </div>
-      </Panel>
-      <Panel
-        title={t('Рекомендации', 'Recommendations')}
-        subtitle={t('На основе ваших данных', 'Based on your data')}
-      >
-        <div className='panel-body'>
-          <button
-            type='button'
-            className='secondary full'
-            onClick={() => go('videos')}
-          >
-            {t('Видео-тренировки', 'Video workouts')}
-          </button>
-          <button
-            type='button'
-            className='secondary full'
-            onClick={() => go('ai')}
-          >
-            {t('AI-советник', 'AI Advisor')}
-          </button>
+        <div className='month home-month'>
+          {Array.from({ length: startOffset }, (_, index) => (
+            <span className='muted' key={`empty-${index}`} />
+          ))}
+          {Array.from({ length: daysInMonth }, (_, index) => {
+            const day = index + 1;
+            const dateKey = `${year}-${String(monthIndex + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+            const hasEvent = (calendarEvents[dateKey] || []).length > 0;
+            const isToday =
+              day === today &&
+              monthIndex === now.getMonth() &&
+              year === now.getFullYear();
+            return (
+              <button
+                type='button'
+                key={day}
+                className={`${hasEvent ? 'has-event' : ''} ${isToday ? 'active' : ''}`}
+                aria-label={`${t('Открыть день', 'Open day')} ${day}`}
+                onClick={openMonth}
+              >
+                {day}
+              </button>
+            );
+          })}
         </div>
-      </Panel>
-      <Panel
-        title={t('Цели', 'Goals')}
-        subtitle={t('Персональные рекомендации', 'Personal recommendations')}
-        right={
+      </section>
+
+      <div className='between section'>
+        <h3>{t('Активность сегодня', "Today's activity")}</h3>
+        <button type='button' className='link' onClick={openMonth}>
+          {t('Подробнее', 'Details')}
+        </button>
+      </div>
+      <section className='card'>
+        <div className='activity-chart'>
+          <strong>68%</strong>
+        </div>
+        <div className='legend'>
+          <span>
+            <i className='fas fa-circle' style={{ color: 'var(--green)' }} />8
+            421 {t('шаг', 'steps')}
+          </span>
+          <span>
+            <i className='fas fa-circle' style={{ color: 'var(--blue)' }} />1
+            680 {t('ккал', 'kcal')}
+          </span>
+          <span>
+            <i className='fas fa-circle' style={{ color: 'var(--orange)' }} />
+            42 {t('мин тренировки', 'min workout')}
+          </span>
+          <span>
+            <i className='fas fa-circle' style={{ color: 'var(--purple)' }} />
+            7.2 {t('ч сна', 'h sleep')}
+          </span>
+        </div>
+      </section>
+
+      <div className='water-tracker'>
+        <div className='water-icon'>
+          <i className='fas fa-droplet' />
+        </div>
+        <div className='water-info'>
+          <strong>{t('Вода', 'Water')}</strong>
+          <small>
+            {waterIntake} / {waterGoal} {t('стаканов', 'glasses')}
+          </small>
+        </div>
+        <div className='water-progress'>
+          <div style={{ width: `${waterProgress}%` }} />
+        </div>
+        <button
+          type='button'
+          className='water-btn'
+          aria-label={t('Добавить стакан воды', 'Add a glass of water')}
+          onClick={drinkWater}
+        >
+          <i className='fas fa-plus' />
+        </button>
+      </div>
+
+      <div className='section'>
+        <h3>{t('Лайфхак', 'Life hack')}</h3>
+      </div>
+      <div className='fp-hack'>
+        <strong>
+          {t('Восстановление после тренировки', 'Post-workout recovery')}
+        </strong>
+        <p>
+          {t(
+            'Пейте воду и оставляйте время на восстановление между интенсивными тренировками.',
+            'Hydrate and allow time to recover between intense workouts.'
+          )}
+        </p>
+      </div>
+
+      {state.selectedStory && (
+        <div className='fp-story-viewer'>
           <button
             type='button'
-            className='link'
-            onClick={() => navigate('/consent')}
+            aria-hidden='true'
+            tabIndex={-1}
+            className='fp-modal-backdrop'
+            onClick={closeStory}
+          />
+          <dialog
+            open
+            className='fp-story-view fp-dialog'
+            aria-label={state.selectedStory.title}
+            style={{ backgroundImage: `url('${state.selectedStory.image}')` }}
           >
-            {t('Политика', 'Policy')}
-          </button>
-        }
-      />
+            <div className='fp-story-progress'>
+              {stories.map((story, index) => (
+                <i
+                  key={story.id || story.title}
+                  className={index <= selectedStoryIndex ? 'active' : ''}
+                />
+              ))}
+            </div>
+            <button
+              type='button'
+              className='fp-story-close'
+              aria-label={t('Закрыть историю', 'Close story')}
+              onClick={closeStory}
+            >
+              ×
+            </button>
+            <button
+              type='button'
+              className='fp-story-view-arrow left'
+              aria-label={t('Предыдущая история', 'Previous story')}
+              onClick={prevStory}
+            >
+              <i className='fas fa-chevron-left' />
+            </button>
+            <button
+              type='button'
+              className='fp-story-view-arrow right'
+              aria-label={t('Следующая история', 'Next story')}
+              onClick={nextStory}
+            >
+              <i className='fas fa-chevron-right' />
+            </button>
+            <div className='fp-story-info'>
+              <h2>{state.selectedStory.title}</h2>
+              <p>{state.selectedStory.description}</p>
+            </div>
+          </dialog>
+        </div>
+      )}
     </section>
   );
 }

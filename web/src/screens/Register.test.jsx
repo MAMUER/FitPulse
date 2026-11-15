@@ -16,15 +16,22 @@ describe('Register', () => {
     const doRegister = vi.fn();
     const socialLogin = vi.fn();
     const go = vi.fn();
-    useApp.mockReturnValue({ t: (ru, _en) => ru, doRegister, socialLogin, go });
+    const openLegal = vi.fn();
+    useApp.mockReturnValue({
+      t: (ru, _en) => ru,
+      doRegister,
+      socialLogin,
+      go,
+      openLegal,
+    });
 
     render(<Register />);
     fireEvent.click(screen.getByText('Соглашение'));
-    expect(go).toHaveBeenCalledWith('legal', 'terms');
+    expect(openLegal).toHaveBeenCalledWith('terms');
     fireEvent.click(screen.getByText('Персональные данные'));
-    expect(go).toHaveBeenCalledWith('legal', 'consent');
+    expect(openLegal).toHaveBeenCalledWith('consent');
     fireEvent.click(screen.getByText('Политика'));
-    expect(go).toHaveBeenCalledWith('legal', 'privacy');
+    expect(openLegal).toHaveBeenCalledWith('privacy');
     fireEvent.click(screen.getByText('Зарегистрироваться'));
     expect(doRegister).toHaveBeenCalled();
     fireEvent.click(screen.getByText('Войти'));

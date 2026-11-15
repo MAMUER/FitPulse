@@ -35,6 +35,7 @@ describe('useUI', () => {
       'closeAchievement',
       'closeMeal',
       'closeMetric',
+      'openMetric',
       'showNotification',
       'toggleHighContrast',
       'toggleLanguage',
@@ -122,6 +123,12 @@ describe('useUI', () => {
     setup();
     result.current.closeMetric();
     expect(update).toHaveBeenCalledWith({ selectedMetric: null });
+  });
+
+  it('openMetric selects the metric details to display', () => {
+    setup();
+    result.current.openMetric('pulse');
+    expect(update).toHaveBeenCalledWith({ selectedMetric: 'pulse' });
   });
 
   it('closeMeal clears meal', () => {

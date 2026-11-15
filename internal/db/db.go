@@ -68,6 +68,12 @@ func LoadConfig() Config {
 
 var poolMetricOnce sync.Once
 
+const (
+	databasePingAttempts = 10
+	databasePingInterval = time.Second
+	databasePingTimeout  = 15 * time.Second
+)
+
 // NewConnection opens a new PostgreSQL connection using database/sql and reports pool usage metrics.
 func NewConnection(cfg Config) (*sql.DB, error) {
 	if err := cfg.Validate(); err != nil {
@@ -85,7 +91,10 @@ func NewConnection(cfg Config) (*sql.DB, error) {
 	db.SetMaxIdleConns(10)
 	db.SetConnMaxLifetime(5 * time.Minute)
 
-	if err := db.PingContext(context.Background()); err != nil {
+	pingCtx, cancel := context.WithTimeout(context.Background(), databasePingTimeout)
+	defer cancel()
+	if err := pingWithRetry(pingCtx, db.PingContext, databasePingAttempts, databasePingInterval); err != nil {
+		_ = db.Close()
 		return nil, fmt.Errorf("failed to ping database: %w", err)
 	}
 
@@ -105,6 +114,31 @@ func NewConnection(cfg Config) (*sql.DB, error) {
 	})
 
 	return db, nil
+}
+
+func pingWithRetry(ctx context.Context, ping func(context.Context) error, attempts int, interval time.Duration) error {
+	var lastErr error
+	for attempt := 1; attempt <= attempts; attempt++ {
+		if err := ping(ctx); err == nil {
+			return nil
+		} else {
+			lastErr = err
+		}
+
+		if attempt == attempts {
+			break
+		}
+
+		timer := time.NewTimer(interval)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return fmt.Errorf("database ping interrupted after %d attempts: %w", attempt, errors.Join(ctx.Err(), lastErr))
+		case <-timer.C:
+		}
+	}
+
+	return fmt.Errorf("database ping failed after %d attempts: %w", attempts, lastErr)
 }
 
 // PgxConfig returns a pgx connection config from the standard Config.

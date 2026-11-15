@@ -1,4 +1,5 @@
 import { useCallback } from 'react';
+import * as api from '../services/api';
 import { getDateKey } from '../utils/helpers';
 import { t } from '../utils/i18n';
 
@@ -9,6 +10,48 @@ export function useNutrition({
   getMonthName: getMonthNameFn,
   language,
 }) {
+  const loadMeals = useCallback(async () => {
+    if (state.guest) {
+      update({ mealsList: [] });
+      return;
+    }
+
+    try {
+      const meals = await api.loadMeals();
+      if (Array.isArray(meals)) update({ mealsList: meals });
+    } catch {
+      notify('Ошибка загрузки блюд');
+    }
+  }, [state.guest, update, notify]);
+
+  const createMeal = useCallback(
+    async (name, calories, time) => {
+      try {
+        await api.createMeal(name, calories, time);
+        await loadMeals();
+        return true;
+      } catch {
+        notify('Ошибка добавления блюда');
+        return false;
+      }
+    },
+    [loadMeals, notify]
+  );
+
+  const removeMeal = useCallback(
+    async (mealId) => {
+      try {
+        await api.removeMeal(mealId);
+        await loadMeals();
+        return true;
+      } catch {
+        notify('Ошибка удаления блюда');
+        return false;
+      }
+    },
+    [loadMeals, notify]
+  );
+
   const setNutritionPeriod = useCallback(
     (period) => {
       update({ nutritionPeriod: period });
@@ -94,6 +137,9 @@ export function useNutrition({
   ]);
 
   return {
+    loadMeals,
+    createMeal,
+    removeMeal,
     setNutritionPeriod,
     setTrainingPeriod,
     openMeal,

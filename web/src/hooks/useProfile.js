@@ -61,8 +61,9 @@ export function useProfile({ state, update, notify }) {
           'Are you sure you want to delete your account? This action is irreversible.'
         )
       )
-    )
-      return;
+    ) {
+      return false;
+    }
     api.deleteAccount().catch(() => {});
     notify(
       t(
@@ -71,6 +72,7 @@ export function useProfile({ state, update, notify }) {
       )
     );
     update({ registered: false, guest: false, screen: 'login' });
+    return true;
   }, [update, notify]);
 
   const searchFriends = useCallback(() => {

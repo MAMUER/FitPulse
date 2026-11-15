@@ -1,7 +1,14 @@
-﻿import { renderHook } from '@testing-library/react';
+import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import * as api from '../services/api';
 import { getDateKey } from '../utils/helpers';
 import { useNutrition } from './useNutrition';
+
+vi.mock('../services/api', () => ({
+  loadMeals: vi.fn(),
+  createMeal: vi.fn(),
+  removeMeal: vi.fn(),
+}));
 
 function makeState(overrides = {}) {
   return {
@@ -46,6 +53,7 @@ function setValue(id, value) {
 }
 
 beforeEach(() => {
+  vi.clearAllMocks();
   globalThis.getDateKey = (year, monthIndex, day) =>
     getDateKey(year, monthIndex, day);
   for (const id of ['customName', 'customKcal', 'customMacros', 'customSlot']) {
@@ -63,12 +71,48 @@ describe('useNutrition', () => {
   it('returns all nutrition callbacks', () => {
     setup();
     expect(Object.keys(result.current).sort()).toEqual([
+      'createMeal',
+      'loadMeals',
       'openMeal',
+      'removeMeal',
       'saveCustomMeal',
       'selectMeal',
       'setNutritionPeriod',
       'setTrainingPeriod',
     ]);
+  });
+
+  it('loads meals into app state', async () => {
+    setup();
+    const meals = [{ id: 1, name: 'Овсянка' }];
+    api.loadMeals.mockResolvedValue(meals);
+
+    await act(async () => result.current.loadMeals());
+
+    expect(update).toHaveBeenCalledWith({ mealsList: meals });
+  });
+
+  it('does not request meals for guests', async () => {
+    setup({ guest: true });
+
+    await act(async () => result.current.loadMeals());
+
+    expect(api.loadMeals).not.toHaveBeenCalled();
+    expect(update).toHaveBeenCalledWith({ mealsList: [] });
+  });
+
+  it('creates and removes meals, refreshing the list', async () => {
+    setup();
+    api.createMeal.mockResolvedValue({ id: 1 });
+    api.removeMeal.mockResolvedValue({ removed: true });
+    api.loadMeals.mockResolvedValue([]);
+
+    await act(async () => result.current.createMeal('Овсянка', 360, '08:00'));
+    await act(async () => result.current.removeMeal(1));
+
+    expect(api.createMeal).toHaveBeenCalledWith('Овсянка', 360, '08:00');
+    expect(api.removeMeal).toHaveBeenCalledWith(1);
+    expect(api.loadMeals).toHaveBeenCalledTimes(2);
   });
 
   it('setNutritionPeriod updates period', () => {

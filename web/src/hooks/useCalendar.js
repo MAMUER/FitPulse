@@ -10,6 +10,17 @@ export function useCalendar({
   getMonthName: getMonthNameFn,
   language,
 }) {
+  const loadCalendarEvents = useCallback(async () => {
+    if (state.guest) return;
+
+    try {
+      const events = await api.loadCalendarEvents();
+      if (Array.isArray(events)) update({ calendarEventsList: events });
+    } catch {
+      notify('Ошибка загрузки событий');
+    }
+  }, [state.guest, update, notify]);
+
   const changeCalendar = useCallback(
     (direction) => {
       let m = state.calendarMonthIndex + Number(direction || 0);
@@ -247,6 +258,7 @@ export function useCalendar({
   );
 
   return {
+    loadCalendarEvents,
     changeCalendar,
     quickAddEvent,
     openCalendarPage,

@@ -1,5 +1,6 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AppProvider, useApp } from '../contexts/AppContext';
 import Training from './Training';
@@ -40,9 +41,11 @@ const baseContext = (overrides = {}) => ({
 function renderTraining(context) {
   useApp.mockReturnValue(context);
   return render(
-    <AppProvider>
-      <Training />
-    </AppProvider>
+    <MemoryRouter>
+      <AppProvider>
+        <Training />
+      </AppProvider>
+    </MemoryRouter>
   );
 }
 

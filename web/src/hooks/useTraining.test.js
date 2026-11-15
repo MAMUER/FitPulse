@@ -6,6 +6,7 @@ import { useTraining } from './useTraining';
 vi.mock('../services/api', () => ({
   completeWorkout: vi.fn(),
   loadTrainingPlans: vi.fn(),
+  loadAchievements: vi.fn(),
   generatePlan: vi.fn(),
   getPlanDetails: vi.fn(),
   loadProgress: vi.fn(),
@@ -51,6 +52,7 @@ describe('useTraining', () => {
       'completeWorkout',
       'generatePlan',
       'getPlanDetails',
+      'loadAchievements',
       'loadProgress',
       'loadTrainingPlans',
       'setTrainingPeriod',
@@ -201,6 +203,26 @@ describe('useTraining', () => {
       await result.current.loadTrainingPlans();
     });
     expect(update).toHaveBeenCalledWith({ trainingPlans: [{ id: 1 }] });
+  });
+
+  it('loadAchievements stores achievement records', async () => {
+    setup();
+    const achievements = [{ id: 1, name: 'First workout' }];
+    api.loadAchievements.mockResolvedValue(achievements);
+
+    await act(async () => result.current.loadAchievements());
+
+    expect(update).toHaveBeenCalledWith({
+      achievementsBackend: achievements,
+    });
+  });
+
+  it('skips loading achievements for guests', async () => {
+    setup({ guest: true });
+
+    await act(async () => result.current.loadAchievements());
+
+    expect(api.loadAchievements).not.toHaveBeenCalled();
   });
 
   it('loadTrainingPlans ignores invalid payload', async () => {

@@ -2,7 +2,7 @@ import AuthLayout from '../components/AuthLayout';
 import { useApp } from '../contexts/AppContext';
 
 export default function Register() {
-  const { t, doRegister, socialLogin, go } = useApp();
+  const { t, doRegister, socialLogin, go, openLegal } = useApp();
 
   return (
     <AuthLayout>
@@ -30,7 +30,7 @@ export default function Register() {
           <button
             type='button'
             className='legal-link'
-            onClick={() => go('legal', 'terms')}
+            onClick={() => openLegal('terms')}
           >
             {t('Соглашение', 'Terms')}
           </button>{' '}
@@ -38,7 +38,7 @@ export default function Register() {
           <button
             type='button'
             className='legal-link'
-            onClick={() => go('legal', 'consent')}
+            onClick={() => openLegal('consent')}
           >
             {t('Персональные данные', 'Personal Data')}
           </button>{' '}
@@ -46,7 +46,7 @@ export default function Register() {
           <button
             type='button'
             className='legal-link'
-            onClick={() => go('legal', 'privacy')}
+            onClick={() => openLegal('privacy')}
           >
             {t('Политика', 'Privacy')}
           </button>

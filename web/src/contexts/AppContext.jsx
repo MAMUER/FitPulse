@@ -50,6 +50,7 @@ export function AppProvider({ children }) {
   const save = useCallback(() => {
     try {
       saveState({
+        screen: state.screen,
         theme: state.theme,
         highContrast: state.highContrast,
         language: state.language,

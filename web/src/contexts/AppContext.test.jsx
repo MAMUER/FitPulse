@@ -4,7 +4,7 @@ import { AppProvider, useApp } from '../contexts/AppContext';
 import { useHealth } from '../hooks/useHealth';
 import { useProfile } from '../hooks/useProfile';
 import { useTraining } from '../hooks/useTraining';
-import { loadState } from '../services/storage';
+import { loadState, saveState } from '../services/storage';
 
 vi.mock('../services/storage', () => ({
   loadState: vi.fn(() => null),
@@ -80,6 +80,13 @@ describe('AppContext', () => {
   it('supports functional state updates via update()', () => {
     renderWithProvider();
     expect(screen.getByTestId('theme').textContent).toBe('light');
+  });
+
+  it('persists the current screen for route reloads', () => {
+    renderWithProvider();
+    expect(saveState).toHaveBeenLastCalledWith(
+      expect.objectContaining({ screen: 'login' })
+    );
   });
 
   it('notify shows toast then clears it after duration', () => {

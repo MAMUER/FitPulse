@@ -2,8 +2,15 @@ import AuthLayout from '../components/AuthLayout';
 import { useApp } from '../contexts/AppContext';
 
 export default function Login() {
-  const { t, doLogin, continueAsGuest, socialLogin, forgotPassword, go } =
-    useApp();
+  const {
+    t,
+    doLogin,
+    continueAsGuest,
+    socialLogin,
+    forgotPassword,
+    go,
+    openLegal,
+  } = useApp();
 
   return (
     <AuthLayout>
@@ -41,7 +48,7 @@ export default function Login() {
         <button
           type='button'
           className='legal-link'
-          onClick={() => go('legal', 'terms')}
+          onClick={() => openLegal('terms')}
         >
           {t('Пользовательское соглашение', 'Terms of Use')}
         </button>
@@ -49,7 +56,7 @@ export default function Login() {
         <button
           type='button'
           className='legal-link'
-          onClick={() => go('legal', 'consent')}
+          onClick={() => openLegal('consent')}
         >
           {t(
             'соглашение об использовании персональных данных',
@@ -60,7 +67,7 @@ export default function Login() {
         <button
           type='button'
           className='legal-link'
-          onClick={() => go('legal', 'privacy')}
+          onClick={() => openLegal('privacy')}
         >
           {t('Политику конфиденциальности', 'Privacy Policy')}
         </button>{' '}

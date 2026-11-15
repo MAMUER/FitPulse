@@ -1,5 +1,5 @@
-import { Navigate, Route, Routes } from 'react-router-dom';
-import CookieConsent from './components/CookieConsent';
+import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
+import Modal from './components/Modal';
 import { useApp } from './contexts/AppContext';
 import Ai from './screens/AI';
 import Body from './screens/Body';
@@ -16,6 +16,7 @@ import Nutrition from './screens/Nutrition';
 import Profile from './screens/Profile';
 import Register from './screens/Register';
 import Reset from './screens/Reset';
+import Survey from './screens/Survey';
 import Training from './screens/Training';
 import TwoFASetup from './screens/TwoFASetup';
 import TwoFAVerify from './screens/TwoFAVerify';
@@ -40,27 +41,17 @@ function TabBar() {
       label: t('Тренировки', 'Training'),
       icon: 'fas fa-dumbbell',
     },
-    {
-      key: 'integrations',
-      label: t('Интеграции', 'Integrations'),
-      icon: 'fas fa-microchip',
-    },
     { key: 'ai', label: 'AI', icon: 'fas fa-robot' },
     { key: 'chat', label: t('Чат', 'Chat'), icon: 'fas fa-comment' },
-    {
-      key: 'menstrual',
-      label: t('Цикл', 'Cycle'),
-      icon: 'fas fa-venus',
-    },
   ];
 
   return (
-    <nav className='tab-bar'>
+    <nav className='bottom-nav'>
       {tabs.map((tab) => (
         <button
           type='button'
           key={tab.key}
-          className={`tab${state.screen === tab.key ? ' active' : ''}`}
+          className={`nav${state.screen === tab.key ? ' active' : ''}`}
           onClick={() => go(tab.key)}
         >
           <i className={tab.icon}></i>
@@ -72,25 +63,41 @@ function TabBar() {
 }
 
 export default function App() {
-  const { state } = useApp();
-  const authScreens = ['login', 'register', 'reset'];
-
-  if (authScreens.includes(state.screen)) {
-    return (
-      <Routes>
-        <Route path='/login' element={<Login />} />
-        <Route path='/register' element={<Register />} />
-        <Route path='/reset' element={<Reset />} />
-        <Route path='/' element={<Navigate to='/login' replace />} />
-        <Route path='*' element={<Navigate to='/login' replace />} />
-      </Routes>
-    );
-  }
+  const { state, t, closeMetric, closeAchievement } = useApp();
+  const { pathname } = useLocation();
+  const authScreens = new Set(['login', 'register', 'reset']);
+  const chromeScreens = new Set([
+    '/home',
+    '/nutrition',
+    '/calendar',
+    '/training',
+    '/integrations',
+    '/videos',
+    '/ai',
+    '/body',
+    '/menstrual',
+    '/profile',
+    '/chat',
+  ]);
+  const showAppChrome = chromeScreens.has(pathname);
 
   return (
     <>
       <Routes>
-        <Route path='/' element={<Landing />} />
+        <Route
+          path='/'
+          element={
+            authScreens.has(state.screen) ? (
+              <Navigate to='/login' replace />
+            ) : (
+              <Landing />
+            )
+          }
+        />
+        <Route path='/login' element={<Login />} />
+        <Route path='/register' element={<Register />} />
+        <Route path='/reset' element={<Reset />} />
+        <Route path='/survey' element={<Survey />} />
         <Route path='/home' element={<Home />} />
         <Route path='/nutrition' element={<Nutrition />} />
         <Route path='/calendar' element={<Calendar />} />
@@ -109,10 +116,63 @@ export default function App() {
         <Route path='/twofa-setup' element={<TwoFASetup />} />
         <Route path='/twofa-verify' element={<TwoFAVerify />} />
         <Route path='/confirm' element={<Confirm />} />
-        <Route path='*' element={<Navigate to='/' replace />} />
+        <Route
+          path='*'
+          element={
+            <Navigate
+              to={authScreens.has(state.screen) ? '/login' : '/'}
+              replace
+            />
+          }
+        />
       </Routes>
-      <CookieConsent />
-      <TabBar />
+      {showAppChrome && <TabBar />}
+      {state.selectedMetric && state.metricInfo?.[state.selectedMetric] && (
+        <Modal
+          className='fp-profile-modal'
+          label={t('Показатели', 'Metrics')}
+          onClose={closeMetric}
+        >
+          <section className='fp-profile-box'>
+            <div className='between'>
+              <h2>{state.metricInfo[state.selectedMetric][0]}</h2>
+              <button
+                type='button'
+                className='icon'
+                aria-label={t('Закрыть', 'Close')}
+                onClick={closeMetric}
+              >
+                ×
+              </button>
+            </div>
+            <strong>{state.metricInfo[state.selectedMetric][1]}</strong>
+            <p className='muted'>{state.metricInfo[state.selectedMetric][2]}</p>
+            <span>{state.metricInfo[state.selectedMetric][3]}</span>
+          </section>
+        </Modal>
+      )}
+      {state.selectedAchievement && (
+        <Modal
+          className='fp-profile-modal'
+          label={t('Достижение', 'Achievement')}
+          onClose={closeAchievement}
+        >
+          <section className='fp-profile-box'>
+            <div className='between'>
+              <h2>{state.selectedAchievement.name}</h2>
+              <button
+                type='button'
+                className='icon'
+                aria-label={t('Закрыть', 'Close')}
+                onClick={closeAchievement}
+              >
+                ×
+              </button>
+            </div>
+            <p className='muted'>{state.selectedAchievement.desc}</p>
+          </section>
+        </Modal>
+      )}
     </>
   );
 }

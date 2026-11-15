@@ -1,6 +1,7 @@
-import { render, screen } from '@testing-library/react';
-import { BrowserRouter, useNavigate } from 'react-router-dom';
-import { describe, expect, it, vi } from 'vitest';
+import { fireEvent, render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { BrowserRouter } from 'react-router-dom';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AppProvider, useApp } from '../contexts/AppContext';
 import Home from './Home';
 
@@ -12,13 +13,12 @@ vi.mock('../contexts/AppContext', async () => {
   };
 });
 
-vi.mock('react-router-dom', async () => {
-  const actual = await vi.importActual('react-router-dom');
-  return {
-    ...actual,
-    useNavigate: vi.fn(() => vi.fn()),
-  };
-});
+const story = {
+  id: 1,
+  title: 'Восстановление',
+  description: 'План на сегодня',
+  image: '/story.jpg',
+};
 
 const defaultContext = {
   state: {
@@ -26,32 +26,43 @@ const defaultContext = {
     theme: 'dark',
     highContrast: false,
     language: 'ru',
-    weight: 74.2,
-    height: 175,
+    profile: { name: 'Михаил' },
+    profileImage: null,
     waterIntake: 2,
     waterGoal: 8,
-    profile: { name: 'Михаил', email: 'mih@example.com' },
-    biometrics: [],
-    trainingPlans: [],
-    achievementsBackend: [],
-    registered: true,
-    profileLoaded: true,
+    surveyCompleted: true,
+    stories: [story],
+    storySeen: [],
+    selectedStory: null,
+    calendarMonthIndex: new Date().getMonth(),
+    calendarYear: new Date().getFullYear(),
+    calendarEvents: {},
   },
-  t: (ru, _en) => ru,
-  drinkWater: vi.fn(),
-  startWorkout: vi.fn(),
+  t: (ru) => ru,
+  getMonthName: () => 'Ноябрь',
   go: vi.fn(),
-  openLegal: vi.fn(),
+  toggleTheme: vi.fn(),
+  drinkWater: vi.fn(),
+  openMetric: vi.fn(),
+  changeCalendar: vi.fn(),
+  openCalendarPage: vi.fn(),
+  openStory: vi.fn(),
+  showAllStories: vi.fn(),
+  closeStory: vi.fn(),
+  nextStory: vi.fn(),
+  prevStory: vi.fn(),
   loadBiometrics: vi.fn(),
   loadTrainingPlans: vi.fn(),
   loadAchievements: vi.fn(),
   loadProgress: vi.fn(),
 };
 
-function renderHome(overrides) {
-  useApp.mockReturnValue(
-    overrides ? { ...defaultContext, ...overrides } : defaultContext
-  );
+function renderHome(overrides = {}) {
+  useApp.mockReturnValue({
+    ...defaultContext,
+    ...overrides,
+    state: { ...defaultContext.state, ...overrides.state },
+  });
   return render(
     <BrowserRouter>
       <AppProvider>
@@ -62,65 +73,93 @@ function renderHome(overrides) {
 }
 
 describe('Home', () => {
-  it('renders progress and actions', () => {
-    renderHome();
-    expect(screen.getByText('Прогресс')).toBeInTheDocument();
+  beforeEach(() => {
+    vi.clearAllMocks();
   });
 
-  it('calls drinkWater', () => {
+  it('renders the reference home sections and profile entry', () => {
     renderHome();
-    screen.getByText('+250 мл').click();
-    expect(defaultContext.drinkWater).toHaveBeenCalled();
+
+    expect(screen.getByText('Привет, Михаил')).toBeInTheDocument();
+    expect(screen.getByText('Готов к движению')).toBeInTheDocument();
+    expect(screen.getByText('Истории')).toBeInTheDocument();
+    expect(screen.getByText('Биоритм сегодня')).toBeInTheDocument();
+    expect(screen.getByText('Активность сегодня')).toBeInTheDocument();
+    expect(screen.getByText('2 / 8 стаканов')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Профиль' })).toBeInTheDocument();
   });
 
-  it('navigates to body profile', () => {
+  it('routes profile and theme actions from the home header', async () => {
+    const user = userEvent.setup();
     renderHome();
-    screen.getByText('Профиль тела').click();
-    expect(defaultContext.go).toHaveBeenCalledWith('body');
+
+    await user.click(screen.getByRole('button', { name: 'Профиль' }));
+    await user.click(screen.getByRole('button', { name: 'Сменить тему' }));
+
+    expect(defaultContext.go).toHaveBeenCalledWith('profile');
+    expect(defaultContext.toggleTheme).toHaveBeenCalledTimes(1);
   });
 
-  it('renders biometric metrics when present', () => {
-    renderHome({
-      state: {
-        ...defaultContext.state,
-        biometrics: [
-          { metric_type: 'heart_rate', value: 72 },
-          { metric_type: 'spo2', value: 98 },
-          { metric_type: 'temperature', value: 36.6 },
-        ],
-      },
-    });
-    expect(screen.getByText('Пульс')).toBeInTheDocument();
-    expect(screen.getByText('SpO2')).toBeInTheDocument();
-    expect(screen.getByText('Температура')).toBeInTheDocument();
-    expect(screen.getByText('72')).toBeInTheDocument();
-    expect(screen.getByText('98%')).toBeInTheDocument();
-    expect(screen.getByText('36.6°')).toBeInTheDocument();
-  });
-
-  it('navigates to training plans from workouts panel', () => {
+  it('routes the workout action to the training screen', () => {
     renderHome();
-    screen.getByText('Планы тренировок').click();
+
+    fireEvent.click(screen.getByRole('button', { name: /Начать тренировку/ }));
+
     expect(defaultContext.go).toHaveBeenCalledWith('training');
   });
 
-  it('navigates to videos from recommendations panel', () => {
+  it('opens metric details from a biorhythm card', () => {
     renderHome();
-    screen.getByText('Видео-тренировки').click();
-    expect(defaultContext.go).toHaveBeenCalledWith('videos');
+
+    fireEvent.click(screen.getByRole('button', { name: /Пульс/ }));
+
+    expect(defaultContext.openMetric).toHaveBeenCalledWith('pulse');
   });
 
-  it('navigates to AI advisor from recommendations panel', () => {
+  it('adds water using the reference glass counter', () => {
     renderHome();
-    screen.getByText('AI-советник').click();
-    expect(defaultContext.go).toHaveBeenCalledWith('ai');
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Добавить стакан воды' })
+    );
+
+    expect(defaultContext.drinkWater).toHaveBeenCalledTimes(1);
   });
 
-  it('navigates to consent from policy link in goals panel', () => {
+  it('changes the mini calendar month and opens the full calendar', () => {
     renderHome();
-    screen.getByText('Политика').click();
-    const navigate =
-      useNavigate.mock.results[useNavigate.mock.results.length - 1].value;
-    expect(navigate).toHaveBeenCalledWith('/consent');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Следующий месяц' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Все дни' }));
+
+    expect(defaultContext.changeCalendar).toHaveBeenCalledWith(1);
+    expect(defaultContext.openCalendarPage).toHaveBeenCalledWith(true);
+    expect(defaultContext.go).toHaveBeenCalledWith('calendar');
+  });
+
+  it('opens story viewer controls for a selected story', async () => {
+    const user = userEvent.setup();
+    renderHome();
+
+    await user.click(screen.getByRole('button', { name: /Восстановление/ }));
+
+    expect(defaultContext.openStory).toHaveBeenCalledWith(0);
+  });
+
+  it('renders the selected story viewer', () => {
+    renderHome({ state: { selectedStory: story } });
+
+    expect(screen.getByRole('dialog', { name: 'Восстановление' })).toBeVisible();
+    expect(
+      screen.getByRole('button', { name: 'Закрыть историю' })
+    ).toBeInTheDocument();
+  });
+
+  it('offers the survey when personalization is incomplete', () => {
+    renderHome({ state: { surveyCompleted: false } });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Продолжить опрос' }));
+
+    expect(defaultContext.go).toHaveBeenCalledWith('survey');
   });
 });

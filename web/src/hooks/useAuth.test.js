@@ -1,4 +1,6 @@
 import { act, renderHook } from '@testing-library/react';
+import { createElement } from 'react';
+import { MemoryRouter, useLocation } from 'react-router-dom';
 import {
   afterAll,
   afterEach,
@@ -43,6 +45,14 @@ const INPUT_IDS = [
 
 const state = { profile: { name: 'Имя' }, resetEmail: 'user@example.com' };
 
+function Wrapper({ children }) {
+  return createElement(
+    MemoryRouter,
+    { initialEntries: ['/login'] },
+    children
+  );
+}
+
 let update;
 let notify;
 let result;
@@ -85,7 +95,13 @@ beforeEach(() => {
     el.id = id;
     document.body.appendChild(el);
   }
-  result = renderHook(() => useAuth({ state, update, notify })).result;
+  result = renderHook(
+    () => ({
+      ...useAuth({ state, update, notify }),
+      location: useLocation(),
+    }),
+    { wrapper: Wrapper }
+  ).result;
 });
 
 afterEach(() => {
@@ -96,7 +112,7 @@ afterEach(() => {
 
 describe('useAuth', () => {
   it('returns all auth callbacks', () => {
-    expect(Object.keys(result.current)).toEqual([
+    expect(Object.keys(result.current).filter((key) => key !== 'location')).toEqual([
       'doLogin',
       'logout',
       'doRegister',
@@ -141,7 +157,7 @@ describe('useAuth', () => {
       guest: false,
       screen: 'home',
     });
-    expect(window.location.href).toBe('/home');
+    expect(result.current.location.pathname).toBe('/home');
   });
 
   it('doLogin notifies when credentials are rejected', async () => {
@@ -165,7 +181,7 @@ describe('useAuth', () => {
     expect(notify).toHaveBeenCalledWith('Ошибка входа');
   });
 
-  it('logout resets state and navigates to root', async () => {
+  it('logout resets state and navigates to login', async () => {
     await act(async () => {
       await result.current.logout();
     });
@@ -175,7 +191,7 @@ describe('useAuth', () => {
       guest: false,
       screen: 'login',
     });
-    expect(window.location.href).toBe('/');
+    expect(result.current.location.pathname).toBe('/login');
   });
 
   it('doRegister notifies when consent is missing', () => {
@@ -350,13 +366,13 @@ describe('useAuth', () => {
   });
 
   it('continueAsGuest enters guest mode', () => {
-    result.current.continueAsGuest();
+    act(() => result.current.continueAsGuest());
     expect(update).toHaveBeenCalledWith({
       guest: true,
       registered: false,
       screen: 'home',
     });
-    expect(window.location.href).toBe('/home');
+    expect(result.current.location.pathname).toBe('/home');
   });
 
   it('socialLogin redirects for supported provider', () => {

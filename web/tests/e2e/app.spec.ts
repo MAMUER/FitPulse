@@ -1,4 +1,4 @@
-import { test, expect, type Page } from '@playwright/test';
+import { expect, type Page, test } from '@playwright/test';
 
 const CONFIGS = [
   { name: 'RU Light Normal', lang: 'ru', theme: 'light', highContrast: false },
@@ -27,8 +27,6 @@ async function setupConfig(page: Page, config: typeof CONFIGS[number]) {
   await page.reload();
 }
 
-type LangKey = keyof typeof CONFIGS[number]['lang'];
-
 type TranslationKeys = {
   ru: {
     login: string;
@@ -37,6 +35,7 @@ type TranslationKeys = {
     nutrition: string;
     calendar: string;
     training: string;
+    timer: string;
     ai: string;
     profile: string;
     chat: string;
@@ -69,6 +68,7 @@ type TranslationKeys = {
     nutrition: string;
     calendar: string;
     training: string;
+    timer: string;
     ai: string;
     profile: string;
     chat: string;
@@ -107,6 +107,7 @@ function getText(key: TextKey, config: typeof CONFIGS[number]) {
       nutrition: 'Питание',
       calendar: 'Календарь',
       training: 'Тренировки',
+      timer: 'Таймер',
       ai: 'AI',
       profile: 'Профиль',
       chat: 'Чат',
@@ -139,6 +140,7 @@ function getText(key: TextKey, config: typeof CONFIGS[number]) {
       nutrition: 'Nutrition',
       calendar: 'Calendar',
       training: 'Training',
+      timer: 'Timer',
       ai: 'AI',
       profile: 'Profile',
       chat: 'Chat',
@@ -194,24 +196,21 @@ for (const config of CONFIGS) {
 
     test('home navigates to main screens', async ({ page }) => {
       await page.locator(`text=${getText('guest', config)}`).click();
-      await page.locator(`text=${getText('nutrition', config)}`).click();
+      await page.locator('.bottom-nav .nav').filter({ hasText: getText('nutrition', config) }).click();
       await expect(page.locator(`text=${getText('nutrition', config)}`)).toBeVisible();
-      await page.locator(`text=${getText('calendar', config)}`).click();
+      await page.locator('.bottom-nav .nav').filter({ hasText: getText('calendar', config) }).click();
       await expect(page.locator(`text=${getText('calendar', config)}`)).toBeVisible();
-      await page.locator(`text=${getText('training', config)}`).click();
+      await page.locator('.bottom-nav .nav').filter({ hasText: getText('training', config) }).click();
       await expect(page.locator(`text=${getText('training', config)}`)).toBeVisible();
-      await page.locator(`text=${getText('ai', config)}`).click();
+      await page.locator('.bottom-nav .nav').filter({ hasText: getText('ai', config) }).click();
       await expect(page.locator(`text=${getText('ai', config)}`)).toBeVisible();
-      await page.locator(`text=${getText('profile', config)}`).click();
-      await expect(page.locator(`text=${getText('profile', config)}`)).toBeVisible();
-      await page.locator(`text=${getText('chat', config)}`).click();
+      await page.locator('.bottom-nav .nav').filter({ hasText: getText('chat', config) }).click();
       await expect(page.locator(`text=${getText('chat', config)}`)).toBeVisible();
     });
 
     test('profile actions are accessible', async ({ page }) => {
       await page.locator(`text=${getText('guest', config)}`).click();
-      await page.locator(`text=${getText('profile', config)}`).click();
-      await expect(page.locator(`text=${getText('logout', config)}`)).toBeVisible();
+      await page.getByRole('button', { name: getText('profile', config) }).click();
       await expect(page.locator(`text=${getText('changePassword', config)}`)).toBeVisible();
       await expect(page.locator(`text=${getText('deleteAccount', config)}`)).toBeVisible();
       await expect(page.locator(`text=${getText('theme', config)}`)).toBeVisible();
@@ -220,23 +219,26 @@ for (const config of CONFIGS) {
 
     test('training quick add and navigation', async ({ page }) => {
       await page.locator(`text=${getText('guest', config)}`).click();
-      await page.locator(`text=${getText('training', config)}`).click();
+      await page.locator('.bottom-nav .nav').filter({ hasText: getText('training', config) }).click();
       await expect(page.locator(`text=${getText('training', config)}`)).toBeVisible();
-      await page.locator(`text=${getText('startWorkout', config)}`).first().click();
+      await page.locator(`text=${getText('timer', config)}`).click();
+      await page.locator(`text=${getText('startWorkout', config)}`).click();
       await expect(page.locator(`text=${getText('startWorkout', config)}`)).toBeVisible();
     });
 
     test('chat screen renders and opens settings', async ({ page }) => {
       await page.locator(`text=${getText('guest', config)}`).click();
-      await page.locator(`text=${getText('chat', config)}`).click();
+      await page.locator('.bottom-nav .nav').filter({ hasText: getText('chat', config) }).click();
       await expect(page.locator(`text=${getText('chat', config)}`)).toBeVisible();
       await page.locator(`text=${getText('chatSettings', config)}`).click();
-      await expect(page.getByText(/chat settings/i)).toBeVisible();
+      await expect(
+        page.getByRole('dialog', { name: getText('chatSettings', config) })
+      ).toBeVisible();
     });
 
     test('nutrition period tabs exist', async ({ page }) => {
       await page.locator(`text=${getText('guest', config)}`).click();
-      await page.locator(`text=${getText('nutrition', config)}`).click();
+      await page.locator('.bottom-nav .nav').filter({ hasText: getText('nutrition', config) }).click();
       await expect(page.locator(`text=${getText('nutrition', config)}`)).toBeVisible();
     });
 
@@ -250,7 +252,10 @@ for (const config of CONFIGS) {
       await page.locator(`text=${getText('guest', config)}`).click();
       const html = page.locator('html');
       const initial = await html.getAttribute('data-theme');
-      await page.locator(`text=${getText('theme', config)}`).click();
+      await page
+        .locator('.setting')
+        .filter({ hasText: getText('theme', config) })
+        .click();
       await expect(html).toHaveAttribute('data-theme', initial === 'dark' ? 'light' : 'dark');
       const after = await html.getAttribute('data-theme');
       expect([initial, after].sort()).toEqual(['dark', 'light']);
@@ -260,7 +265,10 @@ for (const config of CONFIGS) {
       await page.locator(`text=${getText('guest', config)}`).click();
       const html = page.locator('html');
       const before = await html.getAttribute('lang');
-      await page.locator(`text=${getText('language', config)}`).click();
+      await page
+        .locator('.setting')
+        .filter({ hasText: getText('language', config) })
+        .click();
       await expect(html).toHaveAttribute('lang', before === 'ru' ? 'en' : 'ru');
       const after = await html.getAttribute('lang');
       expect([before, after].sort()).toEqual(['en', 'ru']);

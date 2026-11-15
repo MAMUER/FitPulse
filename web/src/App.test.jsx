@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import App from './App';
@@ -12,7 +12,7 @@ vi.mock('./contexts/AppContext', async () => {
   };
 });
 
-const renderApp = (overrides = {}) => {
+const renderApp = (overrides = {}, initialEntry) => {
   const defaultState = {
     screen: 'login',
     theme: 'dark',
@@ -24,6 +24,7 @@ const renderApp = (overrides = {}) => {
   useApp.mockReturnValue({
     state: defaultState,
     t: (ru) => ru,
+    getMonthName: () => 'Ноябрь',
     go: () => {},
     doLogin: () => {},
     doRegister: () => {},
@@ -71,7 +72,9 @@ const renderApp = (overrides = {}) => {
 
   return render(
     <MemoryRouter
-      initialEntries={[overrides.screen === 'home' ? '/home' : '/']}
+      initialEntries={[
+        initialEntry ?? (overrides.screen === 'home' ? '/home' : '/'),
+      ]}
     >
       <AppProvider>
         <App />
@@ -92,12 +95,20 @@ describe('App', () => {
 
   it('renders home screen when authenticated', () => {
     renderApp({ screen: 'home', user: { email: 'test@example.com' } });
-    expect(screen.getByText('Прогресс')).toBeInTheDocument();
+    expect(screen.getByText('Готов к движению')).toBeInTheDocument();
   });
 
-  it('renders tab bar on main screens', () => {
+  it('renders the route while auth state is updating', () => {
+    renderApp({ screen: 'login' }, '/home');
+    expect(screen.getByText('Готов к движению')).toBeInTheDocument();
+  });
+
+  it('keeps profile entry in the home header, not the bottom navigation', () => {
     renderApp({ screen: 'home' });
-    const tabs = screen.getAllByRole('button');
-    expect(tabs.length).toBeGreaterThan(0);
+    const navigation = screen.getByRole('navigation');
+    expect(within(navigation).queryByText('Профиль')).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Профиль' })
+    ).toBeInTheDocument();
   });
 });

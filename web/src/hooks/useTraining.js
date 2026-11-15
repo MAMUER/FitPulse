@@ -76,6 +76,19 @@ export function useTraining({ state, update, notify }) {
     }
   }, [update]);
 
+  const loadAchievements = useCallback(async () => {
+    if (state.guest) return;
+
+    try {
+      const achievements = await api.loadAchievements();
+      if (Array.isArray(achievements)) {
+        update({ achievementsBackend: achievements });
+      }
+    } catch {
+      notify('Ошибка загрузки достижений');
+    }
+  }, [state.guest, update, notify]);
+
   const generatePlan = useCallback(
     async (params = {}) => {
       try {
@@ -130,6 +143,7 @@ export function useTraining({ state, update, notify }) {
     toggleWorkout,
     startWorkout,
     loadTrainingPlans,
+    loadAchievements,
     generatePlan,
     getPlanDetails,
     loadProgress,

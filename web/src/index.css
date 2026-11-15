@@ -510,9 +510,12 @@
   overflow: hidden;
   padding: 11px;
   color: #fff;
+  border: 0;
   border-radius: 17px;
+  background-color: transparent;
   background-position: center;
   background-size: cover;
+  text-align: left;
   cursor: pointer;
 }
 
@@ -1451,6 +1454,30 @@ h3,
 
 .month span:hover {
   background: var(--card-2);
+}
+
+.home-month button {
+  padding: 6px 0;
+  color: var(--text);
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  font-size: 9px;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.home-month button:hover {
+  background: var(--card-2);
+}
+
+.home-month button.active {
+  color: var(--text);
+  background: var(--card-2);
+}
+
+.home-month button.has-event {
+  border-bottom: 2px solid var(--blue);
 }
 
 .month .selected {
@@ -2549,24 +2576,37 @@ h3,
   border-top: 1px solid var(--line);
 }
 
-.profile-stats div {
+.profile-stats div,
+.profile-stat {
   text-align: center;
   cursor: pointer;
   transition: var(--transition);
 }
 
+.profile-stat {
+  display: block;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .profile-stats div {
+  .profile-stats div,
+  .profile-stat {
     animation: none;
     transition: none;
   }
 }
 
-.profile-stats div:hover {
+.profile-stats div:hover,
+.profile-stat:hover {
   opacity: 0.7;
 }
 
-.profile-stats div b {
+.profile-stats div b,
+.profile-stat b {
   display: block;
   font-size: 16px;
   font-family: var(--font-display);
@@ -2923,10 +2963,14 @@ h3,
   justify-content: flex-end;
   overflow: hidden;
   padding: 22px;
+  border: 0;
   border-radius: 24px;
+  color: #fff;
+  background-color: #111;
   background-position: center;
   background-size: cover;
   box-shadow: 0 0 35px #000;
+  margin: auto;
 }
 
 .fp-story-view::after {
@@ -3199,6 +3243,43 @@ h3,
 /* ═══════════════════════════════════════════
    FRIEND PROFILE MODAL
    ═══════════════════════════════════════════ */
+/* Click-catcher behind a modal panel. It is a real <button> so that closing by
+   clicking outside is a native interaction, not a click handler on a
+   non-interactive element. Hidden from the a11y tree and skipped by Tab. */
+.fp-modal-backdrop {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: default;
+}
+
+/* Native <dialog> already centres itself and paints the backdrop. Keep the
+   panel visuals on the box classes and only neutralise the UA defaults. */
+.fp-dialog {
+  position: relative;
+  margin: auto;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  max-width: none;
+  max-height: none;
+}
+
+.fp-dialog::backdrop {
+  background: transparent;
+}
+
+/* The story panel is itself the <dialog>, so it must keep its own opaque
+   background instead of the transparent reset above. */
+.fp-story-view.fp-dialog {
+  background-color: #111;
+}
+
 .fp-profile-modal {
   position: fixed;
   inset: 0;
@@ -3914,6 +3995,53 @@ textarea:focus {
   border-radius: 50%;
   font-size: 9px;
   font-weight: 800;
+}
+
+.chat-locked {
+  max-width: 460px;
+  margin: 0 auto;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--card);
+  text-align: center;
+}
+
+.chat-locked .legal-link {
+  padding: 0;
+  border: 0;
+  color: var(--blue);
+  background: transparent;
+}
+
+.chat-detail-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.chat-contact-heading {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  gap: 10px;
+  padding: 0;
+  border: 0;
+  color: var(--text);
+  background: transparent;
+  text-align: left;
+}
+
+.chat-contact-heading img {
+  width: 40px;
+  height: 40px;
+  border: 2px solid var(--blue);
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.chat-contact-heading span {
+  display: grid;
 }
 
 .chat-messages {

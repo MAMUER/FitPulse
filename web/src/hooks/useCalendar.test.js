@@ -5,6 +5,7 @@ import { getDateKey } from '../utils/helpers';
 import { useCalendar } from './useCalendar';
 
 vi.mock('../services/api', () => ({
+  loadCalendarEvents: vi.fn(),
   createEvent: vi.fn(),
   updateEvent: vi.fn(),
   deleteCalendarEvent: vi.fn(),
@@ -79,11 +80,30 @@ describe('useCalendar', () => {
       'changeCalendar',
       'closeDateModal',
       'deleteCalendarEvent',
+      'loadCalendarEvents',
       'openCalendarPage',
       'quickAddEvent',
       'selectCalendarDay',
       'updateEvent',
     ]);
+  });
+
+  it('loads calendar events into app state', async () => {
+    setup();
+    const events = [{ id: 1, title: 'Run' }];
+    api.loadCalendarEvents.mockResolvedValue(events);
+
+    await act(async () => result.current.loadCalendarEvents());
+
+    expect(update).toHaveBeenCalledWith({ calendarEventsList: events });
+  });
+
+  it('skips loading calendar events for guests', async () => {
+    setup({ guest: true });
+
+    await act(async () => result.current.loadCalendarEvents());
+
+    expect(api.loadCalendarEvents).not.toHaveBeenCalled();
   });
 
   it('changeCalendar moves to next month', () => {

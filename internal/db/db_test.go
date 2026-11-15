@@ -2,11 +2,39 @@ package db
 
 import (
 	"context"
+	"errors"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func TestPingWithRetryRetriesTransientFailures(t *testing.T) {
+	attempts := 0
+	err := pingWithRetry(context.Background(), func(context.Context) error {
+		attempts++
+		if attempts < 3 {
+			return errors.New("database unavailable")
+		}
+		return nil
+	}, 4, time.Millisecond)
+
+	require.NoError(t, err)
+	assert.Equal(t, 3, attempts)
+}
+
+func TestPingWithRetryReturnsLastError(t *testing.T) {
+	wantErr := errors.New("database unavailable")
+	attempts := 0
+	err := pingWithRetry(context.Background(), func(context.Context) error {
+		attempts++
+		return wantErr
+	}, 3, 0)
+
+	require.ErrorIs(t, err, wantErr)
+	assert.Equal(t, 3, attempts)
+}
 
 func TestConfig(t *testing.T) {
 	cfg := Config{

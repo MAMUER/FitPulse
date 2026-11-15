@@ -1,7 +1,10 @@
 import { useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import * as api from '../services/api';
 
 export function useAuth({ state, update, notify }) {
+  const navigate = useNavigate();
+
   const doLogin = useCallback(async () => {
     const email = document.getElementById('loginEmail')?.value.trim();
     const pass = document.getElementById('loginPassword')?.value.trim();
@@ -21,17 +24,17 @@ export function useAuth({ state, update, notify }) {
         guest: false,
         screen: 'home',
       });
-      window.location.href = '/home';
+      void navigate('/home');
     } catch {
       notify('Ошибка входа');
     }
-  }, [state.profile, update, notify]);
+  }, [state.profile, update, notify, navigate]);
 
   const logout = useCallback(async () => {
     await api.logout();
     update({ registered: false, guest: false, screen: 'login' });
-    window.location.href = '/';
-  }, [update]);
+    void navigate('/login');
+  }, [update, navigate]);
 
   const doRegister = useCallback(() => {
     const email = document.getElementById('regEmail')?.value.trim();
@@ -117,8 +120,8 @@ export function useAuth({ state, update, notify }) {
 
   const continueAsGuest = useCallback(() => {
     update({ guest: true, registered: false, screen: 'home' });
-    window.location.href = '/home';
-  }, [update]);
+    void navigate('/home');
+  }, [update, navigate]);
 
   const socialLogin = useCallback(
     (provider) => {
