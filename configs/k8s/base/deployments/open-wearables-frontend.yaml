@@ -65,25 +65,39 @@ spec:
           # The Vite/Node server accepts connections before it can answer an
           # HTTP probe reliably; an HTTP probe here kept the pod unready and
           # eventually tripped liveness. A TCP probe verifies the listener.
+          # Bun + SvelteKit adapter-node needs noticeably longer than a Go
+          # service to bind :3000, and the previous 50m CPU limit stretched that
+          # past the liveness budget (30s + 3x15s), so the kubelet killed the
+          # container before it ever listened (exit 137, reason "Error", empty
+          # logs). The startup probe gates liveness instead of racing it.
+          startupProbe:
+            tcpSocket:
+              port: 3000
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 60
           livenessProbe:
             tcpSocket:
               port: 3000
-            initialDelaySeconds: 30
+            initialDelaySeconds: 0
             periodSeconds: 15
             timeoutSeconds: 3
             failureThreshold: 3
           readinessProbe:
             tcpSocket:
               port: 3000
-            initialDelaySeconds: 10
+            initialDelaySeconds: 5
             periodSeconds: 10
             timeoutSeconds: 3
           resources:
+            # Bun + SvelteKit needs more headroom than the previous 64Mi/50m:
+            # at that size the cold start exceeded the probe budget.
             requests:
-              cpu: "15m"
-              memory: "32Mi"
+              cpu: "100m"
+              memory: "96Mi"
               ephemeral-storage: "100Mi"
             limits:
-              cpu: "50m"
-              memory: "64Mi"
+              cpu: "500m"
+              memory: "256Mi"
               ephemeral-storage: "200Mi"

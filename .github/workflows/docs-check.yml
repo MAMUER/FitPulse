@@ -13,6 +13,7 @@ on:
       - "configs/**"
       - "web/package.json"
       - "Makefile"
+      - "scripts/ci/build-push.sh"
   pull_request:
     branches: [main]
     paths:
@@ -25,6 +26,7 @@ on:
       - "configs/**"
       - "web/package.json"
       - "Makefile"
+      - "scripts/ci/build-push.sh"
   schedule:
     - cron: "0 0 * * 0" # Weekly Sunday midnight
   workflow_dispatch:
@@ -264,6 +266,20 @@ jobs:
             exit 1
           fi
           echo "✅ Go tools versions are pinned"
+
+          echo "-> Checking Open Wearables upstream ref is pinned..."
+          OW_CLONE=$(grep -rn "git clone --depth 1 https://github.com/the-momentum/open-wearables.git" scripts/ --include="*.sh" | grep -v -- "--branch" || true)
+          if [ -n "$OW_CLONE" ]; then
+            echo "❌ Found unpinned Open Wearables clone (must pass --branch \"\${OPEN_WEARABLES_REF}\"):"
+            echo "$OW_CLONE"
+            exit 1
+          fi
+          OW_REF=$(grep -oE 'OPEN_WEARABLES_REF:-[0-9]+\.[0-9]+\.[0-9]+' scripts/ci/build-push.sh | head -1 | sed 's/.*:-//' || true)
+          if [ -z "$OW_REF" ]; then
+            echo "❌ OPEN_WEARABLES_REF is not pinned to a semver in scripts/ci/build-push.sh"
+            exit 1
+          fi
+          echo "✅ Open Wearables is pinned to ${OW_REF}"
 
       - name: Check docs ↔ code version consistency
         run: |

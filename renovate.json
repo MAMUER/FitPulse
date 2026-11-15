@@ -144,6 +144,19 @@
       "depName": "hadolint/hadolint",
       "datasource": "docker",
       "versioning": "semver"
+    },
+    {
+      "customType": "regex",
+      "fileMatch": [
+        "^scripts/ci/build-push\\.sh$"
+      ],
+      "matchStrings": [
+        "OPEN_WEARABLES_REF:-[\"']?(?<currentValue>[0-9]+\\.[0-9]+\\.[0-9]+)[\"']?\\}"
+      ],
+      "depName": "the-momentum/open-wearables",
+      "datasource": "github-tags",
+      "versioning": "semver",
+      "depType": "upstream"
     }
   ],
   "packageRules": [
@@ -187,6 +200,14 @@
         "hadolint/hadolint"
       ],
       "groupName": "Security tools",
+      "automerge": false,
+      "minimumReleaseAge": "7 days"
+    },
+    {
+      "matchPackageNames": [
+        "the-momentum/open-wearables"
+      ],
+      "groupName": "Open Wearables (upstream)",
       "automerge": false,
       "minimumReleaseAge": "7 days"
     }

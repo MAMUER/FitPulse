@@ -11,6 +11,10 @@ version: 2
 # - Не отслеживает версии Go-инструментов, устанавливаемых через `go install` (protoc-gen-go, trufflehog и др.)
 #   Версии этих инструментов зафиксированы в документации и проверяются docs-check.yml
 # - Не проверяет консистентность версий между docs и code (требуется docs-check.yml)
+# - Не отслеживает Git-ревизии внешних репозиториев: Dependabot не умеет пинить
+#   `git clone` сторонних проектов. Версия Open Wearables живёт в
+#   scripts/ci/build-push.sh (OPEN_WEARABLES_REF) и обновляется через renovate.json
+#   (customManager, datasource github-tags). Пин проверяется в docs-check.yml.
 # - Для версий Ubuntu используйте docs-check.yml + ручное обновление при смене сервера
 
 registries:

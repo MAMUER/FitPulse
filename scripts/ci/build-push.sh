@@ -119,8 +119,18 @@ build_oncall_bot() {
 }
 
 build_open_wearables() {
-	echo "Cloning Open Wearables repo..."
-	git clone --depth 1 https://github.com/the-momentum/open-wearables.git /tmp/open-wearables
+	# Pinned upstream revision (tracked by Renovate: depName the-momentum/open-wearables).
+	# Override for a one-off build: OPEN_WEARABLES_REF=<tag> bash scripts/ci/build-push.sh
+	OPEN_WEARABLES_REF="${OPEN_WEARABLES_REF:-0.11.0}"
+
+	echo "Cloning Open Wearables repo at ${OPEN_WEARABLES_REF}..."
+	git clone --depth 1 --branch "${OPEN_WEARABLES_REF}" https://github.com/the-momentum/open-wearables.git /tmp/open-wearables
+
+	# Record what upstream commit was built: the image tag below is our repo's
+	# SHA, which says nothing about the vendored code.
+	OW_UPSTREAM_SHA=$(git -C /tmp/open-wearables rev-parse HEAD)
+	echo "Open Wearables upstream: ${OPEN_WEARABLES_REF} (${OW_UPSTREAM_SHA})"
+
 	SHA=$(git rev-parse --short HEAD)
 	pids=()
 	names=()
