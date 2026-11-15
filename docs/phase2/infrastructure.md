@@ -40,7 +40,7 @@ Single PostgreSQL инстанс сейчас работает на том же 
 
 ### 6.1 Контекст
 
-Phase 1 использует Kustomize + inline-скрипты для k3s. Частичная автоматизация уже есть: Vault SecretStore + ExternalSecret (`configs/k8s/base/vault/`), cert-manager, daily backups (`configs/k8s/base/backup/`). Текущая инфраструктура (2 vCPU / 4 ГБ RAM / 60 ГБ Storage, KVM, Ubuntu 26.04) ограничена для production-нагрузок, поэтому Phase 2 требует:
+Phase 1 использует Kustomize + inline-скрипты для k3s. Частичная автоматизация уже есть: cert-manager, daily backups (`configs/k8s/base/backup/`), секреты через `scripts/ci/lib/secrets.sh` (Vault/External Secrets удалены как неиспользуемые). Текущая инфраструктура (2 vCPU / 4 ГБ RAM / 60 ГБ Storage, KVM, Ubuntu 26.04) ограничена для production-нагрузок, поэтому Phase 2 требует:
 
 - аппаратного апгрейда/реновации VPS (обязательно, для поддержки HA-компонентов, Vault, Istio и бóльшего числа подов)
 - после увеличения ресурсов VPS необходимо пересчитать параметры Argon2id
@@ -161,9 +161,15 @@ Phase 2 состоит из нескольких крупных блоков, к
 
 ### 18.2 Vault Migration (Kubernetes Secrets → Vault)
 
-Текущее состояние: Vault уже развёрнут и работает через External Secrets Operator (SecretStore → ExternalSecret). Миграция завершена в Phase 1.
+Текущее состояние: секреты создаются декларативно `scripts/ci/lib/secrets.sh` (`kubectl create secret`); Vault и External Secrets Operator не развёрнуты, их манифесты удалены как неиспользуемые.
 
-**Документация**: `docs/adr/0023-pgsodium-pii-encryption.md`, `configs/k8s/base/vault/`
+**Документация**: `docs/adr/0023-pgsodium-pii-encryption.md`
+
+**GitOps (Phase 2, не начато):** манифесты Flux и Argo CD удалены как нерабочие эскизы — в них не было контроллеров, CRD (`*.toolkit.fluxcd.io`, `Application`), ни одного `ClusterRole`/`ClusterRoleBinding` и реальных repo-креденшелов. Внедрять GitOps до перевода CI с `kubectl apply` нельзя: два писателя в одни объекты будут откатывать друг друга. Если задача возникнет — **Flux, не Argo CD** (~200 МБ против 600–800 МБ на 2 vCPU / 4 ГБ). Что учесть:
+
+- `Kustomization.path` → `./configs/k8s/overlays/production`, без `targetNamespace`: `base` покрывает `ingress-nginx`, `cert-manager`, `elk`, `monitoring`, `minio`;
+- `configMapGenerator` в `base/jobs` читает файл вне корня (`../../../../db/...`) — CI собирает с `--load-restrictor=LoadRestrictionsNone`, `kustomize-controller` так не умеет;
+- `prune: true` снесёт секреты, которые создаёт `scripts/ci/lib/secrets.sh` (`app-secrets`, `captcha-secrets`, `rabbitmq-secret`, `minio-credentials`), — нужен явный список исключений.
 
 **Подход**: Gradual migration с dual-read периодом.
 

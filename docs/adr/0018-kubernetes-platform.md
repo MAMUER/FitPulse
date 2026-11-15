@@ -22,11 +22,11 @@
 
 - **Manifest-based деплой**: YAML-манифесты в `configs/k8s/base/` и окружение-специфичные overlay через Kustomize.
 - **k3s**: лёгкое Kubernetes-распределение для VPS/edge; используется на single-node VPS.
-- **Helm**: не используется напрямую в деплое; Kustomize хватает для declared-config подхода. Flux CD манифесты (`configs/k8s/base/flux/`) содержат HelmRelease для cert-manager и ingress-nginx, но на текущий момент деплой идёт через `kubectl apply -k` из CI/CD.
+- **Helm**: не используется напрямую в деплое; Kustomize хватает для declared-config подхода. Flux CD манифесты (ранее `configs/k8s/base/flux/`) содержали HelmRelease для cert-manager и ingress-nginx, но на текущий момент деплой идёт через `kubectl apply -k` из CI/CD. Манифесты удалены как нерабочие эскизы; решение не менялось (детали и условия внедрения — `docs/phase2/infrastructure.md`, §18.2).
 - **Ingress NGINX Controller**: единый ingress с ModSecurity WAF.
 - **cert-manager**: автоматическое получение TLS-сертификатов от Let's Encrypt.
 - **Network Policies**: сегментация на dmz/app-zone/data-zone/monitoring-zone.
-- **ArgoCD**: манифесты присутствуют в `configs/k8s/base/argocd/`, но на текущий момент не используются в деплое. Запланирован на Phase 2 как GitOps-инструмент.
+- **GitOps**: не внедрён. Манифесты Argo CD и Flux удалены как нерабочие эскизы; деплой идёт через `kubectl apply -k` из CI/CD. Если GitOps понадобится — Flux (условия и подводные камни: `docs/phase2/infrastructure.md`, §18.2).
 
 ## Последствия
 

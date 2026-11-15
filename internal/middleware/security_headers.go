@@ -46,11 +46,14 @@ func SecurityHeaders(next http.Handler) http.Handler {
 
 		w.Header().Set("Content-Security-Policy",
 			"default-src 'self'; "+
-				"script-src 'self' 'nonce-"+nonce+"'; "+
+				// challenges.cloudflare.com hosts the Turnstile widget script
+				// and the challenge iframe; without it the captcha cannot load.
+				"script-src 'self' 'nonce-"+nonce+"' https://challenges.cloudflare.com; "+
 				"style-src 'self' https://cdnjs.cloudflare.com; "+
 				"img-src 'self' data: https:; "+
 				"font-src 'self' https://cdnjs.cloudflare.com; "+
 				"connect-src 'self'; "+
+				"frame-src https://challenges.cloudflare.com; "+
 				"media-src 'self'; "+
 				"object-src 'none'; "+
 				"frame-ancestors 'none'; "+

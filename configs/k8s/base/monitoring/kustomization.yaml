@@ -5,14 +5,19 @@ namespace: monitoring
 
 resources:
   - alertmanager-config.yaml
+  - alertmanager-deployment.yaml
   - grafana-dashboards.yaml
   - grafana-datasources.yaml
   - grafana-deployment.yaml
   - grafana-service.yaml
+  - jaeger-deployment.yaml
   - oncall-bot-deployment.yaml
   - oncall-bot-service.yaml
   - oncall-schedule.yaml
   - opentelemetry-collector.yaml
   - opentelemetry-configmap.yaml
   - opentelemetry-service.yaml
+  - prometheus-config.yaml
   - prometheus-configmap.yaml
+  - prometheus-deployment.yaml
+  - prometheus-rbac.yaml

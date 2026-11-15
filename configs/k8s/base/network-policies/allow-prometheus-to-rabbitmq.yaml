@@ -14,7 +14,12 @@ spec:
     - Ingress
   ingress:
     - from:
-        - podSelector:
+        # Prometheus runs in the monitoring namespace, so select it by namespace:
+        # a bare podSelector only matches pods in this namespace.
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitoring
+          podSelector:
             matchLabels:
               app: prometheus
       ports:

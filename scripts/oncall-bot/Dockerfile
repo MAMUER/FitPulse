@@ -5,9 +5,11 @@ RUN groupadd -r -g 1000 appgroup && useradd -r -u 1000 -g appgroup -d /app -s /s
 WORKDIR /app
 COPY main.py .
 COPY requirements.txt .
-# Direct dependencies are pinned in requirements.txt; this is a one-shot
-# internal bot image, not a library.
-RUN pip install --no-cache-dir --only-binary :all: -r requirements.txt # NOSONAR \
+# All direct dependencies are pinned with == in requirements.txt. This is a
+# one-shot internal bot image, not a library, so resolution is fixed at build
+# time and the image is rebuilt from the same lock. Suppressed in
+# sonar-project.properties (docker:S8544).
+RUN pip install --no-cache-dir --only-binary :all: -r requirements.txt \
     && python -c "from telegram.ext import Application; Application.builder().token('123456:BUILD_TEST').build()" \
     && chown -R appuser:appgroup /app
 USER 1000

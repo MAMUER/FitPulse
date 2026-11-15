@@ -32,9 +32,10 @@ def request(method, url, payload=None, timeout=30):
         except json.JSONDecodeError:
             body = {"_raw": body}
         return exc.code, body
-    except (urllib.error.URLError, OSError) as exc:
-        # Connection refused / DNS failure / TLS error / timeout: report it the
-        # same way as any other failed check instead of dumping a traceback.
+    except OSError as exc:
+        # Connection refused / DNS failure / TLS error / timeout (urllib's
+        # URLError subclasses OSError): report it the same way as any other
+        # failed check instead of dumping a traceback.
         return None, {"error": str(exc)}
 
 

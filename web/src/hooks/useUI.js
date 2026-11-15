@@ -63,7 +63,7 @@ export function useUI({ state, update, notify }) {
 
   const addPlace = useCallback(() => {
     const name = prompt('Название точки', 'Новое место');
-    if (name === null || !name.trim()) return;
+    if (!name?.trim()) return;
     const icon = (
       prompt('Иконка Font Awesome', 'fa-location-dot') || 'fa-location-dot'
     ).trim();

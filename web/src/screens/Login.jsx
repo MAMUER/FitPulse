@@ -1,5 +1,7 @@
 import AuthLayout from '../components/AuthLayout';
+import Captcha from '../components/Captcha';
 import { useApp } from '../contexts/AppContext';
+import { setCaptchaToken } from '../utils/backendRequest';
 
 export default function Login() {
   const {
@@ -22,6 +24,7 @@ export default function Login() {
         <label htmlFor='loginPassword'>{t('Пароль', 'Password')}</label>
         <input id='loginPassword' type='password' defaultValue='password' />
       </div>
+      <Captcha onToken={setCaptchaToken} />
       <button type='button' className='primary full' onClick={doLogin}>
         {t('Войти', 'Sign in')}
       </button>

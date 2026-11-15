@@ -27,3 +27,24 @@ spec:
           port: 8001
         - protocol: TCP
           port: 8002
+
+    # Prometheus lives in the monitoring namespace and scrapes /metrics from the
+    # backend pods. A plain podSelector would only match same-namespace pods, so
+    # the source has to be selected by namespace.
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitoring
+      ports:
+        - protocol: TCP
+          port: 8000
+        - protocol: TCP
+          port: 8001
+        - protocol: TCP
+          port: 8002
+        - protocol: TCP
+          port: 8080
+        - protocol: TCP
+          port: 9091
+        - protocol: TCP
+          port: 9092

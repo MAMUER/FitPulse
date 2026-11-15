@@ -114,6 +114,13 @@ const QUESTIONS = [
   },
 ];
 
+// Progress dot state: done before the current step, active on it, empty after.
+function dotState(index, step) {
+  if (index < step) return 'done';
+  if (index === step) return 'active';
+  return '';
+}
+
 export default function Survey() {
   const { state, t, go, surveySelect, surveyNext, surveyPrev, deferSurvey } =
     useApp();
@@ -162,10 +169,7 @@ export default function Survey() {
       </div>
       <div className='survey-progress'>
         {QUESTIONS.map((item, index) => (
-          <div
-            key={item.key}
-            className={`dot ${index < step ? 'done' : index === step ? 'active' : ''}`}
-          />
+          <div key={item.key} className={`dot ${dotState(index, step)}`} />
         ))}
       </div>
       <h3>{t(...question.title)}</h3>

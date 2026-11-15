@@ -230,6 +230,22 @@ func (g *gateway) CaptchaMiddleware(next http.Handler) http.Handler {
 	})
 }
 
+// ValidateCaptcha reports whether token is a valid captcha solution for clientIP.
+// It implements middleware.CaptchaValidator so the auth rate limiter can serve a
+// challenged client once it proves it is human, instead of raising the limit for
+// everyone. It returns false when captcha is not configured.
+func (g *gateway) ValidateCaptcha(token, clientIP string) bool {
+	if g.captchaProvider == nil || token == "" {
+		return false
+	}
+	valid, err := g.captchaProvider.Verify(token, clientIP)
+	if err != nil {
+		g.log.Warn("CAPTCHA verification failed", zap.Error(err))
+		return false
+	}
+	return valid
+}
+
 // getClientIP extracts client IP from request.
 func getClientIP(r *http.Request) string {
 	// Check X-Forwarded-For (set by ingress/WAF)

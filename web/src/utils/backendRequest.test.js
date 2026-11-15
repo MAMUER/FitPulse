@@ -232,4 +232,35 @@ describe('backendRequest', () => {
       'network down'
     );
   });
+
+  it('sends the captcha token as a header when one is set', async () => {
+    const { mod, fetchMock } = await setup();
+    fetchMock.mockResolvedValue(jsonResponse({ ok: true }));
+
+    mod.setCaptchaToken('captcha-token');
+    await mod.backendRequest('/api/v1/login', { method: 'POST', body: '{}' });
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/v1/login', {
+      method: 'POST',
+      body: '{}',
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Captcha-Token': 'captcha-token',
+      },
+    });
+  });
+
+  it('omits the captcha header once the token is cleared', async () => {
+    const { mod, fetchMock } = await setup();
+    fetchMock.mockResolvedValue(jsonResponse({ ok: true }));
+
+    mod.setCaptchaToken('captcha-token');
+    mod.setCaptchaToken('');
+    await mod.backendRequest('/api/v1/login');
+
+    expect(fetchMock.mock.calls[0][1].headers).toEqual({
+      'Content-Type': 'application/json',
+    });
+  });
 });

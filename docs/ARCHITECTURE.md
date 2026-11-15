@@ -216,8 +216,8 @@ implementation:
   - "Вывод в stdout в формате JSON lines"
 
 current_state:
-  - "Fluent Bit DaemonSet развёрнут через configs/monitoring/fluent-bit/"
-  - "Output: stdout только, без центрального хранилища"
+  - "Fluent Bit DaemonSet развёрнут через configs/k8s/base/elk/fluent-bit-daemonset.yaml"
+  - "Output: Logstash (logstash.elk.svc.cluster.local:5044), не stdout"
   - "Kubernetes фильтр для обогащения логов метаданными"
   - "HTTP health endpoint на порту 2020"
 ```

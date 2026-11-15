@@ -221,9 +221,9 @@ openssl req -x509 -nodes -days 365 -newkey ec -pkeyopt ec_paramgen_curve:P-256 \
 
 ## Secrets Management
 
-**Current state:** External Secrets Operator уже развёрнут. Backend — PostgreSQL (таблица `external_secrets`), не AWS Secrets Manager.
+**Current state:** секреты создаются декларативно скриптом `scripts/ci/lib/secrets.sh` из GitHub Secrets (`kubectl create secret`): `app-secrets`, `captcha-secrets`, `rabbitmq-secret`, `minio-credentials`.
 
-**Vault:** Vault deployment присутствует в `configs/k8s/base/vault/`. External Secrets Operator синхронизирует секреты из Vault в Kubernetes Secrets.
+**Vault:** манифесты Vault и External Secrets Operator (`configs/k8s/base/vault/`, `configs/k8s/base/external-secrets/`) удалены — в кластере они не разворачивались (не входили ни в один kustomization), секреты приходили из `secrets.sh`.
 
 См. `FREE_STACK.md` для полного стека и деталей миграции.
 

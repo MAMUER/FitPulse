@@ -108,7 +108,7 @@ export default function Ai() {
           onKeyDown={(event) => {
             if (event.key === 'Enter') {
               event.preventDefault();
-              handleSend();
+              void handleSend();
             }
           }}
           placeholder={t(

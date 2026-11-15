@@ -91,16 +91,16 @@
 
 ### Current State
 
-- Vault deployed в `configs/k8s/base/vault/`
-- External Secrets Operator deployed, использует PostgreSQL backend (таблица `external_secrets`)
-- Секреты синхронизируются из Vault → External Secrets → Kubernetes Secret `app-secrets`
+- Vault **не развёрнут**: манифесты `configs/k8s/base/vault/` удалены как неиспользуемые
+- External Secrets Operator **удалён**: манифесты `configs/k8s/base/external-secrets/` не входили ни в один kustomization
+- Секреты создаются декларативно `scripts/ci/lib/secrets.sh` (`kubectl create secret`) из GitHub Secrets → `app-secrets`
 
 ### Flow
 
 ```text
-Vault (SecretStore)
+GitHub Secrets (репозиторий)
          ↓
-External Secrets Operator (PostgreSQL provider)
+scripts/ci/lib/secrets.sh (kubectl create secret)
          ↓
 Kubernetes Secret `app-secrets`
          ↓
@@ -113,11 +113,11 @@ Kubernetes Secret `app-secrets`
 
 ### Vault Root Token / Unseal Key
 
-**Source:** Генерируется при первом запуске Vault.
+**Source:** Vault не развёрнут; манифесты удалены. Секреты создаются `scripts/ci/lib/secrets.sh` из GitHub Secrets.
 
 ```bash
-# Vault уже развёрнут. Храните unseal key и root token в безопасном месте.
-# Не храните в репозитории.
+# Список секретов, которые создаёт деплой:
+#   app-secrets, captcha-secrets, rabbitmq-secret, minio-credentials
 ```
 
 ### MINIO_ROOT_PASSWORD

@@ -104,32 +104,87 @@ func ResetUserRateLimiterForID(userID string) {
 	UserRateLimiterInstance.visitors.Delete(userID)
 }
 
-// AuthRateLimit enforces per-IP rate limiting for auth endpoints (5 attempts/minute, burst 5)
-func AuthRateLimit(log *zap.Logger) func(http.Handler) http.Handler {
+// CaptchaValidator reports whether token is a valid captcha solution for clientIP.
+// The gateway implements it so a rate-limited client can prove it is human
+// instead of forcing the limit to be raised for everyone.
+type CaptchaValidator interface {
+	ValidateCaptcha(token, clientIP string) bool
+}
+
+// AuthRateLimit enforces per-IP rate limiting for auth endpoints (5 attempts/minute, burst 5).
+// When a CaptchaValidator is supplied, a client that exceeds the limit can still
+// proceed by presenting a valid X-Captcha-Token; the 429 response advertises
+// X-Captcha-Required so the UI knows to render the challenge.
+func AuthRateLimit(log *zap.Logger, captcha ...CaptchaValidator) func(http.Handler) http.Handler {
+	var validator CaptchaValidator
+	if len(captcha) > 0 {
+		validator = captcha[0]
+	}
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if r.URL.Path != "/api/v1/login" && r.URL.Path != "/api/v1/register" {
-				next.ServeHTTP(w, r)
-				return
-			}
-			ip := getClientIP(r)
-			v, ok := AuthRateLimiterInstance.visitors.Load(ip)
-			if !ok {
-				limiter := rate.NewLimiter(5.0/60.0, 5)
-				AuthRateLimiterInstance.visitors.Store(ip, &authVisitor{limiter: limiter, lastSeen: time.Now()})
-				v, _ = AuthRateLimiterInstance.visitors.Load(ip)
-			}
-			av := v.(*authVisitor)
-			av.lastSeen = time.Now()
-			if !av.limiter.Allow() {
-				log.Warn("Auth rate limit exceeded", zap.String("path", sanitize.LogString(r.URL.Path)), zap.String("ip", sanitize.LogString(ip)))
-				w.Header().Set("X-Captcha-Required", "true")
-				http.Error(w, "Превышен лимит запросов для авторизации", http.StatusTooManyRequests)
-				return
-			}
-			next.ServeHTTP(w, r)
+			authorizeAuthRequest(w, r, next, log, validator)
 		})
 	}
+}
+
+// authorizeAuthRequest applies the auth rate limit to a single request. A
+// request over the limit is served when it carries a valid captcha token,
+// otherwise it is rejected with 429 and X-Captcha-Required.
+func authorizeAuthRequest(
+	w http.ResponseWriter,
+	r *http.Request,
+	next http.Handler,
+	log *zap.Logger,
+	validator CaptchaValidator,
+) {
+	if r.URL.Path != "/api/v1/login" && r.URL.Path != "/api/v1/register" {
+		next.ServeHTTP(w, r)
+		return
+	}
+
+	ip := getClientIP(r)
+	visitor := authVisitorFor(ip)
+	visitor.lastSeen = time.Now()
+
+	if visitor.limiter.Allow() {
+		next.ServeHTTP(w, r)
+		return
+	}
+	if captchaVerified(validator, r, ip) {
+		next.ServeHTTP(w, r)
+		return
+	}
+
+	log.Warn(
+		"Auth rate limit exceeded",
+		zap.String("path", sanitize.LogString(r.URL.Path)),
+		zap.String("ip", sanitize.LogString(ip)),
+	)
+	w.Header().Set("X-Captcha-Required", "true")
+	http.Error(w, "Превышен лимит запросов для авторизации", http.StatusTooManyRequests)
+}
+
+// authVisitorFor returns the per-IP auth limiter, creating it on first use.
+func authVisitorFor(ip string) *authVisitor {
+	visitor, ok := AuthRateLimiterInstance.visitors.Load(ip)
+	if !ok {
+		created := &authVisitor{
+			limiter:  rate.NewLimiter(5.0/60.0, 5),
+			lastSeen: time.Now(),
+		}
+		actual, _ := AuthRateLimiterInstance.visitors.LoadOrStore(ip, created)
+		visitor = actual
+	}
+	return visitor.(*authVisitor)
+}
+
+// captchaVerified reports whether the request carries a captcha token accepted
+// by the configured validator.
+func captchaVerified(validator CaptchaValidator, r *http.Request, ip string) bool {
+	if validator == nil {
+		return false
+	}
+	return validator.ValidateCaptcha(r.Header.Get("X-Captcha-Token"), ip)
 }
 
 // RateLimit enforces per-IP rate limiting (10 r/s, burst 50)

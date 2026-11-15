@@ -1,7 +1,7 @@
 # Phase 2 Backlog
 
 > Phase 2 — инфраструктура, масштабирование и hardening production-ready wellness-платформы.
-> Phase 1 уже работает в production: gateway, user-service, biometric-service, training-service, classifier, ml-generator, data-processor, device-aggregator, Vault (External Secrets), PostgreSQL, Valkey, RabbitMQ, WAF, daily backups, Yandex ID, TOTP 2FA.
+> Phase 1 уже работает в production: gateway, user-service, biometric-service, training-service, classifier, ml-generator, data-processor, device-aggregator, PostgreSQL, Valkey, RabbitMQ, WAF, daily backups, Yandex ID, TOTP 2FA.
 
 ---
 
@@ -11,7 +11,7 @@
 2. **Безопасность:** Service Mesh mTLS, secrets rotation, security reporting, CAPTCHA, bug bounty.
 3. **Compliance:** Централизованный audit trail, retention 3 года, quarterly access review, cookie consent, DPA.
 4. **Наблюдаемость:** RED/SLO дашборды, Jaeger tracing, burn-rate алерты, централизованное логирование.
-5. **Масштабируемость:** Terraform + ArgoCD, canary deployments, GPU-опциональный ML inference.
+5. **Масштабируемость:** Terraform + GitOps (Flux; см. §18.2 `infrastructure.md`), canary deployments, GPU-опциональный ML inference.
 6. **Medical boundary:** FitPulse остаётся wellness-платформой, не становится медицинским ПО.
 
 ## Success Criteria (Phase 2 в целом)

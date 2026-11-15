@@ -201,7 +201,13 @@ export default function Body() {
         <div className='body-wave' />
         <div className='body-wave' />
         <div className='silhouette-container'>
-          <svg viewBox='0 0 200 280' fill='none' xmlns='http://www.w3.org/2000/svg'>
+          <svg
+            viewBox='0 0 200 280'
+            fill='none'
+            xmlns='http://www.w3.org/2000/svg'
+            role='img'
+            aria-label={t('Схема состава тела', 'Body composition diagram')}
+          >
             <ellipse cx='100' cy='70' rx='40' ry='48' fill='#19d8da22' stroke='#19d8da66' strokeWidth='2' />
             <ellipse cx='100' cy='120' rx='48' ry='52' fill='#6fae2018' stroke='#6fae2044' strokeWidth='2' />
             <ellipse cx='100' cy='175' rx='52' ry='50' fill='#ff994718' stroke='#ff994744' strokeWidth='2' />

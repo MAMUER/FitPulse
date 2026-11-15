@@ -1285,13 +1285,13 @@ func (g *gateway) registerPublicRoutes(r chi.Router) {
 
 	// ========== Public routes (без авторизации) ==========
 
-	r.With(middleware.AuthRateLimit(g.log.Logger)).Post("/api/v1/register", g.registerHandler)
+	r.With(middleware.AuthRateLimit(g.log.Logger, g)).Post("/api/v1/register", g.registerHandler)
 
 	r.Post("/api/v1/register/invite", g.registerWithInviteHandler)
 
 	r.Post("/api/v1/invite/validate", g.validateInviteCodeHandler)
 
-	r.With(middleware.AuthRateLimit(g.log.Logger)).Post("/api/v1/login", g.loginHandler)
+	r.With(middleware.AuthRateLimit(g.log.Logger, g)).Post("/api/v1/login", g.loginHandler)
 
 	r.Post("/api/v1/auth/confirm", g.confirmEmailHandler)
 
@@ -1335,7 +1335,7 @@ func (g *gateway) registerPublicRoutes(r chi.Router) {
 
 	// Password reset (public)
 
-	r.With(middleware.AuthRateLimit(g.log.Logger)).Post("/api/v1/auth/forgot-password", g.forgotPasswordHandler)
+	r.With(middleware.AuthRateLimit(g.log.Logger, g)).Post("/api/v1/auth/forgot-password", g.forgotPasswordHandler)
 
 	r.Post("/api/v1/auth/reset", g.resetPasswordHandler)
 

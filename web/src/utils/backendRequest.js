@@ -30,6 +30,20 @@ const BACKEND_CONFIG = {
   production: import.meta.env.PROD === true,
 };
 
+// CAPTCHA token produced by the Turnstile widget on the auth screens. It is
+// kept outside React state because the widget lives next to uncontrolled form
+// fields; backendRequest attaches it to every call so the gateway can validate
+// it when the auth rate limiter challenges the client.
+let captchaToken = '';
+
+export function setCaptchaToken(token) {
+  captchaToken = typeof token === 'string' ? token : '';
+}
+
+function captchaHeaders() {
+  return captchaToken ? { 'X-Captcha-Token': captchaToken } : {};
+}
+
 async function backendRequest(path, options = {}) {
   const url = `${BACKEND_CONFIG.baseUrl}${path}`;
   const buildRequestInit = () => ({
@@ -37,6 +51,7 @@ async function backendRequest(path, options = {}) {
     credentials: 'include',
     headers: {
       'Content-Type': 'application/json',
+      ...captchaHeaders(),
       ...options.headers,
     },
   });

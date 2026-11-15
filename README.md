@@ -145,13 +145,9 @@ FitPulse реализует комплексные меры безопаснос
 
 ### Секреты
 
-**Static secrets** (JWT, SMTP, Yandex ID, Valkey, RabbitMQ) хранятся в **AWS Secrets Manager** и синхронизируются в Kubernetes через **External Secrets Operator** (`configs/k8s/base/external-secrets/`).
+Секреты приложения создаются декларативно при деплое скриптом `scripts/ci/lib/secrets.sh` (обычные `kubectl create secret`) из GitHub Secrets репозитория: `app-secrets` (PostgreSQL, JWT, SMTP, Yandex ID, Valkey, RabbitMQ), `captcha-secrets`, `rabbitmq-secret`, `minio-credentials`.
 
-**Динамические PostgreSQL credentials** управляются через **HashiCorp Vault** (Community Edition, self-hosted в кластере, `configs/k8s/base/vault/`):
-
-- Каждый сервис получает уникального PostgreSQL пользователя с TTL 1h
-- Ротация паролей автоматическая
-- Vault развёрнут в текущей инфраструктуре
+Манифесты Vault и External Secrets Operator удалены как неиспользуемые: в кластере они не разворачивались, а секреты создавал `secrets.sh`. Если вернётесь к динамическим credentials с ротацией — это отдельная задача с восстановлением манифестов.
 
 ### Текущий сервер
 

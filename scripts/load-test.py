@@ -39,6 +39,54 @@ def percentile(values, pct):
     return ordered[index]
 
 
+def iter_points(results_file):
+    """Yield the `Point` records of a k6 `--out json=` stream."""
+    with open(results_file, "r", encoding="utf-8", errors="replace") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                record = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if record.get("type") == "Point":
+                yield record
+
+
+def collect_metrics(results_file):
+    """Aggregate k6 points into (durations, counters, rates)."""
+    durations = []
+    counters = {}
+    rates = {}
+    for record in iter_points(results_file):
+        metric = record.get("metric")
+        value = record.get("data", {}).get("value")
+        if not metric or value is None:
+            continue
+        if metric == "http_req_duration":
+            durations.append(value)
+        elif metric in ("http_reqs", "iterations", "api_errors_total"):
+            counters[metric] = counters.get(metric, 0) + value
+        elif metric in ("errors", "checks"):
+            rates.setdefault(metric, []).append(value)
+    return durations, counters, rates
+
+
+def verdict(label_ok, ok, label_fail):
+    """Green/red line for a threshold check."""
+    return f"  {GREEN}{label_ok}{RESET}" if ok else f"  {RED}{label_fail}{RESET}"
+
+
+def print_latency(durations):
+    p95 = percentile(durations, 95)
+    p99 = percentile(durations, 99)
+    print(f"  P95 response  : {p95:.0f} ms")
+    print(f"  P99 response  : {p99:.0f} ms")
+    print(verdict("P95 < 2000 ms", p95 < 2000, "P95 >= 2000 ms"))
+    print(verdict("P99 < 5000 ms", p99 < 5000, "P99 >= 5000 ms"))
+
+
 def print_results(results_file):
     """Parse the k6 JSON stream and print the metrics that were measured.
 
@@ -49,31 +97,7 @@ def print_results(results_file):
     if not Path(results_file).exists():
         return
 
-    durations = []
-    counters = {}
-    rates = {}
-    with open(results_file, "r", encoding="utf-8", errors="replace") as f:
-        for line in f:
-            line = line.strip()
-            if not line:
-                continue
-            try:
-                record = json.loads(line)
-            except json.JSONDecodeError:
-                continue
-            if record.get("type") != "Point":
-                continue
-            metric = record.get("metric")
-            value = record.get("data", {}).get("value")
-            if not metric or value is None:
-                continue
-            if metric == "http_req_duration":
-                durations.append(value)
-            elif metric in ("http_reqs", "iterations", "api_errors_total"):
-                counters[metric] = counters.get(metric, 0) + value
-            elif metric in ("errors", "checks"):
-                rates.setdefault(metric, []).append(value)
-
+    durations, counters, rates = collect_metrics(results_file)
     if not durations and not counters:
         print(f"{YELLOW}No k6 metrics found in {results_file}{RESET}")
         return
@@ -81,28 +105,19 @@ def print_results(results_file):
     print("\nKey Metrics:")
     print(f"  HTTP requests : {int(counters.get('http_reqs', 0))}")
     if durations:
-        p95 = percentile(durations, 95)
-        p99 = percentile(durations, 99)
-        print(f"  P95 response  : {p95:.0f} ms")
-        print(f"  P99 response  : {p99:.0f} ms")
-        print(
-            f"  {GREEN}P95 < 2000 ms{RESET}"
-            if p95 < 2000
-            else f"  {RED}P95 >= 2000 ms{RESET}"
-        )
-        print(
-            f"  {GREEN}P99 < 5000 ms{RESET}"
-            if p99 < 5000
-            else f"  {RED}P99 >= 5000 ms{RESET}"
-        )
-    if "errors" in rates and rates["errors"]:
-        error_rate = rates["errors"][-1]
-        print(f"  Error rate    : {error_rate * 100:.2f}%")
-        if error_rate >= 0.1:
+        print_latency(durations)
+    errors = rates.get("errors")
+    if errors:
+        print(f"  Error rate    : {errors[-1] * 100:.2f}%")
+        if errors[-1] >= 0.1:
             print(f"  {RED}Error rate >= 10%{RESET}")
-    if "checks" in rates and rates["checks"]:
-        print(f"  Checks passed : {rates['checks'][-1] * 100:.2f}%")
+    checks = rates.get("checks")
+    if checks:
+        print(f"  Checks passed : {checks[-1] * 100:.2f}%")
     print()
+
+
+K6_EXE = "k6.exe"
 
 
 def find_k6():
@@ -117,12 +132,12 @@ def find_k6():
         ]
         if os.name == "nt":
             common_paths = [
-                os.path.join(os.environ.get("ProgramFiles", r"C:\Program Files"), "k6", "k6.exe"),
+                os.path.join(os.environ.get("ProgramFiles", r"C:\Program Files"), "k6", K6_EXE),
                 os.path.join(
-                    os.environ.get("LOCALAPPDATA", ""), "Microsoft", "WinGet", "Links", "k6.exe"
+                    os.environ.get("LOCALAPPDATA", ""), "Microsoft", "WinGet", "Links", K6_EXE
                 ),
-                "k6.exe",
-                "./k6.exe",
+                K6_EXE,
+                f"./{K6_EXE}",
             ]
         for path in common_paths:
             expanded_path = os.path.expanduser(path)

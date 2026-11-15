@@ -1,5 +1,7 @@
 import AuthLayout from '../components/AuthLayout';
+import Captcha from '../components/Captcha';
 import { useApp } from '../contexts/AppContext';
+import { setCaptchaToken } from '../utils/backendRequest';
 
 export default function Register() {
   const { t, doRegister, socialLogin, go, openLegal } = useApp();
@@ -67,6 +69,7 @@ export default function Register() {
           'This is not medical advice. Consult a doctor if you have medical conditions or injuries.'
         )}
       </p>
+      <Captcha onToken={setCaptchaToken} />
       <button type='button' className='primary full' onClick={doRegister}>
         {t('Зарегистрироваться', 'Register')}
       </button>

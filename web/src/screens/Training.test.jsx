@@ -262,7 +262,7 @@ describe('Training', () => {
 
     render(<Training />);
 
-    expect(screen.queryByText('Видео-уроки')).toBeInTheDocument();
+    expect(screen.getByText('Видео-уроки')).toBeInTheDocument();
     expect(screen.queryByText('Планы FitPulse')).not.toBeInTheDocument();
   });
 });
