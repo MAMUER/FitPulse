@@ -208,18 +208,96 @@ export default function Body() {
             role='img'
             aria-label={t('Схема состава тела', 'Body composition diagram')}
           >
-            <ellipse cx='100' cy='70' rx='40' ry='48' fill='#19d8da22' stroke='#19d8da66' strokeWidth='2' />
-            <ellipse cx='100' cy='120' rx='48' ry='52' fill='#6fae2018' stroke='#6fae2044' strokeWidth='2' />
-            <ellipse cx='100' cy='175' rx='52' ry='50' fill='#ff994718' stroke='#ff994744' strokeWidth='2' />
-            <ellipse cx='100' cy='230' rx='44' ry='44' fill='#a78bfa18' stroke='#a78bfa44' strokeWidth='2' />
-            <ellipse cx='58' cy='100' rx='18' ry='34' fill='#19d8da22' stroke='#19d8da55' strokeWidth='1.5' />
-            <ellipse cx='142' cy='100' rx='18' ry='34' fill='#19d8da22' stroke='#19d8da55' strokeWidth='1.5' />
-            <ellipse cx='58' cy='210' rx='18' ry='30' fill='#19d8da22' stroke='#19d8da55' strokeWidth='1.5' />
-            <ellipse cx='142' cy='210' rx='18' ry='30' fill='#19d8da22' stroke='#19d8da55' strokeWidth='1.5' />
-            <text x='100' y='48' textAnchor='middle' fill='#19d8da88' fontSize='8' fontWeight='700'>
+            <ellipse
+              cx='100'
+              cy='70'
+              rx='40'
+              ry='48'
+              fill='#19d8da22'
+              stroke='#19d8da66'
+              strokeWidth='2'
+            />
+            <ellipse
+              cx='100'
+              cy='120'
+              rx='48'
+              ry='52'
+              fill='#6fae2018'
+              stroke='#6fae2044'
+              strokeWidth='2'
+            />
+            <ellipse
+              cx='100'
+              cy='175'
+              rx='52'
+              ry='50'
+              fill='#ff994718'
+              stroke='#ff994744'
+              strokeWidth='2'
+            />
+            <ellipse
+              cx='100'
+              cy='230'
+              rx='44'
+              ry='44'
+              fill='#a78bfa18'
+              stroke='#a78bfa44'
+              strokeWidth='2'
+            />
+            <ellipse
+              cx='58'
+              cy='100'
+              rx='18'
+              ry='34'
+              fill='#19d8da22'
+              stroke='#19d8da55'
+              strokeWidth='1.5'
+            />
+            <ellipse
+              cx='142'
+              cy='100'
+              rx='18'
+              ry='34'
+              fill='#19d8da22'
+              stroke='#19d8da55'
+              strokeWidth='1.5'
+            />
+            <ellipse
+              cx='58'
+              cy='210'
+              rx='18'
+              ry='30'
+              fill='#19d8da22'
+              stroke='#19d8da55'
+              strokeWidth='1.5'
+            />
+            <ellipse
+              cx='142'
+              cy='210'
+              rx='18'
+              ry='30'
+              fill='#19d8da22'
+              stroke='#19d8da55'
+              strokeWidth='1.5'
+            />
+            <text
+              x='100'
+              y='48'
+              textAnchor='middle'
+              fill='#19d8da88'
+              fontSize='8'
+              fontWeight='700'
+            >
               {t('Мышцы', 'Muscles')} {muscle} {t('кг', 'kg')}
             </text>
-            <text x='100' y='262' textAnchor='middle' fill='#ff994788' fontSize='8' fontWeight='700'>
+            <text
+              x='100'
+              y='262'
+              textAnchor='middle'
+              fill='#ff994788'
+              fontSize='8'
+              fontWeight='700'
+            >
               {t('Жир', 'Fat')} {fat}%
             </text>
           </svg>
@@ -376,7 +454,14 @@ export default function Body() {
           <span>{t('Белок', 'Protein')}</span>
           <b>120–145 г</b>
         </div>
-        <p style={{ marginTop: 12, color: 'var(--muted)', fontSize: 10, lineHeight: 1.5 }}>
+        <p
+          style={{
+            marginTop: 12,
+            color: 'var(--muted)',
+            fontSize: 10,
+            lineHeight: 1.5,
+          }}
+        >
           {t(
             'Сохраняй силовые тренировки 3 раза в неделю, добавь белок после занятия и держи стабильный сон.',
             'Keep strength training 3 times a week, add protein after workouts and maintain stable sleep.'

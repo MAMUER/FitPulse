@@ -165,7 +165,11 @@ Phase 2 состоит из нескольких крупных блоков, к
 
 **Документация**: `docs/adr/0023-pgsodium-pii-encryption.md`
 
-**GitOps (Phase 2, не начато):** манифесты Flux и Argo CD удалены как нерабочие эскизы — в них не было контроллеров, CRD (`*.toolkit.fluxcd.io`, `Application`), ни одного `ClusterRole`/`ClusterRoleBinding` и реальных repo-креденшелов. Внедрять GitOps до перевода CI с `kubectl apply` нельзя: два писателя в одни объекты будут откатывать друг друга. Если задача возникнет — **Flux, не Argo CD** (~200 МБ против 600–800 МБ на 2 vCPU / 4 ГБ). Что учесть:
+**GitOps (Phase 2, не начато):** манифесты Flux и Argo CD удалены как нерабочие эскизы — в них не было
+контроллеров, CRD (`*.toolkit.fluxcd.io`, `Application`), ни одного `ClusterRole`/`ClusterRoleBinding`
+и учётных данных для доступа к Git. Внедрять GitOps до перевода CI с `kubectl apply` нельзя:
+два писателя в одни объекты будут откатывать друг друга. Если задача возникнет — **Flux, не Argo CD**
+(~200 МБ против 600–800 МБ на 2 vCPU / 4 ГБ). Что учесть:
 
 - `Kustomization.path` → `./configs/k8s/overlays/production`, без `targetNamespace`: `base` покрывает `ingress-nginx`, `cert-manager`, `elk`, `monitoring`, `minio`;
 - `configMapGenerator` в `base/jobs` читает файл вне корня (`../../../../db/...`) — CI собирает с `--load-restrictor=LoadRestrictionsNone`, `kustomize-controller` так не умеет;

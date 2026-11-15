@@ -132,9 +132,15 @@ def find_k6():
         ]
         if os.name == "nt":
             common_paths = [
-                os.path.join(os.environ.get("ProgramFiles", r"C:\Program Files"), "k6", K6_EXE),
                 os.path.join(
-                    os.environ.get("LOCALAPPDATA", ""), "Microsoft", "WinGet", "Links", K6_EXE
+                    os.environ.get("ProgramFiles", r"C:\Program Files"), "k6", K6_EXE
+                ),
+                os.path.join(
+                    os.environ.get("LOCALAPPDATA", ""),
+                    "Microsoft",
+                    "WinGet",
+                    "Links",
+                    K6_EXE,
                 ),
                 K6_EXE,
                 f"./{K6_EXE}",

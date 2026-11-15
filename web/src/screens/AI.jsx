@@ -31,8 +31,16 @@ export default function Ai() {
   const quickQuestions = [
     ['Меню', 'Составь меню на сегодня', 'Make a menu for today'],
     ['Ужин', 'Замени ужин на лёгкий', 'Replace dinner with something light'],
-    ['Календарь', 'Добавь тренировку в календарь', 'Add a workout to the calendar'],
-    ['Тело', 'Как улучшить композицию тела?', 'How to improve body composition?'],
+    [
+      'Календарь',
+      'Добавь тренировку в календарь',
+      'Add a workout to the calendar',
+    ],
+    [
+      'Тело',
+      'Как улучшить композицию тела?',
+      'How to improve body composition?',
+    ],
   ];
 
   const renderBlock = (data, title) => {
@@ -54,7 +62,10 @@ export default function Ai() {
         <div>
           <h2>FitPulse AI</h2>
           <span style={{ color: 'var(--blue)', fontSize: 9 }}>
-            {t('Тренер · нутрициолог · планировщик', 'Trainer · nutritionist · planner')}
+            {t(
+              'Тренер · нутрициолог · планировщик',
+              'Trainer · nutritionist · planner'
+            )}
           </span>
         </div>
       </div>
@@ -87,10 +98,7 @@ export default function Ai() {
 
       <div className='messages' ref={messagesRef}>
         {messages.map((message, index) => (
-          <div
-            className={`message ${message.type}`}
-            key={message.id || index}
-          >
+          <div className={`message ${message.type}`} key={message.id || index}>
             {message.text}
           </div>
         ))}

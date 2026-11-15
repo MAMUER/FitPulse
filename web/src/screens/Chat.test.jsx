@@ -41,8 +41,12 @@ describe('Chat', () => {
     ).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Настройки чата' }));
 
-    expect(screen.getByRole('dialog', { name: 'Настройки чата' })).toBeVisible();
-    expect(screen.getByLabelText('Показывать онлайн-статус')).toBeInTheDocument();
+    expect(
+      screen.getByRole('dialog', { name: 'Настройки чата' })
+    ).toBeVisible();
+    expect(
+      screen.getByLabelText('Показывать онлайн-статус')
+    ).toBeInTheDocument();
   });
 
   it('persists settings and closes the modal', async () => {

@@ -1,5 +1,5 @@
-import Modal from './Modal';
 import { useApp } from '../contexts/AppContext';
+import Modal from './Modal';
 
 export default function VideoModal({ videos, index, onChange, onClose }) {
   const { t, notify } = useApp();
@@ -10,11 +10,7 @@ export default function VideoModal({ videos, index, onChange, onClose }) {
   const equipment = video.equipment || [];
 
   return (
-    <Modal
-      className='fp-video-modal'
-      label={video.title}
-      onClose={onClose}
-    >
+    <Modal className='fp-video-modal' label={video.title} onClose={onClose}>
       <section className='fp-video-modal-box'>
         <div className='between'>
           <div className='eyebrow'>{t('ВИДЕО-УРОК', 'VIDEO LESSON')}</div>

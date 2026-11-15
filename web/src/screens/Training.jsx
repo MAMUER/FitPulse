@@ -103,7 +103,9 @@ export default function Training() {
 
   const handleVideoChange = (direction) => {
     if (!videos.length) return;
-    setVideoIndex((current) => (current + direction + videos.length) % videos.length);
+    setVideoIndex(
+      (current) => (current + direction + videos.length) % videos.length
+    );
   };
 
   return (
@@ -310,14 +312,20 @@ export default function Training() {
       <div className='grid-2'>
         <div className='fp-instructions' style={{ marginTop: 6 }}>
           <strong>
-            <i className='fas fa-info-circle' style={{ color: 'var(--blue)' }} />{' '}
+            <i
+              className='fas fa-info-circle'
+              style={{ color: 'var(--blue)' }}
+            />{' '}
             {t('Правила в зале', 'Gym rules')}
           </strong>
           <p style={instructionTextStyle}>{instructions.gym}</p>
         </div>
         <div className='fp-instructions' style={{ marginTop: 6 }}>
           <strong>
-            <i className='fas fa-info-circle' style={{ color: 'var(--blue)' }} />{' '}
+            <i
+              className='fas fa-info-circle'
+              style={{ color: 'var(--blue)' }}
+            />{' '}
             {t('Правила в бассейне', 'Pool rules')}
           </strong>
           <p style={instructionTextStyle}>{instructions.pool}</p>
@@ -406,7 +414,9 @@ export default function Training() {
             type='button'
             className='primary'
             onClick={() => {
-              quickAI(t('Предложи упражнение для дома', 'Suggest a home exercise'));
+              quickAI(
+                t('Предложи упражнение для дома', 'Suggest a home exercise')
+              );
             }}
           >
             <i className='fas fa-robot' /> {t('Спросить AI', 'Ask AI')}

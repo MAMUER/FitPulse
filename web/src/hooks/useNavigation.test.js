@@ -5,11 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useNavigation } from './useNavigation';
 
 function Wrapper({ children }) {
-  return createElement(
-    MemoryRouter,
-    { initialEntries: ['/home'] },
-    children
-  );
+  return createElement(MemoryRouter, { initialEntries: ['/home'] }, children);
 }
 
 function makeState(overrides = {}) {
@@ -50,11 +46,11 @@ beforeEach(() => {
 describe('useNavigation', () => {
   it('returns all navigation callbacks', () => {
     setup();
-    expect(Object.keys(result.current).filter((key) => key !== 'location').sort()).toEqual([
-      'backFromLegal',
-      'go',
-      'openLegal',
-    ]);
+    expect(
+      Object.keys(result.current)
+        .filter((key) => key !== 'location')
+        .sort()
+    ).toEqual(['backFromLegal', 'go', 'openLegal']);
   });
 
   it('go switches screen and closes overlays', () => {

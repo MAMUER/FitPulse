@@ -50,7 +50,8 @@ function TabBar() {
     },
   ];
   const visibleTabs = tabs.filter(
-    (tab) => !tab.chatOnly || state.screen === 'chat' || state.screen === 'chatDetail'
+    (tab) =>
+      !tab.chatOnly || state.screen === 'chat' || state.screen === 'chatDetail'
   );
 
   return (

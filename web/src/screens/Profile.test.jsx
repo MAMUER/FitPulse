@@ -118,7 +118,9 @@ describe('Profile', () => {
     renderProfile(baseContext({ saveChatSettings }));
 
     await user.click(screen.getByRole('button', { name: /Настройки чата/ }));
-    expect(screen.getByRole('dialog', { name: 'Настройки чата' })).toBeVisible();
+    expect(
+      screen.getByRole('dialog', { name: 'Настройки чата' })
+    ).toBeVisible();
     await user.click(screen.getByRole('button', { name: 'Сохранить' }));
 
     expect(saveChatSettings).toHaveBeenCalledTimes(1);

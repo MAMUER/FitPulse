@@ -1,11 +1,7 @@
 import { useEffect } from 'react';
 import Modal from '../components/Modal';
 import { useApp } from '../contexts/AppContext';
-import {
-  getDateKey,
-  getEventsForMonth,
-  getWeekDays,
-} from '../utils/helpers';
+import { getDateKey, getEventsForMonth, getWeekDays } from '../utils/helpers';
 
 const QUICK_ENTRIES = [
   [
@@ -61,7 +57,9 @@ export default function Calendar() {
 
   const monthEvents = Object.entries(calendarEvents)
     .flatMap(([key, list]) =>
-      Array.isArray(list) ? list.map((event, index) => ({ key, index, ...event })) : []
+      Array.isArray(list)
+        ? list.map((event, index) => ({ key, index, ...event }))
+        : []
     )
     .filter((event) => {
       const [eventYear, eventMonth] = String(event.key).split('-').map(Number);
@@ -279,7 +277,9 @@ export default function Calendar() {
               <button
                 type='button'
                 className='primary'
-                onClick={() => selectCalendarDay(selectedDay || today.getDate())}
+                onClick={() =>
+                  selectCalendarDay(selectedDay || today.getDate())
+                }
               >
                 + {t('Добавить', 'Add')}
               </button>
@@ -288,7 +288,10 @@ export default function Calendar() {
           <div>
             {monthEvents.length === 0 ? (
               <p className='muted' style={{ padding: '12px 0' }}>
-                {t('Событий нет. Добавьте первое.', 'No events yet. Add the first one.')}
+                {t(
+                  'Событий нет. Добавьте первое.',
+                  'No events yet. Add the first one.'
+                )}
               </p>
             ) : (
               monthEvents.map((event) => (
@@ -357,7 +360,9 @@ export default function Calendar() {
                   />
                   <div className='fp-event-content'>
                     <strong>{event.title}</strong>
-                    <small>{[event.time, event.info].filter(Boolean).join(' · ')}</small>
+                    <small>
+                      {[event.time, event.info].filter(Boolean).join(' · ')}
+                    </small>
                   </div>
                   <button
                     type='button'
@@ -371,15 +376,22 @@ export default function Calendar() {
             )}
             <div className='field' style={{ marginTop: 10 }}>
               <label htmlFor='eventTitle'>{t('Название', 'Title')}</label>
-              <input id='eventTitle' placeholder={t('Новое событие', 'New event')} />
+              <input
+                id='eventTitle'
+                placeholder={t('Новое событие', 'New event')}
+              />
             </div>
             <div className='form-row'>
               <div className='field'>
                 <label htmlFor='eventType'>{t('Тип', 'Type')}</label>
                 <select id='eventType' defaultValue='training'>
-                  <option value='training'>{t('Тренировка', 'Training')}</option>
+                  <option value='training'>
+                    {t('Тренировка', 'Training')}
+                  </option>
                   <option value='food'>{t('Питание', 'Meal')}</option>
-                  <option value='recovery'>{t('Восстановление', 'Recovery')}</option>
+                  <option value='recovery'>
+                    {t('Восстановление', 'Recovery')}
+                  </option>
                   <option value='meeting'>{t('Встреча', 'Meeting')}</option>
                   <option value='note'>{t('Заметка', 'Note')}</option>
                 </select>
@@ -402,8 +414,8 @@ export default function Calendar() {
       )}
 
       <p className='muted' style={{ marginTop: 12, fontSize: 10 }}>
-        {t('Выбранная дата', 'Selected date')}:{' '}
-        {selectedDay || today.getDate()} {getMonthName(monthIndex)}
+        {t('Выбранная дата', 'Selected date')}: {selectedDay || today.getDate()}{' '}
+        {getMonthName(monthIndex)}
       </p>
     </section>
   );

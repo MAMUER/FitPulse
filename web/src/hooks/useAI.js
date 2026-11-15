@@ -60,7 +60,9 @@ export function useAI({ state, update }) {
   const sendAI = useCallback(
     async (text) => {
       const input = document.getElementById('aiInput');
-      const value = (typeof text === 'string' ? text : input?.value || '').trim();
+      const value = (
+        typeof text === 'string' ? text : input?.value || ''
+      ).trim();
       if (!value) return;
 
       if (input) input.value = '';

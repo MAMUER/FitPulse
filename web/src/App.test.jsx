@@ -107,8 +107,6 @@ describe('App', () => {
     renderApp({ screen: 'home' });
     const navigation = screen.getByRole('navigation');
     expect(within(navigation).queryByText('Профиль')).not.toBeInTheDocument();
-    expect(
-      screen.getByRole('button', { name: 'Профиль' })
-    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Профиль' })).toBeInTheDocument();
   });
 });

@@ -114,7 +114,9 @@ export default function Nutrition() {
         <div>
           <div className='eyebrow'>{t('СЕГОДНЯ', 'TODAY')}</div>
           <strong>{now.toLocaleDateString(locale, { weekday: 'long' })}</strong>
-          <p>{now.toLocaleDateString(locale, { day: 'numeric', month: 'long' })}</p>
+          <p>
+            {now.toLocaleDateString(locale, { day: 'numeric', month: 'long' })}
+          </p>
         </div>
         <div className='date-number'>{now.getDate()}</div>
       </section>
@@ -153,12 +155,14 @@ export default function Nutrition() {
         </div>
         <div className='fp-main-number'>
           <div>
-            <strong>{Number(data.calories || 0).toLocaleString('ru-RU')}</strong>
+            <strong>
+              {Number(data.calories || 0).toLocaleString('ru-RU')}
+            </strong>
             <small>{t('ккал в периоде', 'kcal in period')}</small>
           </div>
           <small>
-            {t('цель', 'goal')}: {Number(data.goal || 0).toLocaleString('ru-RU')}{' '}
-            {t('ккал', 'kcal')}
+            {t('цель', 'goal')}:{' '}
+            {Number(data.goal || 0).toLocaleString('ru-RU')} {t('ккал', 'kcal')}
           </small>
         </div>
         <div className='fp-progress-line'>
@@ -424,7 +428,9 @@ export default function Nutrition() {
                     )
                   }
                 >
-                  {index === 0 ? t('Сейчас', 'Current') : t('Выбрать', 'Choose')}
+                  {index === 0
+                    ? t('Сейчас', 'Current')
+                    : t('Выбрать', 'Choose')}
                 </button>
               </article>
             ))}

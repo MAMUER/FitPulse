@@ -42,7 +42,9 @@ def request(method, url, payload=None, timeout=30):
 def fail(step, status, body):
     """Print a FAIL line and exit non-zero."""
     if status is None:
-        print(f"FAIL {step}: service unreachable ({body.get('error', 'connection error')})")
+        print(
+            f"FAIL {step}: service unreachable ({body.get('error', 'connection error')})"
+        )
     else:
         print(f"FAIL {step}: {status} {body}")
     sys.exit(1)

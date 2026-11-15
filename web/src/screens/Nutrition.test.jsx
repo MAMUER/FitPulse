@@ -52,11 +52,7 @@ const alternatives = {
 };
 
 function makeContext(overrides = {}) {
-  const {
-    state: stateOverrides,
-    t: tOverride,
-    ...rest
-  } = overrides;
+  const { state: stateOverrides, t: tOverride, ...rest } = overrides;
   return {
     state: {
       language: 'ru',
@@ -86,9 +82,7 @@ function makeContext(overrides = {}) {
           carbs: 5650,
         },
       },
-      mealsList: [
-        { id: 1, name: 'Яйца', calories: 200, time: '08:00' },
-      ],
+      mealsList: [{ id: 1, name: 'Яйца', calories: 200, time: '08:00' }],
       selectedMeal: null,
       waterIntake: 2,
       waterGoal: 8,

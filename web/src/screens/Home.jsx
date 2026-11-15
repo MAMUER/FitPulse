@@ -371,7 +371,10 @@ export default function Home() {
         return (
           <div className='fp-hack'>
             <strong>
-              <i className={`fas ${hack[0]}`} style={{ color: 'var(--gold)' }} />{' '}
+              <i
+                className={`fas ${hack[0]}`}
+                style={{ color: 'var(--gold)' }}
+              />{' '}
               {hack[1]}
             </strong>
             <p>{hack[2]}</p>

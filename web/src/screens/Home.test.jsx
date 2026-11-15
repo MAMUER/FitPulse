@@ -149,7 +149,9 @@ describe('Home', () => {
   it('renders the selected story viewer', () => {
     renderHome({ state: { selectedStory: story } });
 
-    expect(screen.getByRole('dialog', { name: 'Восстановление' })).toBeVisible();
+    expect(
+      screen.getByRole('dialog', { name: 'Восстановление' })
+    ).toBeVisible();
     expect(
       screen.getByRole('button', { name: 'Закрыть историю' })
     ).toBeInTheDocument();

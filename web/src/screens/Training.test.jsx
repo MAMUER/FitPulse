@@ -100,7 +100,9 @@ describe('Training', () => {
     expect(screen.getByText('План тренировок')).toBeInTheDocument();
     expect(screen.getByText('1/3')).toBeInTheDocument();
     expect(screen.getByText('Силовая база')).toBeInTheDocument();
-    expect(screen.getByText('Мобильность и восстановление')).toBeInTheDocument();
+    expect(
+      screen.getByText('Мобильность и восстановление')
+    ).toBeInTheDocument();
     expect(screen.getByText('Кардио в бассейне')).toBeInTheDocument();
     expect(screen.getByText('Правила в зале')).toBeInTheDocument();
   });
@@ -196,7 +198,9 @@ describe('Training', () => {
     fireEvent.click(screen.getByText('Утренняя зарядка'));
 
     let dialog = screen.getByRole('dialog');
-    expect(within(dialog).getByRole('heading', { name: 'Утренняя зарядка' })).toBeInTheDocument();
+    expect(
+      within(dialog).getByRole('heading', { name: 'Утренняя зарядка' })
+    ).toBeInTheDocument();
     fireEvent.click(within(dialog).getByLabelText('Следующее видео'));
 
     dialog = screen.getByRole('dialog');

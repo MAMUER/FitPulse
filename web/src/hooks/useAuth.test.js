@@ -46,11 +46,7 @@ const INPUT_IDS = [
 const state = { profile: { name: 'Имя' }, resetEmail: 'user@example.com' };
 
 function Wrapper({ children }) {
-  return createElement(
-    MemoryRouter,
-    { initialEntries: ['/login'] },
-    children
-  );
+  return createElement(MemoryRouter, { initialEntries: ['/login'] }, children);
 }
 
 let update;
@@ -112,7 +108,9 @@ afterEach(() => {
 
 describe('useAuth', () => {
   it('returns all auth callbacks', () => {
-    expect(Object.keys(result.current).filter((key) => key !== 'location')).toEqual([
+    expect(
+      Object.keys(result.current).filter((key) => key !== 'location')
+    ).toEqual([
       'doLogin',
       'logout',
       'doRegister',
