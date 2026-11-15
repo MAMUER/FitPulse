@@ -1325,15 +1325,26 @@ jobs:
             echo "::error::DuckDNS webhook tag resolved to unexpected commit $actual_commit"
             exit 1
           fi
-          helm upgrade --install cert-manager-webhook-duckdns \
+          if ! helm upgrade --install cert-manager-webhook-duckdns \
             "$chart_dir/deploy/cert-manager-webhook-duckdns" \
             --namespace cert-manager \
             --wait \
-            --timeout 5m \
+            --timeout 10m \
             --set secret.existingSecret=true \
             --set secret.existingSecretName=duckdns-token \
             --set clusterIssuer.staging.create=false \
-            --set clusterIssuer.production.create=false
+            --set clusterIssuer.production.create=false; then
+            echo "::error::DuckDNS webhook Helm install did not become ready; collecting diagnostics"
+            kubectl -n cert-manager get pods,deployments,services -o wide >&2 || true
+            kubectl -n cert-manager get certificates,issuers >&2 || true
+            kubectl -n cert-manager get events --sort-by=.metadata.creationTimestamp | tail -n 50 >&2 || true
+            kubectl -n cert-manager describe deployment cert-manager-webhook-duckdns >&2 || true
+            kubectl -n cert-manager describe certificate cert-manager-webhook-duckdns-webhook-tls >&2 || true
+            kubectl -n cert-manager logs deployment/cert-manager-webhook-duckdns \
+              --all-containers --tail=100 >&2 || true
+            kubectl get apiservice v1alpha1.acme.duckdns.org -o yaml >&2 || true
+            exit 1
+          fi
       - name: Create image pull secret for GHCR
         if: steps.connectivity.outputs.reachable == 'true'
         env:
@@ -1826,6 +1837,29 @@ jobs:
           VPS_HOST: ${{ secrets.VPS_HOST }}
           VPS_PORT: ${{ secrets.VPS_PORT }}
         run: bash scripts/ci/ci-helpers.sh add_vps_to_known_hosts
+      - name: Download and verify kube-bench release
+        env:
+          KUBE_BENCH_VERSION: 0.8.0
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+        run: |
+          set -euo pipefail
+          archive="kube-bench_${KUBE_BENCH_VERSION}_linux_amd64.tar.gz"
+          download_dir="$RUNNER_TEMP/kube-bench"
+          mkdir -p "$download_dir"
+          curl -fsSL --proto "=https" --proto-redir "=https" \
+            "https://github.com/aquasecurity/kube-bench/releases/download/v${KUBE_BENCH_VERSION}/${archive}" \
+            -o "$download_dir/$archive"
+          echo "8e8f083819678956b6c36623a6a0638741340397ffc209cd71a6b4907f2bb05e  $download_dir/$archive" \
+            | sha256sum --check
+          tar -tzf "$download_dir/$archive" > "$download_dir/archive.contents"
+          grep -qx 'kube-bench' "$download_dir/archive.contents"
+          grep -q '^cfg/' "$download_dir/archive.contents"
+          scp -P "${VPS_PORT:-22}" \
+            -o StrictHostKeyChecking=accept-new \
+            "$download_dir/$archive" \
+            "${VPS_USER}@${VPS_HOST}:/tmp/$archive"
       - name: Run kube-bench on k3s node via SSH
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
@@ -1837,22 +1871,19 @@ jobs:
           set -euo pipefail
           mkdir -p ~/security-results
 
-           echo "Installing/updating kube-bench binary and config..."
-           curl -sL https://github.com/aquasecurity/kube-bench/releases/download/v0.8.0/kube-bench_0.8.0_linux_amd64.tar.gz -o /tmp/kube-bench.tar.gz
-           tar -xzf /tmp/kube-bench.tar.gz -C /tmp
-           sudo mv /tmp/kube-bench /usr/local/bin/kube-bench
-
-           sudo rm -rf /etc/kubebench
-           sudo mkdir -p /etc/kubebench
-           sudo cp -r /tmp/cfg/* /etc/kubebench/
-
-           rm -f /tmp/kube-bench.tar.gz
-           echo "✅ kube-bench installed successfully"
-
+          echo "Installing/updating kube-bench binary and config..."
+          archive=/tmp/kube-bench_0.8.0_linux_amd64.tar.gz
+          work_dir="$(mktemp -d)"
+          trap 'rm -rf "$work_dir" "$archive"' EXIT
+          tar -xzf "$archive" -C "$work_dir"
+          test -x "$work_dir/kube-bench"
+          test -d "$work_dir/cfg"
+          sudo install -m 0755 "$work_dir/kube-bench" /usr/local/bin/kube-bench
+          echo "✅ kube-bench installed successfully"
 
           echo "Running kube-bench scan..."
           # Убрали "|| true", чтобы пайплайн честно падал, если сканирование не удалось
-          sudo kube-bench run --config-dir /tmp/cfg --targets node --json > ~/security-results/kube-bench-results.json
+          sudo kube-bench run --config-dir "$work_dir/cfg" --targets node --json > ~/security-results/kube-bench-results.json
           EOF
 
           mkdir -p security-results
