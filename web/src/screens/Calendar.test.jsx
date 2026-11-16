@@ -202,4 +202,117 @@ describe('Calendar', () => {
       0
     );
   });
+
+  it('opens the full calendar page', () => {
+    const context = makeContext();
+    useApp.mockReturnValue(context);
+
+    render(<Calendar />);
+    fireEvent.click(screen.getByText('Открыть календарь'));
+
+    expect(context.openCalendarPage).toHaveBeenCalledWith(true);
+  });
+
+  it('adds a quick entry for every event type', () => {
+    const context = makeContext();
+    useApp.mockReturnValue(context);
+
+    render(<Calendar />);
+    for (const label of [
+      'Зал',
+      'Бассейн',
+      'Восстановление',
+      'Работа',
+      'Учёба',
+      'Заметка',
+    ]) {
+      fireEvent.click(screen.getByText(label));
+    }
+
+    expect(context.quickAddEvent).toHaveBeenCalledWith('gym');
+    expect(context.quickAddEvent).toHaveBeenCalledWith('pool');
+    expect(context.quickAddEvent).toHaveBeenCalledWith('recovery');
+    expect(context.quickAddEvent).toHaveBeenCalledWith('work');
+    expect(context.quickAddEvent).toHaveBeenCalledWith('study');
+    expect(context.quickAddEvent).toHaveBeenCalledWith('note');
+  });
+
+  it('selects a day and navigates months in the card view', () => {
+    const context = makeContext();
+    useApp.mockReturnValue(context);
+
+    render(<Calendar />);
+    fireEvent.click(screen.getByLabelText('Предыдущий месяц'));
+    expect(context.changeCalendar).toHaveBeenLastCalledWith(-1);
+
+    fireEvent.click(screen.getByLabelText('Следующий месяц'));
+    expect(context.changeCalendar).toHaveBeenLastCalledWith(1);
+
+    fireEvent.click(document.querySelectorAll('.month button')[0]);
+    expect(context.selectCalendarDay).toHaveBeenCalledWith(1);
+  });
+
+  it('renders the full calendar page with navigation and day selection', () => {
+    const context = makeContext({ state: { calendarOpen: true } });
+    useApp.mockReturnValue(context);
+
+    const { container } = render(<Calendar />);
+    expect(container.querySelector('.fp-calendar-page')).toBeInTheDocument();
+
+    // The toolbar buttons render a "‹" / "›" glyph next to the label.
+    fireEvent.click(screen.getByRole('button', { name: /Назад/ }));
+    expect(context.changeCalendar).toHaveBeenLastCalledWith(-1);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Сегодня' }));
+    expect(context.openCalendarPage).toHaveBeenCalledWith(true);
+
+    fireEvent.click(screen.getByRole('button', { name: /Вперёд/ }));
+    expect(context.changeCalendar).toHaveBeenLastCalledWith(1);
+
+    // The first .fp-calendar-date nodes are invisible padding for the weekday
+    // offset, so select the first real day button.
+    fireEvent.click(document.querySelectorAll('button.fp-calendar-date')[0]);
+    expect(context.selectCalendarDay).toHaveBeenCalledWith(1);
+  });
+
+  it('lists month events sorted by time and deletes one', () => {
+    const context = makeContext({
+      state: {
+        calendarOpen: true,
+        calendarEvents: {
+          [getDateKey(YEAR, MONTH, 1)]: [
+            { id: 1, title: 'Зал', time: '18:00', type: 'gym' },
+            { id: 2, title: 'Бассейн', time: '09:00', type: 'pool' },
+          ],
+        },
+      },
+    });
+    useApp.mockReturnValue(context);
+
+    const { container } = render(<Calendar />);
+    const events = container.querySelectorAll('.fp-event');
+    expect(events).toHaveLength(2);
+    // 68: sorted by time, so 09:00 comes first
+    expect(events[0].textContent).toContain('Бассейн');
+    expect(events[1].textContent).toContain('Зал');
+
+    fireEvent.click(events[0].querySelector('button'));
+    // The first rendered row is the 09:00 event, which keeps its original index 1.
+    expect(context.deleteCalendarEvent).toHaveBeenCalledWith(
+      getDateKey(YEAR, MONTH, 1),
+      1
+    );
+  });
+
+  it('adds an event for the selected day from the month list', () => {
+    const context = makeContext({
+      state: { calendarOpen: true, dateModalDate: 3 },
+    });
+    useApp.mockReturnValue(context);
+
+    render(<Calendar />);
+    fireEvent.click(screen.getByText('+ Добавить'));
+
+    expect(context.selectCalendarDay).toHaveBeenCalledWith(3);
+  });
 });

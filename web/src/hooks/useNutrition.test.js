@@ -270,4 +270,35 @@ describe('useNutrition', () => {
       expect.objectContaining({ title: 'Смузи', kcal: 180 })
     );
   });
+
+  it('loadMeals reports a load failure', async () => {
+    setup();
+    api.loadMeals.mockRejectedValueOnce(new Error('network down'));
+    await act(async () => {
+      await result.current.loadMeals();
+    });
+    expect(notify).toHaveBeenCalledWith('Ошибка загрузки блюд');
+  });
+
+  it('createMeal returns false and reports a failure', async () => {
+    setup();
+    api.createMeal.mockRejectedValueOnce(new Error('write failed'));
+    let ok;
+    await act(async () => {
+      ok = await result.current.createMeal('Рис', 300, '12:00');
+    });
+    expect(ok).toBe(false);
+    expect(notify).toHaveBeenCalledWith('Ошибка добавления блюда');
+  });
+
+  it('removeMeal returns false and reports a failure', async () => {
+    setup();
+    api.removeMeal.mockRejectedValueOnce(new Error('delete failed'));
+    let ok;
+    await act(async () => {
+      ok = await result.current.removeMeal(1);
+    });
+    expect(ok).toBe(false);
+    expect(notify).toHaveBeenCalledWith('Ошибка удаления блюда');
+  });
 });

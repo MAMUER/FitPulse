@@ -117,4 +117,54 @@ describe('Body', () => {
     expect(arg.muscle_mass_kg).toBe(34.8);
     expect(arg.water_percent).toBe(57.2);
   });
+
+  it('sorts history by recorded_at and opens each metric detail', () => {
+    const openMetric = vi.fn();
+    useApp.mockReturnValue({
+      state: {
+        height: 180,
+        weight: 80,
+        bodyComposition: [
+          { recorded_at: '2026-01-01T00:00:00Z', weight_kg: 78 },
+          { recorded_at: '2026-03-01T00:00:00Z', weight_kg: 81 },
+        ],
+      },
+      t: (ru, _en) => ru,
+      go: vi.fn(),
+      openMetric,
+      loadBodyComposition: vi.fn(),
+      saveBodyComposition: vi.fn(),
+    });
+
+    render(<Body />);
+
+    // Each metric card opens its detail view.
+    fireEvent.click(screen.getByRole('button', { name: /Вес/ }));
+    expect(openMetric).toHaveBeenLastCalledWith('weight');
+    fireEvent.click(screen.getByRole('button', { name: /Жир/ }));
+    expect(openMetric).toHaveBeenLastCalledWith('fat');
+    fireEvent.click(screen.getByRole('button', { name: /Мышцы/ }));
+    expect(openMetric).toHaveBeenLastCalledWith('muscle');
+    fireEvent.click(screen.getByRole('button', { name: /Белок/ }));
+    expect(openMetric).toHaveBeenLastCalledWith('protein');
+    fireEvent.click(screen.getByRole('button', { name: /график/ }));
+    expect(openMetric).toHaveBeenLastCalledWith('bmi');
+  });
+
+  it('opens the body-metrics detail for a vital sign', () => {
+    const openMetric = vi.fn();
+    useApp.mockReturnValue({
+      state: { height: 180, weight: 80, bodyComposition: [] },
+      t: (ru, _en) => ru,
+      go: vi.fn(),
+      openMetric,
+      loadBodyComposition: vi.fn(),
+      saveBodyComposition: vi.fn(),
+    });
+
+    render(<Body />);
+    fireEvent.click(screen.getByRole('button', { name: /Пульс/ }));
+
+    expect(openMetric).toHaveBeenCalledWith('pulse');
+  });
 });

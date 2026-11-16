@@ -356,67 +356,97 @@ Mutable tags позволяют владельцу action'а перенапра�
 | **user-service** `internal/email/email.go:191` | S5332: `smtp.NewClient` поверх `tls.Dialer` | SonarQube false positive: `smtp.NewClient` вызывается уже поверх TLS-соединения, через `tls.Dialer` с `MinVersion: TLS 1.2` |
 | **scripts** `scripts/api-test.py:61` | S4423: `ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)` | Accepted false positive: проект использует Python 3.14; `PROTOCOL_TLS_CLIENT` + `TLSv1_2` + `check_hostname=True` + `verify_mode=CERT_REQUIRED` являются secure defaults. SonarLint Python не распознаёт этот код как безопасный; suppression в коде не работает, поэтому accepted на уровне SonarCloud/SonarQube |
 
-## Frontend coverage — принятые исключения Istanbul/NYC
+## Покрытие тестами
 
-В веб-интерфейсе (`web/src`) оставшиеся ~3% непокрытых строк относятся:
+Замер: 2026-11-16 — `npx vitest run --coverage`, `go test ./... -coverprofile`, `pytest --cov`.
 
-1. **JSX-conditional rendering ветки**, которые требуют либо глубокой перестройки тестовой инфраструктуры (моки `window.prompt/confirm`, `Chart.js` canvas context, `OpenWearablesWidget`), либо принятия риска. Для этих веток использованы `/* istanbul ignore next */` там, где это не ломает парсинг JSX.
-2. **API proxy-модули** (`web/src/utils/api/*.js`), которые не содержат бизнес-логики, только проксируют HTTP-запросы. Для них добавлен `/* istanbul ignore file */`, так как их логика покрывается косвенно через тесты компонентов.
+| Слой | Покрытие |
+| --- | --- |
+| Web (vitest, lines) | **99.94%** (1794 / 1795) |
+| Web (statements / branches / functions) | 99.57% (1881/1889) / 91.99% (1276/1387) / 99.64% (558/560) |
+| Go (statements) | **49.7%** (6541 / 13170); без сгенерированного `api/` — 68.9% (6541 / 9495) |
+| Python (statements) | **98%** (37 тестов, 1 непокрытая строка) |
 
-### Конкретные исключения
+Web: 692 теста в 52 файлах. Непокрыта одна строка — `web/src/components/Captcha.jsx:53`
+(`if (!container) return undefined`; `containerRef.current` заполняется всегда, когда компонент
+отрендерен → ветка недостижима через публичный API).
 
-| Файл | Строки | Причина исключения |
-| --- | --- | --- |
-| `web/src/utils/api/admin.js` | 4-24 | Только прокси `apiRequest`; покрывается через Admin.test.jsx |
-| `web/src/utils/api/auth.js` | 4-88 | Только прокси `apiRequest`; покрывается через AuthContext/AuthScreen тесты |
-| `web/src/utils/api/index.js` | 4-8 | Re-export; нет собственной логики |
-| `web/src/utils/api/profile.js` | 4-32 | Только прокси `apiRequest`; покрывается через Profile/useProfile тесты |
-| `web/src/components/Auth/AuthScreen.jsx` | 199, 322-326 | Verify-mode JSX рендер (`mode === 'verify'`) — требует injection `searchParams` + `onSuccessMessage` через `useAuthForm`, что не поддерживает текущий `renderAuth` helper без переписывания тестов |
-| `web/src/components/Dashboard/Dashboard.jsx` | 41-62, 87-89, 136-191, 203, 212-213 | Chart.js canvas getContext, AI fallback ветки, training plan fallback — требуют либо установки `canvas` npm пакета, либо сложных моков динамических импортов |
-| `web/src/components/Health/Health.jsx` | 35-37, 57-59, 84-88, 103-107, 112, 143, 181-184, 192, 238, 278-285, 295-311 | `window.prompt/confirm` inputs, menstrual cycle JSX fallback — не покрываются без мока глобальных prompt/confirm |
-| `web/src/components/ML/ML.jsx` | 85-94 | Chart.js bar chart render — требует `canvas` пакет или сложного мока `getContext('2d')` |
-| `web/src/components/Profile/useProfile.js` | 36, 45-46, 71-75, 87-93 | Fallback значения полей профиля (`p.profile \| data`, `p.allergies \| []`) — покрываются только если тестовый мок возвращает `profile: null` |
-| `web/src/components/Devices/useDevices.js` | 19, 41, 48-61, 81-122 | Ретрай-таймер и widget init callbacks — зависят от `window.OpenWearablesWidget` загрузки |
+> Прежние разделы «Frontend coverage — исключения Istanbul/NYC» и «Непокрываемые строки (Go / JS)»
+> удалены: они описывали другой, более ранний состав `web/src` (`components/Auth`, `Dashboard`,
+> `Health`, `ML`, `utils/api/*`, `components/Devices/*`) — этих файлов в репозитории нет, а
+> проект использует coverage v8, а не istanbul/nyc.
 
-### План устранения
+### Go: пакеты ниже 100%
 
-Для полного 100% покрытия без `istanbul ignore` необходимо:
+| Пакет | Покрытие |
+| --- | --- |
+| `internal/queue` | 32.2% |
+| `internal/testcontainers` | 38.2% |
+| `internal/grpc` | 52.3% |
+| `internal/db` | 64.7% |
+| `internal/server` | 75.6% |
+| `internal/middleware` | 86.8% |
+| `internal/telemetry` | 88.9% |
+| `internal/email` | 98.0% |
+| `internal/webhook` | 99.6% |
+| остальные `internal/*` | 100% |
 
-1. Установить `canvas` npm пакет для Chart.js тестов (покроет ML, Dashboard, Achievements chart ветки)
-2. Добавить моки `window.prompt/confirm` в `src/test/setup.js` (покроет Health ветки)
-3. Расширить `renderAuth` helper для поддержки `searchParams` + `onSuccessMessage` injection (покроет AuthScreen verify mode)
-4. Добавить тест с `profile: null` в `useProfile.test.jsx` (покроет fallback поля)
-5. Добавить тест с `OpenWearablesWidget` timeout в `useDevices.test.jsx` (покроет retry error ветку)
+`internal/` в целом — 91.9% (3896 / 4240), `cmd/` — 50.3% (2645 / 5255),
+`api/` (сгенерированный protobuf) — 0% (0 / 3675).
 
-До выполнения этих пунктов покрытие оценивается как **достаточное** (97%+ statements), а исключения документированы.
+`cmd/` даёт ~50%, потому что основной объём — `main()`, `connectDatabase`, `connectValkey`,
+`connectRabbitMQ`, `serveMetricsServer` и крупные gRPC-хендлеры, которым нужны живые
+Postgres/Valkey/RabbitMQ. Они проверяются интеграционно (CI UAT + `scripts/ml-e2e.py`).
 
----
-
-## Непокрываемые строки (Go / JS)
-
-Некоторые строки кода невозможно покрыть unit-тестами. Причины:
-
-- **Go** не поддерживает inline-директивы исключения из покрытия (нет `//go:cover ignore`), а SonarCloud не поддерживает line-level исключения покрытия.
-- **JS (v8)** поддерживает `/* v8 ignore */`, но для некоторых файлов директивы ломают source map.
-
-Список непокрываемых строк:
+### Go: что осталось непокрытым
 
 | Файл | Строки | Причина |
 | --- | --- | --- |
-| `cmd/user-service/migration.go` | 156, 157, 158, 190, 191 | `rows.Err()` сразу после `QueryContext` (строки ещё не итерированы) и ошибка `rows.Close()` после авто-закрытия при EOF; недостижимо при стандартной итерации `database/sql`. |
-| `cmd/gateway/handlers_auth.go` | 77, 211, 233, 241, 328, 540, 548, 890, 892, 894, 1169, 1171, 1173, 1175, 1177, 1312, 1449, 1451, 1453, 1467, 1755 | gRPC error paths, encode-error ветки, недостижимые ветки при валидных данных. |
-| `cmd/gateway/handlers_training.go` | 134, 135, 136, 137, 138, 271, 272, 409, 410 | Ошибки `json.Unmarshal`; невозможны при валидном `structpb.Struct` (Marshal всегда даёт валидный JSON). |
-| `cmd/gateway/ml_helpers.go` | 41, 42, 47, 48, 49 | `resp.Body.Close()` и `io.ReadAll` ошибки; `resp.Body` предоставляется `net/http` и не возвращает ошибку в нормальной работе. |
-| `internal/auth/jwt/jwt.go` | 30, 31, 34, 35, 43, 44, 119, 120, 130, 161, 187, 188, 190, 191 | Ошибки криптографических операций (`GenerateKey`, `MarshalECPrivateKey`, `MarshalPKIXPublicKey`, `SignedString`); `rand.Read` не падает; `ParseWithClaims` всегда возвращает `*claims.Claims`; формат ключа всегда корректен после проверки кривой P-256. |
-| `internal/server/lifecycle.go` | 83, 84, 87, 88, 89, 90, 92, 95, 98, 134, 146 | `ServeWithWork` использует `signal.NotifyContext` (нельзя отменить из теста без OS-сигналов); `log.Fatal` при ошибке `ListenAndServe` (зависит от платформы). |
-| `internal/webhook/handler.go` | 158, 159 | Fallback при `purgeTickerInterval <= 0`; покрыто `TestServerPurgeExpiredNoncesDefaultInterval`. |
-| `web/src/screens/AI.jsx` | 15 | Guard `chatRef.current` в `useEffect`; исключено через `/* v8 ignore */`. |
-| `web/src/screens/Chat.jsx` | 11, 12 | Guard `input` в `useEffect`; исключено через `/* v8 ignore start/stop */`. |
-| `web/src/screens/Calendar.jsx` | 73 | Guard `if (idx >= 0)` в `handleDeleteEvent`; jsdom не триггерит delete path; v8 ignore ломает source map. |
-| `web/src/screens/Body.jsx` | 22, 31, 46 | `bmi` никогда не null (height/weight всегда 170/70 по умолчанию), поэтому `bmi или 0` и `height && weight ? ... : '—'` недостижимы. |
-| `web/src/hooks/useProfile.js` | 79, 84, 95, 98, 112, 126, 175, 176, 178, 180, 212 | Fallback значения полей профиля и списков (friends/devices/achievements) при пустых данных; покрываются только при `profile: null` или пустых массивах. |
-| web/src/screens/Videos.jsx | 33, 34 | Ветки рендера длительности/калорий при отсутствии полей (v.minutes или v.duration, v.kcal или v.calories); требуют моков данных без этих полей. |
-| `cmd/ml_generator/gan_train.py` | 182 | Ветка вывода результата в stdout (`str(args.output) == "-"`); не покрывается unit-тестами без CLI-запуска с `--output -`. |
+| `cmd/user-service/migration.go` | 94-95, 168-170, 202-203, 221-222, 233-235, 306-307, 325-326, 342-343, 354-355, 359-360 | Ветки ошибок валидации (`nonce column ... is not allowed`), `rows.Err()` сразу после `QueryContext` и ошибки `rows.Close()` — недостижимы при обычной итерации `database/sql` |
+| `cmd/gateway/handlers_auth.go` | 78-79, 212-213, 234-235, 242-243, 329-330, 541-542, 549-550, 907-912, 1329-1330, 1466-1471, 1484-1485, 1772-1773 | gRPC error paths, encode-error ветки, недостижимые ветки при валидных данных |
+| `cmd/gateway/handlers_training.go` | 134-138, 271-272, 409-410 | Ошибки `json.Unmarshal`; невозможны при валидном `structpb.Struct` |
+| `cmd/gateway/ml_helpers.go` | 41-42, 47-49 | `resp.Body.Close()` и `io.ReadAll` ошибки; `net/http` их не возвращает в нормальной работе |
+| `internal/auth/jwt/jwt.go` | 30-31, 34-35, 43-44, 119-120, 130, 161, 187-188, 190-191 | Ошибки крипто-операций (`GenerateKey`, `MarshalECPrivateKey`, `MarshalPKIXPublicKey`, `SignedString`); `rand.Read` не падает, формат ключа корректен после проверки P-256 |
+| `internal/server/lifecycle.go` | 83-85, 87-90, 92-93, 95-96, 98, 134-135, 146-147 | `signal.NotifyContext` (не отменить из теста без OS-сигналов) и `log.Fatal` при ошибке `ListenAndServe` |
+| `internal/webhook/handler.go` | 64 | Литерал `logFatal` вызывается только на фатальных ошибках сервера |
+
+### Python
+
+| Файл | Stmts | Miss | Покрытие |
+| --- | --- | --- | --- |
+| `cmd/ml_generator/gan_model.py` | 111 | 0 | 100% |
+| `cmd/ml_generator/gan_train.py` | 124 | 1 | 99% (строка 182) |
+| `cmd/ml_generator/gan_train_test.py` | 460 | 11 | 98% |
+| **Итого** | 695 | 12 | **98%** (37 тестов) |
+
+`gan_train.py:182` — ветка вывода в stdout (`--output -`), не покрывается без CLI-прогона.
+
+> **Примечание:** `gan_train_test.py` раньше в `tearDown` выполнял
+> `shutil.rmtree(Path("models").resolve())` — то есть прогоны тестов **удаляли**
+> `models/gan_generator.pt` (7.3 МБ) и остальные артефакты из репозитория.
+> Тесты переведены на временный CWD (`TempModelsDirCase`), побочных удалений больше нет.
+
+### Как проверить
+
+```bash
+# web
+cd web && npx vitest run --coverage
+
+# go
+go test ./... -coverprofile=coverage.out && go tool cover -func coverage.out
+
+# python
+.venv/Scripts/python -m pytest cmd/ml_generator/gan_train_test.py \
+  --cov=cmd/ml_generator --cov-report=term-missing
+```
+
+Непокрытые строки web лежат в `coverage/coverage-final.json`: для каждого файла собрать
+`statementMap[k].start.line`, где `s[k] == 0`.
+
+### Не входит в покрытие
+
+- `App.jsx` исключён из coverage (`vitest.config.js`); его поведение проверяется через `App.test.jsx`.
+- E2E-тесты (`web/tests/e2e/`) — отдельный прогон Playwright, в coverage не входят.
 
 ---
 

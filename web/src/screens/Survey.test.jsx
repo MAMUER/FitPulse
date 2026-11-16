@@ -84,4 +84,13 @@ describe('Survey', () => {
       expect(context.go).toHaveBeenCalledWith('home');
     });
   });
+
+  it('renders nothing and returns home when the step is past the last question', () => {
+    const context = setup({
+      state: { language: 'ru', survey: { step: 99 } },
+    });
+
+    expect(context.go).toHaveBeenCalledWith('home');
+    expect(screen.queryByText('Персонализированный опрос')).toBeNull();
+  });
 });

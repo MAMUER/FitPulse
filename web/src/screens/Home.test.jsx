@@ -164,4 +164,44 @@ describe('Home', () => {
 
     expect(defaultContext.go).toHaveBeenCalledWith('survey');
   });
+
+  it('scrolls the story strip and opens the body screen', () => {
+    // jsdom does not implement scrollBy on elements.
+    const scrollBy = vi.fn();
+    const original = Element.prototype.scrollBy;
+    Element.prototype.scrollBy = scrollBy;
+
+    try {
+      renderHome();
+
+      fireEvent.click(screen.getByLabelText('Предыдущие истории'));
+      expect(scrollBy).toHaveBeenLastCalledWith({
+        left: -180,
+        behavior: 'smooth',
+      });
+
+      fireEvent.click(screen.getByLabelText('Следующие истории'));
+      expect(scrollBy).toHaveBeenLastCalledWith({
+        left: 180,
+        behavior: 'smooth',
+      });
+
+      fireEvent.click(screen.getByText('Открыть всё'));
+      expect(defaultContext.go).toHaveBeenCalledWith('body');
+    } finally {
+      Element.prototype.scrollBy = original;
+    }
+  });
+
+  it('navigates months and renders the life hack card', () => {
+    renderHome({ state: { hackList: [['fa-dumbbell', 'Держи темп']] } });
+
+    fireEvent.click(screen.getByLabelText('Предыдущий месяц'));
+    expect(defaultContext.changeCalendar).toHaveBeenCalledWith(-1);
+
+    fireEvent.click(screen.getByLabelText('Следующий месяц'));
+    expect(defaultContext.changeCalendar).toHaveBeenLastCalledWith(1);
+
+    expect(screen.getByText('Держи темп')).toBeInTheDocument();
+  });
 });

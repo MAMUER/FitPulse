@@ -91,6 +91,21 @@ describe('AI', () => {
     expect(screen.getByText('FitPulse AI')).toBeInTheDocument();
   });
 
+  it('sends a quick question as a prompt', () => {
+    const quickAI = vi.fn();
+    useApp.mockReturnValue({
+      state: { messages: [] },
+      t: (ru, _en) => ru,
+      sendAI: vi.fn(),
+      quickAI,
+      go: vi.fn(),
+    });
+
+    render(<Ai />);
+    fireEvent.click(screen.getByRole('button', { name: 'Меню' }));
+    expect(quickAI).toHaveBeenCalledWith('Составь меню на сегодня');
+  });
+
   it('shows ai summary when classification present without messages', () => {
     const sendAI = vi.fn();
     const go = vi.fn();

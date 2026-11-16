@@ -294,6 +294,7 @@ from gan_model import (  # noqa: E402
     denormalize_plan,
     normalize_plan,
 )
+import gan_train  # noqa: E402
 from gan_train import (  # noqa: E402
     _safe_path,
     generate_plan,
@@ -303,16 +304,35 @@ from gan_train import (  # noqa: E402
 )
 
 
-class TestSafePath(unittest.TestCase):
+class TempModelsDirCase(unittest.TestCase):
+    """Base class that runs a test against a throwaway ./models directory.
+
+    `gan_train._MODELS_DIR` is resolved at import time, so chdir alone is not
+    enough: the module constant is repointed at the temporary directory for the
+  duration of the test. This keeps `rmtree` from ever touching the repository's
+  committed model artifacts (models/gan_generator.pt and friends).
+  """
+
     def setUp(self):
+        self._cwd = os.getcwd()
+        self._tmp = tempfile.mkdtemp()
+        os.chdir(self._tmp)
         self.models_dir = Path("models").resolve()
         self.models_dir.mkdir(parents=True, exist_ok=True)
+        self._orig_models_dir = gan_train._MODELS_DIR
+        gan_train._MODELS_DIR = self.models_dir
 
     def tearDown(self):
         import shutil
 
-        if self.models_dir.exists():
-            shutil.rmtree(self.models_dir)
+        gan_train._MODELS_DIR = self._orig_models_dir
+        os.chdir(self._cwd)
+        shutil.rmtree(self._tmp, ignore_errors=True)
+
+
+class TestSafePath(TempModelsDirCase):
+    def setUp(self):
+        super().setUp()
 
     def test_valid_path_inside_models(self):
         p = self.models_dir / GENERATOR_FILENAME
@@ -631,17 +651,14 @@ class TestParseArgs(unittest.TestCase):
         self.assertEqual(args.output, Path("out.json"))
 
 
-class TestTrainAndGenerate(unittest.TestCase):
+class TestTrainAndGenerate(TempModelsDirCase):
     """Tests for train() and generate_plan() functions."""
 
     def setUp(self):
-        self.tmpdir = tempfile.mkdtemp()
-        self.models_dir = Path("models").resolve()
-        self.models_dir.mkdir(parents=True, exist_ok=True)
-
+        super().setUp()
         # Create a small dataset CSV
         plans_row = [float(i) for i in range(PLAN_DIM)]
-        self.csv_path = os.path.join(self.tmpdir, "plans.csv")
+        self.csv_path = os.path.join(self._tmp, "plans.csv")
         header = (
             "c0,c1,c2,c3,c4,c5,c6,c7,c8,c9,c10,c11,c12,c13,c14,c15,c16,c17,c18,"
             "klass,age,gender,weight,height,goal\n"
@@ -651,13 +668,6 @@ class TestTrainAndGenerate(unittest.TestCase):
             for i in range(4):
                 row = plans_row + [i % 2, 30.0 + i, 1.0, 75.0, 180.0, 1.0]
                 f.write(",".join(str(v) for v in row) + "\n")
-
-    def tearDown(self):
-        import shutil
-
-        shutil.rmtree(self.tmpdir)
-        if self.models_dir.exists():
-            shutil.rmtree(self.models_dir)
 
     def _parse(self, argv):
         with patch.object(sys, "argv", ["gan_train.py"] + argv):
@@ -729,13 +739,11 @@ class TestTrainAndGenerate(unittest.TestCase):
         self.assertEqual(len(result[0]["plan"]), PLAN_DIM)
 
 
-class TestMainBlocks(unittest.TestCase):
+class TestMainBlocks(TempModelsDirCase):
     def setUp(self):
-        self.tmpdir = tempfile.mkdtemp()
-        self.models_dir = Path("models").resolve()
-        self.models_dir.mkdir(parents=True, exist_ok=True)
+        super().setUp()
         plans_row = [float(i) for i in range(PLAN_DIM)]
-        self.csv_path = os.path.join(self.tmpdir, "plans.csv")
+        self.csv_path = os.path.join(self._tmp, "plans.csv")
         header = (
             "c0,c1,c2,c3,c4,c5,c6,c7,c8,c9,c10,c11,c12,c13,c14,c15,c16,c17,c18,"
             "klass,age,gender,weight,height,goal\n"
@@ -745,13 +753,6 @@ class TestMainBlocks(unittest.TestCase):
             for i in range(4):
                 row = plans_row + [i % 2, 30.0 + i, 1.0, 75.0, 180.0, 1.0]
                 f.write(",".join(str(v) for v in row) + "\n")
-
-    def tearDown(self):
-        import shutil
-
-        shutil.rmtree(self.tmpdir, ignore_errors=True)
-        if self.models_dir.exists():
-            shutil.rmtree(self.models_dir, ignore_errors=True)
 
     def _gan_model_path(self):
         return os.path.join(os.path.dirname(os.path.abspath(__file__)), "gan_model.py")

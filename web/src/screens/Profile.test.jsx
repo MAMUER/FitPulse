@@ -186,4 +186,119 @@ describe('Profile', () => {
     expect(context.deleteAccount).toHaveBeenCalled();
     expect(context.go).toHaveBeenCalledWith('login');
   });
+
+  it('counts events coming from calendarEvents', () => {
+    renderProfile(
+      baseContext({
+        state: {
+          calendarEvents: {
+            '2026-05-01': [{ title: 'A' }, { title: 'B' }],
+            '2026-05-02': [{ title: 'C' }],
+          },
+        },
+      })
+    );
+
+    const stat = screen.getByText('Событий').closest('div');
+    expect(stat.querySelector('b').textContent).toBe('3');
+  });
+
+  it('saves the password and closes the modal', () => {
+    const context = baseContext();
+    renderProfile(context);
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Изменить пароль', exact: true })
+    );
+    expect(screen.getByRole('dialog', { name: 'Смена пароля' })).toBeVisible();
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Сохранить', exact: true })
+    );
+
+    expect(context.changePassword).toHaveBeenCalled();
+    expect(screen.queryByRole('dialog', { name: 'Смена пароля' })).toBeNull();
+  });
+
+  it('closes the password modal with the close button', () => {
+    renderProfile(baseContext());
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Изменить пароль', exact: true })
+    );
+    fireEvent.click(screen.getByLabelText('Закрыть'));
+
+    expect(screen.queryByRole('dialog', { name: 'Смена пароля' })).toBeNull();
+  });
+
+  it('closes the password modal from the backdrop', () => {
+    renderProfile(baseContext());
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Изменить пароль', exact: true })
+    );
+    fireEvent.click(document.querySelector('.fp-modal-backdrop'));
+
+    expect(screen.queryByRole('dialog', { name: 'Смена пароля' })).toBeNull();
+  });
+
+  it('navigates to the chat screen from the stats and the actions', () => {
+    const context = baseContext();
+    renderProfile(context);
+
+    fireEvent.click(screen.getByLabelText('Друзья'));
+    expect(context.go).toHaveBeenCalledWith('chat');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Чат', exact: true }));
+    expect(context.go).toHaveBeenLastCalledWith('chat');
+  });
+
+  it('opens achievements, friends and the survey', () => {
+    const context = baseContext({
+      state: {
+        surveyDeferred: true,
+        surveyCompleted: false,
+        achievements: [{ name: 'Первый шаг', done: true, icon: 'fa-check' }],
+        friends: [{ id: 1, name: 'Анна', added: true, status: 'online' }],
+      },
+    });
+    renderProfile(context);
+
+    fireEvent.click(screen.getByText('Первый шаг'));
+    expect(context.showAchievement).toHaveBeenCalledWith('Первый шаг');
+
+    fireEvent.click(screen.getByText('Анна'));
+    expect(context.openFriendProfile).toHaveBeenCalledWith(
+      expect.objectContaining({ name: 'Анна' })
+    );
+
+    fireEvent.click(screen.getByText('Продолжить опрос'));
+    expect(context.go).toHaveBeenCalledWith('survey');
+  });
+
+  it('opens the legal pages from the settings', () => {
+    const context = baseContext();
+    renderProfile(context);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Конфиденциальность' }));
+    expect(context.openLegal).toHaveBeenLastCalledWith('privacy');
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Персональные данные' })
+    );
+    expect(context.openLegal).toHaveBeenLastCalledWith('consent');
+  });
+
+  it('opens and closes the chat settings', () => {
+    renderProfile(baseContext());
+
+    // The settings row also contains its description, so match on a substring.
+    fireEvent.click(screen.getByRole('button', { name: /Настройки чата/ }));
+    expect(
+      screen.getByRole('dialog', { name: 'Настройки чата' })
+    ).toBeVisible();
+
+    fireEvent.click(screen.getByLabelText('Закрыть'));
+    expect(screen.queryByRole('dialog', { name: 'Настройки чата' })).toBeNull();
+  });
 });

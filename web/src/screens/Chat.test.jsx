@@ -138,4 +138,115 @@ describe('Chat', () => {
 
     expect(sendChat).not.toHaveBeenCalled();
   });
+
+  it('guest view links to sign in, register and the legal pages', () => {
+    const context = makeContext({ state: { guest: true } });
+    useApp.mockReturnValue(context);
+    render(<Chat />);
+
+    fireEvent.click(screen.getByText('Войти'));
+    expect(context.go).toHaveBeenCalledWith('login');
+
+    fireEvent.click(screen.getByText('Зарегистрироваться'));
+    expect(context.go).toHaveBeenCalledWith('register');
+
+    for (const [label, page] of [
+      ['Политика конфиденциальности', 'privacy'],
+      ['Соглашение', 'terms'],
+      ['Персональные данные', 'consent'],
+    ]) {
+      fireEvent.click(screen.getByText(label));
+      expect(context.openLegal).toHaveBeenLastCalledWith(page);
+    }
+  });
+
+  it('contacts view opens a chat and the settings dialog', () => {
+    const context = makeContext({
+      state: {
+        guest: false,
+        chatContacts: [
+          {
+            name: 'Анна',
+            avatar: '/anna.jpg',
+            online: true,
+            status: 'gym',
+            last: 'Привет',
+            time: '12:00',
+            unread: 0,
+          },
+          {
+            name: 'Иван',
+            avatar: '/ivan.jpg',
+            online: true,
+            status: 'weekend',
+            last: 'Ок',
+            time: '13:00',
+          },
+        ],
+      },
+    });
+    useApp.mockReturnValue(context);
+    render(<Chat />);
+
+    // "weekend" is not a known status, so getStatusClass returns ''.
+    fireEvent.click(screen.getAllByRole('button', { name: /Иван/ })[0]);
+    expect(context.openChat).toHaveBeenCalledWith('Иван');
+
+    // The contact list row is a separate entry point to the same chat.
+    fireEvent.click(document.querySelector('.chat-contact'));
+    expect(context.openChat).toHaveBeenLastCalledWith('Анна');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Настройки' }));
+    expect(
+      screen.getByRole('dialog', { name: 'Настройки чата' })
+    ).toBeVisible();
+    fireEvent.click(screen.getByLabelText('Закрыть'));
+  });
+
+  it('detail view goes back, opens the friend profile and the settings', () => {
+    const context = makeContext({
+      state: {
+        guest: false,
+        chatConsent: true,
+        selectedChat: 'Анна',
+        chatContacts: [{ name: 'Анна', avatar: '/anna.jpg' }],
+      },
+    });
+    useApp.mockReturnValue(context);
+    render(<Chat />);
+
+    fireEvent.click(screen.getByLabelText('Назад'));
+    expect(context.go).toHaveBeenCalledWith('chat');
+
+    fireEvent.click(screen.getByRole('button', { name: /Анна/ }));
+    expect(context.openFriendProfile).toHaveBeenCalledWith('Анна');
+
+    fireEvent.click(screen.getByLabelText('Настройки чата'));
+    expect(
+      screen.getByRole('dialog', { name: 'Настройки чата' })
+    ).toBeVisible();
+  });
+
+  it('asks for the chat settings when consent is missing', () => {
+    const context = makeContext({
+      state: {
+        guest: false,
+        chatConsent: false,
+        selectedChat: 'Анна',
+        chatContacts: [{ name: 'Анна', avatar: '/anna.jpg' }],
+      },
+      sendChat: vi.fn(),
+    });
+    useApp.mockReturnValue(context);
+    render(<Chat />);
+
+    const input = screen.getByLabelText('Сообщение');
+    fireEvent.change(input, { target: { value: 'Привет' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+
+    expect(context.sendChat).not.toHaveBeenCalled();
+    expect(
+      screen.getByRole('dialog', { name: 'Настройки чата' })
+    ).toBeVisible();
+  });
 });

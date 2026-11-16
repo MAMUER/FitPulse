@@ -72,6 +72,15 @@ beforeEach(() => {
 });
 
 describe('useCalendar', () => {
+  it('notifies when loading calendar events fails', async () => {
+    setup();
+    api.loadCalendarEvents.mockRejectedValueOnce(new Error('boom'));
+    await act(async () => {
+      await result.current.loadCalendarEvents();
+    });
+    expect(notify).toHaveBeenCalledWith('Ошибка загрузки событий');
+  });
+
   it('returns all calendar callbacks', () => {
     setup();
     expect(Object.keys(result.current).sort()).toEqual([

@@ -266,6 +266,18 @@ describe('Nutrition', () => {
     expect(context.nutritionSettings).toHaveBeenCalled();
   });
 
+  it('updates the dish search query', () => {
+    const context = makeContext();
+    useApp.mockReturnValue(context);
+
+    render(<Nutrition />);
+    const search = screen.getByLabelText('Поиск блюда');
+    fireEvent.change(search, { target: { value: 'омлет' } });
+
+    expect(search.value).toBe('омлет');
+    expect(screen.getByText('Омлет')).toBeInTheDocument();
+  });
+
   it('saves a custom meal', () => {
     const context = makeContext();
     useApp.mockReturnValue(context);

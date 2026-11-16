@@ -346,4 +346,13 @@ describe('useTraining', () => {
     });
     expect(notify).toHaveBeenCalledWith('Ошибка завершения тренировки');
   });
+
+  it('loadAchievements notifies on failure', async () => {
+    setup();
+    api.loadAchievements.mockRejectedValueOnce(new Error('boom'));
+    await act(async () => {
+      await result.current.loadAchievements();
+    });
+    expect(notify).toHaveBeenCalledWith('Ошибка загрузки достижений');
+  });
 });
