@@ -202,11 +202,15 @@ build_go_binaries() {
 build_pgsodium_image() {
 	SHA=$(git rev-parse --short HEAD)
 	echo "Building pgsodium image..."
+	# :pg18 is the tag the StatefulSet actually runs (postgres.yaml), so it has to
+	# be published here — otherwise the cluster keeps whatever stale build was
+	# pushed by hand and silently misses runtime-library fixes.
 	docker buildx build \
 		--cache-from=type=local \
 		--cache-to=type=local,mode=max \
 		-t "$REGISTRY/mamuer/project/postgres-pgsodium:$SHA" \
 		-t "$REGISTRY/mamuer/project/postgres-pgsodium:latest" \
+		-t "$REGISTRY/mamuer/project/postgres-pgsodium:pg18" \
 		-f docker/postgres-pgsodium/Dockerfile . \
 		--push
 }

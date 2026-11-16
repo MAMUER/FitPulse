@@ -58,7 +58,7 @@ export default function Nutrition() {
   const diary = state.mealsList || [];
   const selectedMealSlot = state.selectedMeal;
   const selectedMealData = selectedMealSlot
-    ? { ...FALLBACK_MEAL, ...(meals[selectedMealSlot] || {}) }
+    ? { ...FALLBACK_MEAL, ...meals[selectedMealSlot] }
     : null;
   const mealOptions = selectedMealSlot
     ? [
@@ -72,7 +72,7 @@ export default function Nutrition() {
       ]
     : [];
 
-  const mealFor = (slot) => ({ ...FALLBACK_MEAL, ...(meals[slot] || {}) });
+  const mealFor = (slot) => ({ ...FALLBACK_MEAL, ...meals[slot] });
 
   const matchesQuery = (title) =>
     !query.trim() ||

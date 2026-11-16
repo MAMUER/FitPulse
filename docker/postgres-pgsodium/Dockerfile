@@ -7,12 +7,14 @@ LABEL description="PostgreSQL with pgsodium extension for FitPulse"
 # Работаем в /tmp, чтобы безопасно удалить папку потом
 WORKDIR /tmp
 
-# Keep the libsodium runtime library: pgsodium.so links against it at runtime.
-# Installing only libsodium-dev as a virtual build dependency removed the shared
-# library again during `apk del .build-deps`, leaving pgsodium unusable at runtime.
+# Build pgsodium, then re-install the libsodium runtime *after*
+# `apk del .build-deps` — that cleanup used to take the shared library with it,
+# which produced an image that builds fine but dies at boot with
+# "could not load library pgsodium.so: libsodium.so.26: No such file or
+# directory" and takes the whole stack down. The final `apk info -L` assertion
+# makes such an image impossible to build.
 # hadolint ignore=DL3003,DL3018
-RUN apk add --no-cache libsodium \
-    && apk add --no-cache --virtual .build-deps \
+RUN apk add --no-cache --virtual .build-deps \
     build-base \
     clang \
     git \
@@ -29,7 +31,9 @@ RUN apk add --no-cache libsodium \
     && make install \
     && cd /tmp \
     && rm -rf pgsodium \
-    && apk del .build-deps
+    && apk del .build-deps \
+    && apk add --no-cache libsodium \
+    && apk info -L libsodium | grep -q 'libsodium\.so'
 
 # pgsodium refuses to start when shared_preload_libraries includes it but this
 # script is missing. It must print exactly 64 hex characters (the DB_ENCRYPTION_KEY

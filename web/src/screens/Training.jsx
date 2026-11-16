@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import PlaceMap from '../components/PlaceMap';
+import VideoCard from '../components/VideoCard';
 import VideoModal from '../components/VideoModal';
 import { useApp } from '../contexts/AppContext';
 
@@ -343,23 +344,12 @@ export default function Training() {
         <h3>{t('Видео-уроки', 'Video lessons')}</h3>
       </div>
       {videos.map((video, index) => (
-        <button
-          type='button'
-          className='video-card'
+        <VideoCard
           key={video.id || index}
-          style={{ backgroundImage: `url('${video.image}')` }}
-          onClick={() => setVideoIndex(index)}
-        >
-          <span className='play'>
-            <i className='fas fa-play' />
-          </span>
-          <span className='video-text'>
-            <strong>{video.title}</strong>
-            <small>
-              {video.level} · {video.duration}
-            </small>
-          </span>
-        </button>
+          video={video}
+          index={index}
+          onSelect={setVideoIndex}
+        />
       ))}
 
       <div className='section'>

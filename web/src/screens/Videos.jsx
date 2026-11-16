@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import VideoCard from '../components/VideoCard';
 import VideoModal from '../components/VideoModal';
 import { useApp } from '../contexts/AppContext';
 
@@ -52,23 +53,12 @@ export default function Videos() {
       </div>
 
       {videos.map((video, index) => (
-        <button
-          type='button'
-          className='video-card'
+        <VideoCard
           key={video.id || index}
-          style={{ backgroundImage: `url('${video.image}')` }}
-          onClick={() => setVideoIndex(index)}
-        >
-          <span className='play'>
-            <i className='fas fa-play' />
-          </span>
-          <span className='video-text'>
-            <strong>{video.title}</strong>
-            <small>
-              {video.level} · {video.duration}
-            </small>
-          </span>
-        </button>
+          video={video}
+          index={index}
+          onSelect={setVideoIndex}
+        />
       ))}
 
       {library.length > 0 && (
