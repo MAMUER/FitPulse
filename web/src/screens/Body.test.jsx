@@ -167,4 +167,54 @@ describe('Body', () => {
 
     expect(openMetric).toHaveBeenCalledWith('pulse');
   });
+
+  it('falls back to defaults when the latest record is incomplete', async () => {
+    const saveBodyComposition = vi.fn().mockResolvedValue({});
+    useApp.mockReturnValue({
+      state: {
+        height: 180,
+        weight: 80,
+        // camelCase heightCm, no weight_kg / body_fat_percent
+        bodyComposition: [
+          { recorded_at: '2026-01-01T00:00:00Z', heightCm: 175 },
+        ],
+      },
+      t: (ru, _en) => ru,
+      go: vi.fn(),
+      openMetric: vi.fn(),
+      loadBodyComposition: vi.fn(),
+      saveBodyComposition,
+    });
+
+    render(<Body />);
+    fireEvent.click(screen.getByText('Сохранить'));
+    await waitFor(() => expect(saveBodyComposition).toHaveBeenCalled());
+
+    const payload = saveBodyComposition.mock.calls[0][0];
+    expect(payload.height_cm).toBe(175); // picked up from latest.heightCm
+    expect(payload.weight_kg).toBe(74.2); // built-in default
+    expect(payload.body_fat_percent).toBe(18.4); // built-in default
+  });
+
+  it('saves bmi 0 when the stored height is zero', async () => {
+    const saveBodyComposition = vi.fn().mockResolvedValue({});
+    useApp.mockReturnValue({
+      state: {
+        height: 180,
+        weight: 80,
+        bodyComposition: [{ height_cm: 0, weight_kg: 80 }],
+      },
+      t: (ru, _en) => ru,
+      go: vi.fn(),
+      openMetric: vi.fn(),
+      loadBodyComposition: vi.fn(),
+      saveBodyComposition,
+    });
+
+    render(<Body />);
+    fireEvent.click(screen.getByText('Сохранить'));
+    await waitFor(() => expect(saveBodyComposition).toHaveBeenCalled());
+
+    expect(saveBodyComposition.mock.calls[0][0].bmi).toBe(0);
+  });
 });

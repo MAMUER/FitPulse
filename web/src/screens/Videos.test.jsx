@@ -44,6 +44,41 @@ function makeContext(overrides = {}) {
 }
 
 describe('Videos', () => {
+  it('falls back to the index when a video has no id', () => {
+    const context = makeContext({
+      state: { trainingVideos: [{ title: 'Без id', image: '/x.jpg' }] },
+    });
+    useApp.mockReturnValue(context);
+    const { container } = render(<Videos />);
+
+    expect(container.querySelectorAll('.video-card')).toHaveLength(1);
+    expect(screen.getByText('Без id')).toBeInTheDocument();
+  });
+
+  it('renders library rows without id and falls back on duration', () => {
+    const context = makeContext({
+      state: {
+        videos: [
+          { title: 'Только минуты', minutes: 10 },
+          { title: 'Без длительности' },
+          { id: 'lib1', title: 'С длительностью', duration: '20' },
+        ],
+      },
+    });
+    useApp.mockReturnValue(context);
+    const { container } = render(<Videos />);
+
+    expect(container.querySelectorAll('.body-row')).toHaveLength(3);
+    expect(container.querySelectorAll('.body-row')[0].textContent).toContain(
+      'Только минуты'
+    );
+    expect(container.querySelectorAll('.body-row')[1].textContent).toContain(
+      'Без длительности'
+    );
+    expect(container.textContent).toContain('10');
+    expect(container.textContent).toContain('20');
+  });
+
   it('loads and renders video lessons', () => {
     const context = makeContext();
     useApp.mockReturnValue(context);

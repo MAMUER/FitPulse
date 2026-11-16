@@ -93,4 +93,17 @@ describe('Survey', () => {
     expect(context.go).toHaveBeenCalledWith('home');
     expect(screen.queryByText('Персонализированный опрос')).toBeNull();
   });
+
+  it('falls back to empty values when answers are missing', () => {
+    setup({ state: { language: 'ru', survey: { step: 0 } } });
+
+    expect(screen.getByText('Персонализированный опрос')).toBeInTheDocument();
+    expect(screen.getByText('1 / 9')).toBeInTheDocument();
+  });
+
+  it('falls back to an empty string for single-choice questions', () => {
+    setup({ state: { language: 'ru', survey: { step: 3 } } });
+
+    expect(screen.getByText('4 / 9')).toBeInTheDocument();
+  });
 });

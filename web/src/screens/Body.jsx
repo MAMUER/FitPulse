@@ -92,7 +92,10 @@ export default function Body() {
       body_fat_percent: Number.parseFloat(form.fat) || fat,
       muscle_mass_kg: Number.parseFloat(form.muscle) || muscle,
       water_percent: Number.parseFloat(form.water) || water,
-      bmi: +(weightValue / (heightValue / 100) ** 2).toFixed(1),
+      bmi:
+        heightValue > 0
+          ? +(weightValue / (heightValue / 100) ** 2).toFixed(1)
+          : 0,
       recorded_at: new Date().toISOString(),
     });
     if (ok) setForm({ height: '', weight: '', fat: '', muscle: '', water: '' });

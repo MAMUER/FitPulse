@@ -249,4 +249,66 @@ describe('Chat', () => {
       screen.getByRole('dialog', { name: 'Настройки чата' })
     ).toBeVisible();
   });
+
+  it('renders messages without a timestamp in both delivery states', () => {
+    useApp.mockReturnValue(
+      makeContext({
+        state: {
+          guest: false,
+          selectedChat: 'Анна',
+          chatContacts: [{ name: 'Анна', avatar: '/anna.jpg' }],
+          chatMessages: [{ text: 'без времени' }, { text: 'моё', sent: true }],
+        },
+      })
+    );
+    const { container } = render(<Chat />);
+
+    expect(screen.getByText('без времени')).toBeInTheDocument();
+    expect(container.querySelectorAll('.chat-msg.received')).toHaveLength(1);
+    expect(container.querySelectorAll('.chat-msg.sent')).toHaveLength(1);
+  });
+
+  it('sends the message when Enter is pressed and consent is given', () => {
+    const sendChat = vi.fn();
+    useApp.mockReturnValue(
+      makeContext({
+        state: {
+          guest: false,
+          chatConsent: true,
+          selectedChat: 'Анна',
+          chatContacts: [{ name: 'Анна', avatar: '/anna.jpg' }],
+          chatMessages: [],
+        },
+        sendChat,
+      })
+    );
+    render(<Chat />);
+
+    const input = screen.getByLabelText('Сообщение');
+    fireEvent.change(input, { target: { value: 'Привет' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+
+    expect(sendChat).toHaveBeenCalled();
+  });
+
+  it('ignores keys other than Enter in the composer', () => {
+    const sendChat = vi.fn();
+    useApp.mockReturnValue(
+      makeContext({
+        state: {
+          guest: false,
+          chatConsent: true,
+          selectedChat: 'Анна',
+          chatContacts: [{ name: 'Анна', avatar: '/anna.jpg' }],
+          chatMessages: [],
+        },
+        sendChat,
+      })
+    );
+    render(<Chat />);
+
+    fireEvent.keyDown(screen.getByLabelText('Сообщение'), { key: 'a' });
+
+    expect(sendChat).not.toHaveBeenCalled();
+  });
 });

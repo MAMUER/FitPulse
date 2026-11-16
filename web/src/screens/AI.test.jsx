@@ -123,4 +123,44 @@ describe('AI', () => {
     render(<Ai />);
     expect(screen.getByText('Классификация')).toBeInTheDocument();
   });
+
+  it('renders messages that have no id', () => {
+    useApp.mockReturnValue({
+      state: {
+        messages: [
+          { type: 'user', text: 'без id' },
+          { type: 'bot', text: 'ответ' },
+        ],
+      },
+      t: (ru, _en) => ru,
+      sendAI: vi.fn(),
+      quickAI: vi.fn(),
+      go: vi.fn(),
+    });
+
+    render(<Ai />);
+    expect(screen.getByText('без id')).toBeInTheDocument();
+    expect(screen.getByText('ответ')).toBeInTheDocument();
+  });
+
+  it('does not send on keys other than Enter', () => {
+    const sendAI = vi.fn();
+    useApp.mockReturnValue({
+      state: { messages: [] },
+      t: (ru, _en) => ru,
+      sendAI,
+      quickAI: vi.fn(),
+      go: vi.fn(),
+    });
+
+    render(<Ai />);
+    fireEvent.keyDown(
+      screen.getByPlaceholderText('Например: у меня мало времени'),
+      {
+        key: 'a',
+      }
+    );
+
+    expect(sendAI).not.toHaveBeenCalled();
+  });
 });
