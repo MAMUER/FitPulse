@@ -284,6 +284,7 @@ sys.modules["torch.utils.data"] = _fake_data
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+import gan_train  # noqa: E402
 from gan_model import (  # noqa: E402
     PLAN_DIM,
     ConditionalGAN,
@@ -294,7 +295,6 @@ from gan_model import (  # noqa: E402
     denormalize_plan,
     normalize_plan,
 )
-import gan_train  # noqa: E402
 from gan_train import (  # noqa: E402
     _safe_path,
     generate_plan,
@@ -309,9 +309,9 @@ class TempModelsDirCase(unittest.TestCase):
 
     `gan_train._MODELS_DIR` is resolved at import time, so chdir alone is not
     enough: the module constant is repointed at the temporary directory for the
-  duration of the test. This keeps `rmtree` from ever touching the repository's
-  committed model artifacts (models/gan_generator.pt and friends).
-  """
+    duration of the test. This keeps `rmtree` from ever touching the repository's
+    committed model artifacts (models/gan_generator.pt and friends).
+    """
 
     def setUp(self):
         self._cwd = os.getcwd()

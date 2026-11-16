@@ -33,7 +33,9 @@ RUN apk add --no-cache --virtual .build-deps \
     && rm -rf pgsodium \
     && apk del .build-deps \
     && apk add --no-cache libsodium \
-    && apk info -L libsodium | grep -q 'libsodium\.so'
+    && apk info -L libsodium > /tmp/libsodium-files \
+    && grep -q 'libsodium\.so' /tmp/libsodium-files \
+    && rm -f /tmp/libsodium-files
 
 # pgsodium refuses to start when shared_preload_libraries includes it but this
 # script is missing. It must print exactly 64 hex characters (the DB_ENCRYPTION_KEY
