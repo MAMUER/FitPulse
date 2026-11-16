@@ -80,7 +80,7 @@ import_duckdns_webhook_image() {
 		"sudo k3s ctr -n k8s.io images ls -q")
 	# Here-string instead of `printf | grep`: grep exits on the first match and,
 	# under `set -o pipefail`, printf then dies with SIGPIPE ("Broken pipe" noise).
-	if grep -Fxq "$img" <<< "$remote_images"; then
+	if grep -Fxq "$img" <<<"$remote_images"; then
 		log_info "Image already present on VPS: $img"
 		return 0
 	fi

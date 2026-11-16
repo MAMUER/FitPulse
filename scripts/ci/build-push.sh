@@ -206,8 +206,8 @@ build_pgsodium_image() {
 	# be published here — otherwise the cluster keeps whatever stale build was
 	# pushed by hand and silently misses runtime-library fixes.
 	docker buildx build \
-		--cache-from=type=local \
-		--cache-to=type=local,mode=max \
+		--cache-from=type=gha,scope=pgsodium \
+		--cache-to=type=gha,scope=pgsodium,mode=max \
 		-t "$REGISTRY/mamuer/project/postgres-pgsodium:$SHA" \
 		-t "$REGISTRY/mamuer/project/postgres-pgsodium:latest" \
 		-t "$REGISTRY/mamuer/project/postgres-pgsodium:pg18" \
