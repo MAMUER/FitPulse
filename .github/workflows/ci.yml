@@ -990,6 +990,11 @@ jobs:
         run: bash scripts/ci/build-push.sh build_oncall_bot
       - name: Build and push Open Wearables images
         run: bash scripts/ci/build-push.sh build_open_wearables
+      # The Postgres image is NOT built by any other step, but the StatefulSet
+      # runs :pg18 — without this it silently kept a stale, broken image.
+      - name: Build and push pgsodium Postgres image
+        if: needs.detect-changes.outputs.docker == 'true' || github.event_name == 'workflow_dispatch'
+        run: bash scripts/ci/build-push.sh build_pgsodium_image
       - name: Scan gateway image with Trivy
         id: trivy-image
         continue-on-error: true

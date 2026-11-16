@@ -78,7 +78,9 @@ import_duckdns_webhook_image() {
 	log_info "Checking whether $img is already present in k3s containerd..."
 	remote_images=$(bash scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" \
 		"sudo k3s ctr -n k8s.io images ls -q")
-	if printf '%s\n' "$remote_images" | grep -Fxq "$img"; then
+	# Here-string instead of `printf | grep`: grep exits on the first match and,
+	# under `set -o pipefail`, printf then dies with SIGPIPE ("Broken pipe" noise).
+	if grep -Fxq "$img" <<< "$remote_images"; then
 		log_info "Image already present on VPS: $img"
 		return 0
 	fi

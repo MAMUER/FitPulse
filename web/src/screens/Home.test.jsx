@@ -204,4 +204,80 @@ describe('Home', () => {
 
     expect(screen.getByText('Держи темп')).toBeInTheDocument();
   });
+
+  it('shows the moon icon for the light theme', () => {
+    renderHome({ state: { theme: 'light' } });
+
+    const toggle = screen.getByLabelText('Сменить тему');
+    expect(toggle.querySelector('.fa-moon')).toBeInTheDocument();
+    expect(toggle.querySelector('.fa-sun')).toBeNull();
+  });
+
+  it('renders the profile photo when one is set', () => {
+    const { container } = renderHome({
+      state: { profileImage: 'data:image/png;base64,AAAA' },
+    });
+
+    expect(container.querySelector('.photo img')).toHaveAttribute(
+      'src',
+      'data:image/png;base64,AAAA'
+    );
+  });
+
+  it('falls back to the title when a story has no id', () => {
+    renderHome({
+      state: {
+        stories: [{ title: 'Без id', description: 'd', image: '/s.jpg' }],
+      },
+    });
+
+    expect(screen.getByText('Без id')).toBeInTheDocument();
+  });
+
+  it('marks stories that were already seen', () => {
+    const { container } = renderHome({ state: { storySeen: [true] } });
+
+    expect(container.querySelector('.fp-story-card.seen')).toBeInTheDocument();
+  });
+
+  it('falls back to Russian weekdays for an unknown language', () => {
+    const { container } = renderHome({ state: { language: 'de' } });
+
+    expect(container.querySelector('.week .day').textContent).toBe('Пн');
+  });
+
+  it('marks today and days that have events', () => {
+    const now = new Date();
+    const key = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    const { container } = renderHome({
+      state: {
+        calendarMonthIndex: now.getMonth(),
+        calendarYear: now.getFullYear(),
+        calendarEvents: { [key]: [{ title: 'Тренировка' }] },
+      },
+    });
+
+    expect(container.querySelector('.month button.active')).toBeInTheDocument();
+    expect(
+      container.querySelector('.month button.has-event')
+    ).toBeInTheDocument();
+  });
+
+  it('opens the selected story from the story modal', () => {
+    const { container } = renderHome({
+      state: {
+        selectedStory: {
+          title: 'История без id',
+          description: 'd',
+          image: '/s.jpg',
+        },
+        selectedStoryIndex: 0,
+      },
+    });
+
+    const modal = container.querySelector(
+      '.fp-story-view, .story-view, .modal-box'
+    );
+    expect(modal).toBeInTheDocument();
+  });
 });
