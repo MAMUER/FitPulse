@@ -13,7 +13,14 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
+
+	"github.com/MAMUER/project/internal/logger"
 )
+
+// testLogger returns a no-op logger for gateways built in tests.
+func testLogger() *logger.Logger {
+	return &logger.Logger{Logger: zap.NewNop()}
+}
 
 type captchaMockProvider struct {
 	valid     bool
@@ -376,6 +383,43 @@ func TestVerifyCaptchaToken_ProviderError(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "provider boom")
 	assert.Equal(t, "token-xyz", provider.verifyTkn)
+}
+
+func TestGatewayValidateCaptcha(t *testing.T) {
+	// Implements middleware.CaptchaValidator so the auth rate limiter can let a
+	// challenged client through once it proves it is human.
+	t.Run("no provider configured", func(t *testing.T) {
+		g := &gateway{log: testLogger()}
+		assert.False(t, g.ValidateCaptcha("token-xyz", "10.0.0.9"))
+	})
+
+	t.Run("empty token", func(t *testing.T) {
+		provider := &captchaMockProvider{valid: true}
+		g := &gateway{log: testLogger(), captchaProvider: provider}
+		assert.False(t, g.ValidateCaptcha("", "10.0.0.9"))
+		assert.Empty(t, provider.verifyTkn, "provider must not be called without a token")
+	})
+
+	t.Run("valid token", func(t *testing.T) {
+		provider := &captchaMockProvider{valid: true}
+		g := &gateway{log: testLogger(), captchaProvider: provider}
+
+		assert.True(t, g.ValidateCaptcha("token-xyz", "10.0.0.9"))
+		assert.Equal(t, "token-xyz", provider.verifyTkn)
+		assert.Equal(t, "10.0.0.9", provider.verifyIP)
+	})
+
+	t.Run("invalid token", func(t *testing.T) {
+		provider := &captchaMockProvider{valid: false}
+		g := &gateway{log: testLogger(), captchaProvider: provider}
+		assert.False(t, g.ValidateCaptcha("token-xyz", "10.0.0.9"))
+	})
+
+	t.Run("provider error", func(t *testing.T) {
+		provider := &captchaMockProvider{err: errors.New("provider boom")}
+		g := &gateway{log: testLogger(), captchaProvider: provider}
+		assert.False(t, g.ValidateCaptcha("token-xyz", "10.0.0.9"))
+	})
 }
 
 func TestCaptchaMiddleware_DisabledProvider(t *testing.T) {

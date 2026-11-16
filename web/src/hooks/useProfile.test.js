@@ -700,4 +700,76 @@ describe('useProfile', () => {
     result.current.openFriendProfile(friend);
     expect(update).toHaveBeenCalledWith({ selectedFriend: friend });
   });
+
+  it('searchFriends handles a missing friends list', () => {
+    setup({ friends: undefined, profile: { name: 'Михаил' } });
+    window.prompt = vi.fn().mockReturnValueOnce('Анна');
+
+    result.current.searchFriends();
+
+    expect(notify).toHaveBeenCalledWith('Ничего не найдено');
+  });
+
+  it('searchFriends matches by id when the name does not match', () => {
+    setup({
+      friends: [{ name: 'Анна', id: 7 }],
+      profile: { name: 'Михаил' },
+    });
+    window.prompt = vi.fn().mockReturnValueOnce('7');
+
+    result.current.searchFriends();
+
+    expect(update).toHaveBeenCalled();
+  });
+
+  it('showDevices handles a profile without devices', () => {
+    setup({ profile: { name: 'Михаил' } });
+    window.prompt = vi.fn().mockReturnValueOnce('Телефон');
+
+    result.current.showDevices();
+
+    expect(update).toHaveBeenCalledWith({
+      profile: { name: 'Михаил', devices: ['Телефон'] },
+    });
+  });
+
+  it('loadProfile falls back to the current name when the payload has none', async () => {
+    api.loadProfile.mockResolvedValue({
+      profile: { email: 'new@example.com' },
+    });
+    setup();
+
+    await act(async () => {
+      await result.current.loadProfile();
+    });
+
+    expect(update.mock.calls[0][0].profile).toMatchObject({
+      name: 'Михаил',
+      email: 'new@example.com',
+    });
+  });
+
+  it('toggleFriendAdded handles a missing friends list', () => {
+    setup({ friends: undefined, profile: { name: 'Михаил' } });
+
+    result.current.toggleFriendAdded('Анна');
+
+    expect(update).not.toHaveBeenCalled();
+  });
+
+  it('openFriendProfile handles a missing friends list', () => {
+    setup({ friends: undefined, profile: { name: 'Михаил' } });
+
+    result.current.openFriendProfile('Анна');
+
+    expect(notify).toHaveBeenCalledWith('Пользователь не найден');
+  });
+
+  it('showAchievement handles a missing achievements list', () => {
+    setup({ achievements: undefined, profile: { name: 'Михаил' } });
+
+    result.current.showAchievement('Первая цель');
+
+    expect(update).not.toHaveBeenCalled();
+  });
 });

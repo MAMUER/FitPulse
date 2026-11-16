@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import Modal from '../components/Modal';
+import MonthSwitcher from '../components/MonthSwitcher';
 import { useApp } from '../contexts/AppContext';
 import { getDateKey, getEventsForMonth, getWeekDays } from '../utils/helpers';
 
@@ -112,29 +113,11 @@ export default function Calendar() {
       ))}
 
       <section className='card'>
-        <div className='between'>
-          <span className='eyebrow'>
-            {getMonthName(monthIndex)} {year}
-          </span>
-          <div className='row' style={{ gap: 6 }}>
-            <button
-              type='button'
-              className='secondary'
-              aria-label={t('Предыдущий месяц', 'Previous month')}
-              onClick={() => changeCalendar(-1)}
-            >
-              <i className='fas fa-chevron-left' />
-            </button>
-            <button
-              type='button'
-              className='secondary'
-              aria-label={t('Следующий месяц', 'Next month')}
-              onClick={() => changeCalendar(1)}
-            >
-              <i className='fas fa-chevron-right' />
-            </button>
-          </div>
-        </div>
+        <MonthSwitcher
+          label={`${getMonthName(monthIndex)} ${year}`}
+          onPrev={() => changeCalendar(-1)}
+          onNext={() => changeCalendar(1)}
+        />
         <div className='week' style={{ marginTop: 10 }}>
           {weekDays.map((day) => (
             <div className='day' key={day} style={{ fontSize: 8 }}>

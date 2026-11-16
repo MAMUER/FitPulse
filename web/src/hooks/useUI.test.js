@@ -230,6 +230,113 @@ describe('useUI', () => {
     expect(window.prompt).not.toHaveBeenCalled();
   });
 
+  it('addPlace falls back to defaults for empty answers', () => {
+    setup();
+    window.prompt = vi
+      .fn()
+      .mockReturnValueOnce('Парк') // name
+      .mockReturnValueOnce('') // icon
+      .mockReturnValueOnce('') // color
+      .mockReturnValueOnce('') // x
+      .mockReturnValueOnce(''); // y
+
+    result.current.addPlace();
+
+    expect(update.mock.calls[0][0].pinnedPlaces[0]).toMatchObject({
+      name: 'Парк',
+      icon: 'fa-location-dot',
+      color: '#19d8da',
+      x: 50,
+      y: 50,
+    });
+  });
+
+  it('editPlace ignores a cancelled name prompt', () => {
+    setup({ pinnedPlaces: [{ name: 'Дом', color: '#19d8da', x: 20, y: 30 }] });
+    window.prompt = vi.fn().mockReturnValue(null);
+
+    result.current.editPlace(0);
+
+    expect(update).not.toHaveBeenCalled();
+  });
+
+  it('editPlace keeps current values for empty answers', () => {
+    setup({ pinnedPlaces: [{ name: 'Дом', color: '#19d8da', x: 20, y: 30 }] });
+    window.prompt = vi
+      .fn()
+      .mockReturnValueOnce('Дом 2') // name
+      .mockReturnValueOnce('') // color -> keeps
+      .mockReturnValueOnce('') // x -> keeps
+      .mockReturnValueOnce(''); // y -> keeps
+
+    result.current.editPlace(0);
+
+    expect(update.mock.calls[0][0].pinnedPlaces[0]).toMatchObject({
+      name: 'Дом 2',
+      color: '#19d8da',
+      x: 20,
+      y: 30,
+    });
+  });
+
+  it('addPlace ignores a blank name', () => {
+    setup();
+    window.prompt = vi.fn().mockReturnValueOnce('   ');
+
+    result.current.addPlace();
+
+    expect(update).not.toHaveBeenCalled();
+  });
+
+  it('editPlace handles a missing pinned list', () => {
+    setup({ pinnedPlaces: undefined });
+    window.prompt = vi.fn();
+
+    result.current.editPlace(0);
+
+    expect(update).not.toHaveBeenCalled();
+  });
+
+  it('editPlace falls back to the default color when the place has none', () => {
+    setup({ pinnedPlaces: [{ name: 'Дом', x: 20, y: 30 }] });
+    window.prompt = vi
+      .fn()
+      .mockReturnValueOnce('Дом 2')
+      .mockReturnValueOnce('') // color: place.color undefined -> default
+      .mockReturnValueOnce('10')
+      .mockReturnValueOnce('20');
+
+    result.current.editPlace(0);
+
+    expect(update.mock.calls[0][0].pinnedPlaces[0]).toMatchObject({
+      color: '#19d8da',
+      x: 10,
+      y: 20,
+    });
+  });
+
+  it('editPlace keeps the current name for a blank answer', () => {
+    setup({ pinnedPlaces: [{ name: 'Дом', color: '#19d8da', x: 20, y: 30 }] });
+    window.prompt = vi
+      .fn()
+      .mockReturnValueOnce('') // name -> keeps item.name
+      .mockReturnValueOnce('#fff')
+      .mockReturnValueOnce('10')
+      .mockReturnValueOnce('20');
+
+    result.current.editPlace(0);
+
+    expect(update.mock.calls[0][0].pinnedPlaces[0].name).toBe('Дом');
+  });
+
+  it('nextHack handles a missing hack list', () => {
+    setup({ hackIndex: 0, hackList: undefined });
+
+    result.current.nextHack();
+
+    expect(update).toHaveBeenCalledWith({ hackIndex: 0 });
+  });
+
   it('nextHack advances and wraps the tip index', () => {
     setup({ hackIndex: 1, hackList: [['a'], ['b'], ['c']] });
     result.current.nextHack();

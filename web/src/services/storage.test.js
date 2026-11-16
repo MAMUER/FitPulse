@@ -43,4 +43,21 @@ describe('saveState', () => {
     expect(() => saveState({ screen: 'home' })).not.toThrow();
     setItem.mockRestore();
   });
+
+  it('ignores values that are not JSON-safe', () => {
+    saveState({ screen: 'home', onClick: () => {} });
+    expect(localStorage.getItem(KEY)).toBeNull();
+  });
+
+  it('ignores cyclic structures', () => {
+    const cyclic = { screen: 'home' };
+    cyclic.self = cyclic;
+    saveState(cyclic);
+    expect(localStorage.getItem(KEY)).toBeNull();
+  });
+
+  it('ignores oversized strings', () => {
+    saveState({ screen: 'home', blob: 'x'.repeat(100_001) });
+    expect(localStorage.getItem(KEY)).toBeNull();
+  });
 });
