@@ -85,6 +85,27 @@ describe('backendRequest', () => {
     });
   });
 
+  it('rejects paths that are not rooted at the API origin', async () => {
+    const { mod, fetchMock } = await setup({ baseUrl: BASE });
+
+    await expect(mod.backendRequest('api/v1/profile')).rejects.toThrow(
+      'Invalid request path'
+    );
+    await expect(mod.backendRequest('//evil.example/x')).rejects.toThrow(
+      'Invalid request path'
+    );
+    await expect(mod.backendRequest('/api/../admin')).rejects.toThrow(
+      'Invalid request path'
+    );
+    await expect(mod.backendRequest('/api\\v1')).rejects.toThrow(
+      'Invalid request path'
+    );
+    await expect(mod.backendRequest('/api/\u0001')).rejects.toThrow(
+      'Invalid request path'
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it('ignores an invalid configured base URL', async () => {
     const { mod, fetchMock } = await setup({ baseUrl: 'javascript:alert(1)' });
     expect(mod.BACKEND_CONFIG.baseUrl).toBe('');
@@ -256,7 +277,7 @@ describe('backendRequest', () => {
     fetchMock.mockResolvedValue(jsonResponse({ ok: true }));
 
     mod.setCaptchaToken('captcha-token');
-    mod.setCaptchaToken('');
+    mod.setCaptchaToken(null);
     await mod.backendRequest('/api/v1/login');
 
     expect(fetchMock.mock.calls[0][1].headers).toEqual({

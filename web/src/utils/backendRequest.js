@@ -44,8 +44,31 @@ function captchaHeaders() {
   return captchaToken ? { 'X-Captcha-Token': captchaToken } : {};
 }
 
+const UNSAFE_PATH = /\\|(^|\/)\.\.?($|\/)/;
+
+function hasControlCharacters(value) {
+  for (const char of value) {
+    const code = char.charCodeAt(0);
+    if (code < 0x20 || code === 0x7f) return true;
+  }
+  return false;
+}
+
+function buildUrl(path) {
+  if (
+    typeof path !== 'string' ||
+    !path.startsWith('/') ||
+    path.startsWith('//') ||
+    hasControlCharacters(path) ||
+    UNSAFE_PATH.test(path)
+  ) {
+    throw new Error('Invalid request path');
+  }
+  return `${BACKEND_CONFIG.baseUrl}${path}`;
+}
+
 async function backendRequest(path, options = {}) {
-  const url = `${BACKEND_CONFIG.baseUrl}${path}`;
+  const url = buildUrl(path);
   const buildRequestInit = () => ({
     ...options,
     credentials: 'include',

@@ -1,4 +1,5 @@
 import { backendRequest } from '../utils/backendRequest';
+import { pathSegment } from '../utils/pathSegment';
 
 export async function login(email, password) {
   return backendRequest('/api/v1/auth/login', {
@@ -179,7 +180,9 @@ export async function generatePlan(params = {}) {
 }
 
 export async function getPlanDetails(planId) {
-  const data = await backendRequest(`/api/v1/training/plans/${planId}`);
+  const data = await backendRequest(
+    `/api/v1/training/plans/${pathSegment(planId)}`
+  );
   return data;
 }
 
@@ -234,9 +237,12 @@ export async function createMeal(name, calories, time = '') {
 }
 
 export async function removeMeal(mealId) {
-  const data = await backendRequest(`/api/v1/nutrition/meals/${mealId}`, {
-    method: 'DELETE',
-  });
+  const data = await backendRequest(
+    `/api/v1/nutrition/meals/${pathSegment(mealId)}`,
+    {
+      method: 'DELETE',
+    }
+  );
   return data;
 }
 
@@ -254,17 +260,23 @@ export async function createEvent(eventData) {
 }
 
 export async function updateEvent(eventId, title, date, type, description) {
-  const data = await backendRequest(`/api/v1/calendar/events/${eventId}`, {
-    method: 'PUT',
-    body: JSON.stringify({ title, date, type, description }),
-  });
+  const data = await backendRequest(
+    `/api/v1/calendar/events/${pathSegment(eventId)}`,
+    {
+      method: 'PUT',
+      body: JSON.stringify({ title, date, type, description }),
+    }
+  );
   return data;
 }
 
 export async function deleteCalendarEvent(eventId) {
-  const data = await backendRequest(`/api/v1/calendar/events/${eventId}`, {
-    method: 'DELETE',
-  });
+  const data = await backendRequest(
+    `/api/v1/calendar/events/${pathSegment(eventId)}`,
+    {
+      method: 'DELETE',
+    }
+  );
   return data;
 }
 
@@ -298,7 +310,7 @@ export async function createCondition(conditionData) {
 
 export async function deleteCondition(conditionId) {
   const data = await backendRequest(
-    `/api/v1/health/conditions/${conditionId}`,
+    `/api/v1/health/conditions/${pathSegment(conditionId)}`,
     {
       method: 'DELETE',
     }
@@ -321,7 +333,7 @@ export async function createMenstrualCycle(cycleData) {
 
 export async function updateMenstrualCycle(cycleId, cycleData) {
   const data = await backendRequest(
-    `/api/v1/health/menstrual-cycles/${cycleId}`,
+    `/api/v1/health/menstrual-cycles/${pathSegment(cycleId)}`,
     {
       method: 'PUT',
       body: JSON.stringify(cycleData),
@@ -332,7 +344,7 @@ export async function updateMenstrualCycle(cycleId, cycleData) {
 
 export async function deleteMenstrualCycle(cycleId) {
   const data = await backendRequest(
-    `/api/v1/health/menstrual-cycles/${cycleId}`,
+    `/api/v1/health/menstrual-cycles/${pathSegment(cycleId)}`,
     {
       method: 'DELETE',
     }
@@ -386,7 +398,7 @@ export async function loadIntegrationProviders() {
 
 export async function disconnectIntegration(source) {
   const data = await backendRequest(
-    `/api/v1/integrations/${source}/disconnect`,
+    `/api/v1/integrations/${pathSegment(source)}/disconnect`,
     { method: 'POST' }
   );
   return data;

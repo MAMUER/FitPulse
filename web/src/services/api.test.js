@@ -495,6 +495,13 @@ describe('calendar', () => {
       method: 'DELETE',
     });
   });
+
+  it('rejects an invalid event id before calling the backend', async () => {
+    await expect(api.deleteCalendarEvent('../admin')).rejects.toThrow(
+      'Invalid path parameter'
+    );
+    expect(mocked).not.toHaveBeenCalled();
+  });
 });
 
 describe('ai, survey and integrations', () => {

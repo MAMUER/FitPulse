@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 import * as api from '../services/api';
 import { getDateKey, isDateAllowed } from '../utils/helpers';
 import { t } from '../utils/i18n';
+import { isValidPathSegment } from '../utils/pathSegment';
 
 export function useCalendar({
   state,
@@ -244,6 +245,11 @@ export function useCalendar({
         const list = state.calendarEvents[keyOrEventId];
         if (!list || index < 0 || index >= list.length) return;
         eventId = list[index].id;
+      }
+
+      if (!isValidPathSegment(eventId)) {
+        notify('Ошибка удаления события');
+        return;
       }
 
       try {

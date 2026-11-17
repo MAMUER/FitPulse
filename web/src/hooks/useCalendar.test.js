@@ -512,6 +512,18 @@ describe('useCalendar', () => {
     expect(api.deleteCalendarEvent).not.toHaveBeenCalled();
   });
 
+  it('deleteCalendarEvent rejects an unsafe event id from persisted state', async () => {
+    setup({
+      calendarEvents: { '5 Октябрь': [{ id: '../admin' }] },
+    });
+    await act(async () => {
+      await result.current.deleteCalendarEvent('5 Октябрь', 0);
+    });
+    expect(api.deleteCalendarEvent).not.toHaveBeenCalled();
+    expect(update).not.toHaveBeenCalled();
+    expect(notify).toHaveBeenCalledWith('Ошибка удаления события');
+  });
+
   it('deleteCalendarEvent notifies on failure', async () => {
     setup();
     api.deleteCalendarEvent.mockRejectedValue(new Error('boom'));
