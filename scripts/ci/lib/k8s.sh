@@ -442,9 +442,13 @@ open_wearables_has_revision_drift() {
 }
 
 reset_open_wearables_database() {
+	# The drop itself retries inside the pod, but only start once postgres is
+	# actually Ready to avoid spending most of the job budget on a crash-looping
+	# or not-yet-scheduled database pod.
+	kubectl wait --for=condition=Ready pod -l app=postgres -n fitness-platform-production --timeout=120s 2>/dev/null || true
 	kubectl delete job reset-open-wearables-db -n fitness-platform-production --ignore-not-found=true --wait=true
 	kubectl apply -f configs/k8s/base/jobs/reset-open-wearables-db.yaml -n fitness-platform-production
-	if ! kubectl wait --for=condition=complete job/reset-open-wearables-db -n fitness-platform-production --timeout=180s; then
+	if ! kubectl wait --for=condition=complete job/reset-open-wearables-db -n fitness-platform-production --timeout=240s; then
 		echo "::error::Failed to reset Open Wearables database; collecting diagnostics" >&2
 		diagnose_job fitness-platform-production reset-open-wearables-db
 		return 1
@@ -476,16 +480,19 @@ deploy_open_wearables() {
 	# 10-minute rollout timeout, then recreate the database and retry once.
 	local healed=1 ready
 	for _ in {1..12}; do
+		# Check readiness first: an old terminating pod may still log the drift
+		# error after the database was already healed, and a false positive
+		# would drop the database again on every deploy.
+		ready=$(kubectl get deployment open-wearables -n fitness-platform-production -o jsonpath='{.status.readyReplicas}' 2>/dev/null || true)
+		if [[ "${ready:-0}" -ge 1 ]]; then
+			break
+		fi
 		if open_wearables_has_revision_drift; then
 			if ! heal_open_wearables_drift; then
 				diagnose_unready_pods fitness-platform-production
 				return 1
 			fi
 			healed=0
-			break
-		fi
-		ready=$(kubectl get deployment open-wearables -n fitness-platform-production -o jsonpath='{.status.readyReplicas}' 2>/dev/null || true)
-		if [[ "${ready:-0}" -ge 1 ]]; then
 			break
 		fi
 		sleep 10

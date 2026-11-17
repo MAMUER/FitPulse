@@ -45,15 +45,17 @@ spec:
             - |
               set -euo pipefail
               export PGPASSWORD=$(cat /etc/secrets/POSTGRES_PASSWORD)
+              export PGCONNECT_TIMEOUT=5
               DB_USER=$(cat /etc/secrets/POSTGRES_USER)
               # Postgres may still be starting (e.g. right after a StatefulSet
               # rollout); retry instead of failing the deploy on a transient
               # "Connection refused".
               attempt=0
-              while [ "$attempt" -lt 30 ]; do
+              until psql -h postgres-service -U "$DB_USER" -d postgres -tAc "SELECT 1" >/dev/null 2>&1; do
                 attempt=$((attempt + 1))
-                if psql -h postgres-service -U "$DB_USER" -d postgres -tAc "SELECT 1" >/dev/null 2>&1; then
-                  break
+                if [ "$attempt" -ge 30 ]; then
+                  echo "postgres-service is not accepting connections after ${attempt} attempts" >&2
+                  exit 1
                 fi
                 echo "Waiting for postgres-service (attempt ${attempt}/30)..."
                 sleep 2

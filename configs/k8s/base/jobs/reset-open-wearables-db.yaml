@@ -45,7 +45,23 @@ spec:
             - |
               set -euo pipefail
               export PGPASSWORD=$(cat /etc/secrets/POSTGRES_PASSWORD)
+              export PGCONNECT_TIMEOUT=5
               DB_USER=$(cat /etc/secrets/POSTGRES_USER)
+              # This job starts right after the app deployments were restarted,
+              # so postgres-service can transiently refuse connections (pod not
+              # yet admitted by the network policy / endpoint propagation).
+              # Retry instead of burning the job's backoff limit on the first
+              # "Connection refused".
+              attempt=0
+              until psql -h postgres-service -U "$DB_USER" -d postgres -tAc "SELECT 1" >/dev/null 2>&1; do
+                attempt=$((attempt + 1))
+                if [ "$attempt" -ge 60 ]; then
+                  echo "postgres-service is not accepting connections after ${attempt} attempts" >&2
+                  exit 1
+                fi
+                echo "Waiting for postgres-service (attempt ${attempt}/60)..."
+                sleep 2
+              done
               # Alembic in the pinned backend image cannot resolve the revision
               # stored in alembic_version when the database was migrated by a
               # newer upstream build, so the backend crash-loops. Dropping the
