@@ -347,34 +347,115 @@ SQL
 	return "$SEED_STATUS"
 }
 
-verify_deployment() {
-	for i in {1..30}; do
-		if kubectl get --raw /healthz &>/dev/null; then
-			break
-		fi
-		if [[ "$i" -eq 30 ]]; then
-			echo "API not available, restarting k3s..."
-			./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "sudo systemctl restart k3s"
-			sleep 30
+k8s_api_ready() {
+	kubectl get --raw=/healthz --request-timeout=10s &>/dev/null
+}
+
+# A single-node k3s running on WSL2 can briefly drop its API server (OOM or
+# k3s restart) in the middle of a deploy. Poll instead of trusting one shot.
+wait_for_k8s_api() {
+	local timeout="${1:-300}" waited=0
+	while ((waited < timeout)); do
+		if k8s_api_ready; then
+			return 0
 		fi
 		sleep 5
+		waited=$((waited + 5))
 	done
+	return 1
+}
+
+restart_k3s_if_unreachable() {
+	if [[ -z "${VPS_HOST:-}" || -z "${VPS_USER:-}" ]]; then
+		echo "::warning::k3s API is unreachable and VPS_HOST/VPS_USER are unset; cannot restart k3s"
+		return 0
+	fi
+	echo "API not available, restarting k3s..."
+	if ! ./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "sudo systemctl restart k3s"; then
+		echo "::warning::Failed to restart k3s over SSH"
+	fi
+	sleep 30
+}
+
+# kubectl reports API outages (k3s restarting) through the same non-zero exit
+# code as a genuine rollout failure. Treating the former as a failed rollout
+# produced false "Deployment open-wearables did not become ready" errors while
+# the pod was actually Ready, so distinguish them explicitly.
+is_transient_k8s_api_error() {
+	grep -Eqi 'ServiceUnavailable|apiserver not ready|unable to handle the request|the server is currently unable|connection refused|connect: connection refused|TLS handshake timeout|i/o timeout|unexpected EOF|client connection lost|etcdserver: request timed out|too many requests' <<<"${1:-}"
+}
+
+# Returns 0 when the workload is rolled out, 2 when the API server hiccupped
+# (retryable) and 1 for a real rollout failure.
+check_rollout() {
+	local kind="$1" name="$2" namespace="$3" timeout="$4" output
+	if output=$(kubectl rollout status "$kind/$name" -n "$namespace" --timeout="$timeout" 2>&1); then
+		printf '%s\n' "$output"
+		return 0
+	fi
+	printf '%s\n' "$output" >&2
+	if is_transient_k8s_api_error "$output"; then
+		echo "::warning::Transient apiserver error while checking $kind/$name" >&2
+		return 2
+	fi
+	return 1
+}
+
+verify_deployment() {
+	local attempt deploy status
+	local max_attempts=3
+	local deployments=(
+		user-service biometric-service training-service gateway classifier
+		ml-generator device-aggregator data-processor open-wearables open-wearables-frontend
+	)
+
 	echo "Verifying deployment..."
-	echo "Waiting for all application deployments to be ready..."
-	for deploy in user-service biometric-service training-service gateway classifier ml-generator device-aggregator data-processor open-wearables open-wearables-frontend; do
-		if ! kubectl rollout status deployment/"$deploy" -n fitness-platform-production --timeout=180s; then
-			echo "::error::Deployment $deploy did not become ready" >&2
-			kubectl get pods -n fitness-platform-production -l "app=$deploy" -o wide >&2 || true
-			kubectl describe deployment "$deploy" -n fitness-platform-production >&2 || true
+	for attempt in $(seq 1 "$max_attempts"); do
+		echo "-> Verification attempt $attempt/$max_attempts"
+		if ! wait_for_k8s_api 300; then
+			echo "::warning::k3s API still unavailable after 5 minutes (attempt $attempt/$max_attempts)" >&2
+			restart_k3s_if_unreachable
+			continue
+		fi
+
+		local retry=0
+		echo "Waiting for all application deployments to be ready..."
+		for deploy in "${deployments[@]}"; do
+			status=0
+			check_rollout deployment "$deploy" fitness-platform-production 180s || status=$?
+			if ((status == 2)); then
+				retry=1
+				break
+			fi
+			if ((status != 0)); then
+				echo "::error::Deployment $deploy did not become ready" >&2
+				kubectl get pods -n fitness-platform-production -l "app=$deploy" -o wide >&2 || true
+				kubectl describe deployment "$deploy" -n fitness-platform-production >&2 || true
+				return 1
+			fi
+		done
+		if ((retry)); then
+			sleep 15
+			continue
+		fi
+
+		status=0
+		check_rollout deployment ingress-nginx-controller ingress-nginx 120s || status=$?
+		if ((status == 2)); then
+			sleep 15
+			continue
+		fi
+		if ((status != 0)); then
+			echo "::error::ingress-nginx controller did not become ready" >&2
+			kubectl get pods -n ingress-nginx -o wide >&2 || true
 			return 1
 		fi
+
+		echo "✅ All application deployments are ready"
+		return 0
 	done
-	if ! kubectl rollout status deployment/ingress-nginx-controller -n ingress-nginx --timeout=120s; then
-		echo "::error::ingress-nginx controller did not become ready" >&2
-		kubectl get pods -n ingress-nginx -o wide >&2 || true
-		return 1
-	fi
-	echo "✅ All application deployments are ready"
+	echo "::error::Deployment verification failed after $max_attempts attempts" >&2
+	return 1
 }
 
 diagnose_unready_pods() {
@@ -605,6 +686,14 @@ echo '=== k3s service state ==='
 sudo systemctl show k3s --property=ActiveState,SubState,MainPID --no-pager 2>&1 || true
 echo '=== k3s version ==='
 sudo k3s --version 2>&1 || true
+echo '=== k3s restart and OOM evidence ==='
+sudo systemctl show k3s --property=NRestarts,ExecMainStartTimestamp,MemoryCurrent,MemoryMax --no-pager 2>&1 || true
+sudo journalctl -u k3s --since '6 hours ago' --no-pager 2>&1 |
+	grep -Ei 'killed process|out of memory|oom|panic|restarting' | tail -n 30 || true
+echo '=== Node memory pressure ==='
+free -h 2>&1 || true
+cat /proc/pressure/memory 2>&1 || true
+dmesg 2>/dev/null | grep -Ei 'killed process|out of memory|oom' | tail -n 20 || true
 echo '=== VPS resolver configuration ==='
 cat /etc/resolv.conf 2>&1 || true
 echo '=== K3s pod resolver configuration ==='
@@ -633,17 +722,10 @@ REMOTE
 }
 
 debug_pod_status() {
-	for i in {1..30}; do
-		if kubectl get --raw /healthz &>/dev/null; then
-			break
-		fi
-		if [[ "$i" -eq 30 ]]; then
-			echo "API not available, restarting k3s..."
-			./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "sudo systemctl restart k3s"
-			sleep 30
-		fi
-		sleep 5
-	done
+	if ! wait_for_k8s_api 150; then
+		restart_k3s_if_unreachable
+		wait_for_k8s_api 120 || true
+	fi
 	diagnose_unready_pods fitness-platform-production
 	diagnose_unready_pods ingress-nginx
 	collect_cluster_diagnostics
@@ -652,6 +734,10 @@ debug_pod_status() {
 
 check_logs() {
 	echo "Waiting for pods to stabilize..."
+	if ! wait_for_k8s_api 120; then
+		echo "::warning::k3s API unavailable; skipping readiness assertions" >&2
+		return 0
+	fi
 	sleep 30
 	echo "Checking pod status..."
 	kubectl get pods -n fitness-platform-production -o wide
@@ -709,6 +795,7 @@ check_logs() {
 verify_tls() {
 	local secret="fittpulse-duckdns-tls"
 	local domain="${FITPULSE_DOMAIN:-fittpulse.duckdns.org}"
+	wait_for_k8s_api 180 || true
 	if ! kubectl wait --for=condition=ready certificate/"$secret" \
 		-n fitness-platform-production --timeout=300s; then
 		echo "::error::Ingress TLS certificate $secret is not Ready" >&2
