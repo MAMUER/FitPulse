@@ -91,7 +91,7 @@ apply_manifests() {
 	cleanup_cluster_resources
 
 	echo "Deleting immutable Jobs for fresh recreation..."
-	for job in migrate-db seed-admin create-open-wearables-db; do
+	for job in migrate-db seed-admin create-open-wearables-db reset-open-wearables-db; do
 		kubectl delete job "$job" -n fitness-platform-production --ignore-not-found=true --wait=false 2>/dev/null || true
 	done
 	if kubectl get namespace elk >/dev/null 2>&1; then
@@ -423,8 +423,7 @@ diagnose_unready_pods() {
 	kubectl get events -n "$namespace" --sort-by=.lastTimestamp 2>&1 | tail -50 || true
 }
 
-deploy_open_wearables() {
-	echo "=== Deploying Open Wearables ==="
+run_open_wearables_db_job() {
 	kubectl delete job create-open-wearables-db -n fitness-platform-production --ignore-not-found=true --wait=true
 	kubectl apply -f configs/k8s/base/jobs/create-open-wearables-db.yaml -n fitness-platform-production
 	echo "Waiting for Open Wearables database job..."
@@ -434,19 +433,80 @@ deploy_open_wearables() {
 		return 1
 	fi
 	kubectl logs job/create-open-wearables-db -n fitness-platform-production --all-containers --timestamps --tail=100 2>&1 || true
+}
+
+open_wearables_has_revision_drift() {
+	local logs
+	logs=$(kubectl logs -n fitness-platform-production -l app=open-wearables --all-containers --tail=200 2>/dev/null || true)
+	grep -q "Can't locate revision identified by" <<<"$logs"
+}
+
+reset_open_wearables_database() {
+	kubectl delete job reset-open-wearables-db -n fitness-platform-production --ignore-not-found=true --wait=true
+	kubectl apply -f configs/k8s/base/jobs/reset-open-wearables-db.yaml -n fitness-platform-production
+	if ! kubectl wait --for=condition=complete job/reset-open-wearables-db -n fitness-platform-production --timeout=180s; then
+		echo "::error::Failed to reset Open Wearables database; collecting diagnostics" >&2
+		diagnose_job fitness-platform-production reset-open-wearables-db
+		return 1
+	fi
+	kubectl logs job/reset-open-wearables-db -n fitness-platform-production --all-containers --timestamps --tail=100 2>&1 || true
+	kubectl delete job reset-open-wearables-db -n fitness-platform-production --ignore-not-found=true 2>&1 || true
+}
+
+heal_open_wearables_drift() {
+	echo "::warning::Open Wearables database has an alembic revision unknown to the pinned image; recreating the database" >&2
+	reset_open_wearables_database || return 1
+	run_open_wearables_db_job || return 1
+	kubectl rollout restart deployment/open-wearables -n fitness-platform-production
+	return 0
+}
+
+deploy_open_wearables() {
+	echo "=== Deploying Open Wearables ==="
+	run_open_wearables_db_job || return 1
 	# Do NOT re-apply the whole production overlay here: apply_manifests has
 	# already done it. Re-applying reset the `kubectl.kubernetes.io/restartedAt`
 	# annotation added by restart_app_deployments, which triggered a second
 	# rollout of gateway/open-wearables and another pile of ReplicaSets.
 	echo "Waiting for Open Wearables deployments to be ready..."
+	# The pinned upstream image may not ship every alembic revision recorded in
+	# the existing database (e.g. after pinning to an older tag). In that case
+	# alembic aborts with "Can't locate revision identified by <id>" and the
+	# backend crash-loops. Detect it early instead of waiting out the full
+	# 10-minute rollout timeout, then recreate the database and retry once.
+	local healed=1 ready
+	for _ in {1..12}; do
+		if open_wearables_has_revision_drift; then
+			if ! heal_open_wearables_drift; then
+				diagnose_unready_pods fitness-platform-production
+				return 1
+			fi
+			healed=0
+			break
+		fi
+		ready=$(kubectl get deployment open-wearables -n fitness-platform-production -o jsonpath='{.status.readyReplicas}' 2>/dev/null || true)
+		if [[ "${ready:-0}" -ge 1 ]]; then
+			break
+		fi
+		sleep 10
+	done
 	# Use rollout status, not a pod-label wait: during a rollout the old pod is
 	# terminating and may never become Ready, which made `kubectl wait` time out
 	# even though the new pod became Ready moments later. The backend also runs
 	# migrations on start, so allow 10 minutes.
 	if ! kubectl rollout status deployment/open-wearables -n fitness-platform-production --timeout=600s; then
-		echo "::error::Open Wearables backend not ready; collecting pod diagnostics" >&2
-		diagnose_unready_pods fitness-platform-production
-		return 1
+		# A slow first start may hide the drift from the fast path above.
+		if [[ "$healed" -ne 0 ]] && open_wearables_has_revision_drift && heal_open_wearables_drift; then
+			if ! kubectl rollout status deployment/open-wearables -n fitness-platform-production --timeout=600s; then
+				echo "::error::Open Wearables backend not ready after database reset; collecting pod diagnostics" >&2
+				diagnose_unready_pods fitness-platform-production
+				return 1
+			fi
+		else
+			echo "::error::Open Wearables backend not ready; collecting pod diagnostics" >&2
+			diagnose_unready_pods fitness-platform-production
+			return 1
+		fi
 	fi
 	if ! kubectl rollout status deployment/open-wearables-frontend -n fitness-platform-production --timeout=600s; then
 		echo "::error::Open Wearables frontend not ready; collecting pod diagnostics" >&2

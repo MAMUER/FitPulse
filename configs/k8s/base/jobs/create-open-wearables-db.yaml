@@ -46,6 +46,18 @@ spec:
               set -euo pipefail
               export PGPASSWORD=$(cat /etc/secrets/POSTGRES_PASSWORD)
               DB_USER=$(cat /etc/secrets/POSTGRES_USER)
+              # Postgres may still be starting (e.g. right after a StatefulSet
+              # rollout); retry instead of failing the deploy on a transient
+              # "Connection refused".
+              attempt=0
+              while [ "$attempt" -lt 30 ]; do
+                attempt=$((attempt + 1))
+                if psql -h postgres-service -U "$DB_USER" -d postgres -tAc "SELECT 1" >/dev/null 2>&1; then
+                  break
+                fi
+                echo "Waiting for postgres-service (attempt ${attempt}/30)..."
+                sleep 2
+              done
               # -d postgres: CREATE DATABASE cannot run inside a transaction and the
               # default database would otherwise be a per-user DB that initdb never
               # created (POSTGRES_USER=fitness_admin), so psql failed with

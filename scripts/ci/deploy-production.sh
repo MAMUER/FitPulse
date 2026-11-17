@@ -30,8 +30,8 @@ deploy_all() {
 	run_seed_admin
 	restart_app_deployments
 	check_logs 2>/dev/null || true
-	verify_deployment
 	deploy_open_wearables
+	verify_deployment
 	log_info "Deployment completed successfully"
 }
 
