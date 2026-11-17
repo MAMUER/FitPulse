@@ -711,8 +711,9 @@ jobs:
       - name: Install frontend dependencies for Trivy
         run: bash "$GITHUB_WORKSPACE/scripts/ci/ci-helpers.sh" install_dependencies
         working-directory: web
-      - name: Install Python dependencies for Trivy
-        run: bash scripts/ci/ci-helpers.sh install_python_deps
+      # No Python install here: Trivy parses cmd/gan-service/requirements.txt
+      # directly (it is fully pinned), and downloading the ~210 MB torch CPU
+      # wheel just to scan the filesystem is slow and fails on flaky mirrors.
       - name: Create SARIF results directory
         run: mkdir -p sarif-results
       - name: Run Trivy filesystem scan
