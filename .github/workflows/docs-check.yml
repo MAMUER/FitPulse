@@ -14,6 +14,8 @@ on:
       - "web/package.json"
       - "Makefile"
       - "scripts/ci/build-push.sh"
+      - ".osv-scanner.toml"
+      - "scripts/ci/osv_ignore_sync.py"
   pull_request:
     branches: [main]
     paths:
@@ -27,6 +29,8 @@ on:
       - "web/package.json"
       - "Makefile"
       - "scripts/ci/build-push.sh"
+      - ".osv-scanner.toml"
+      - "scripts/ci/osv_ignore_sync.py"
   schedule:
     - cron: "0 0 * * 0" # Weekly Sunday midnight
   workflow_dispatch:
@@ -46,6 +50,9 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           fetch-depth: 0
+
+      - name: Check OSV ignore entries are current
+        run: python3 scripts/ci/osv_ignore_sync.py --check
 
       - name: Check for version consistency
         run: |
@@ -399,6 +406,38 @@ jobs:
           echo "============================================"
           echo "  Documentation Check PASSED"
           echo "============================================"
+
+  osv-ignore-sync:
+    name: OSV Ignore List Sync
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+
+      - name: Remove stale OSV ignore entries
+        run: python3 scripts/ci/osv_ignore_sync.py --apply
+
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@15733dbdfeedb4f7fdb73d13c6f5ac83b710fab8
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "chore(security): remove stale OSV ignore entries"
+          title: "chore(security): remove stale OSV ignore entries"
+          body: |
+            Automated sync of `.osv-scanner.toml`.
+
+            Removed entries whose advisory now has a fixed release and whose
+            installed dependency versions are no longer affected. If the entry
+            is still needed, close this PR and update the ignore reason.
+          branch: "chore/osv-ignore-sync"
+          delete-branch: true
+          add-paths: .osv-scanner.toml
 
   runtime-version-update:
     name: Runtime Version Update Check

@@ -48,6 +48,12 @@ updates:
     assignees:
       - "MAMUER"
     groups:
+      # Пакеты, упомянутые в .osv-scanner.toml: отдельная группа, чтобы
+      # обновление с фиксом приходило отдельным PR и синхронизация игноров
+      # в docs-check.yml снимала запись автоматически.
+      osv-ignored:
+        patterns:
+          - "golang.org/x/crypto"
       go-dependencies:
         patterns:
           - "*"
@@ -366,6 +372,12 @@ updates:
     labels: ["dependencies", "npm", "frontend"]
     assignees: ["MAMUER"]
     groups:
+      # picomatch фигурирует в .osv-scanner.toml (GHSA-fc5q-39xc-vjpf).
+      # Явная группа не даёт обновлению транзитивной dev-зависимости
+      # потеряться среди групповых обновлений фронтенда.
+      osv-ignored:
+        patterns:
+          - "picomatch"
       frontend-deps:
         patterns:
           - "react*"

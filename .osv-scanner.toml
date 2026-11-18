@@ -1,3 +1,3 @@
 [[IgnoredVulns]]
-id = "GO-2026-5932"
-reason = "False positive: golang.org/x/crypto v0.58.0 is already the latest version. The advisory has no fixed version. The govulncheck failure in CI is caused by Go toolchain version mismatch in the scanner environment (project requires Go 1.27, scanner uses Go 1.26), not by an actual unfixed vulnerability."
+id = "GHSA-fc5q-39xc-vjpf"
+reason = "No patched release exists: picomatch 4.0.7 is the latest published version and the advisory marks all versions <=4.0.7 as affected. picomatch is pulled in only as a dev-time transitive dependency of vite/vitest, is not bundled into the production build, and the ReDoS requires attacker-controlled glob patterns. Re-evaluate and remove this ignore once a fixed release is published."
