@@ -119,7 +119,7 @@ func (r *emailVerificationRepository) MarkUsed(ctx context.Context, token string
 
 func (r *emailVerificationRepository) MarkUserEmailVerified(ctx context.Context, userID string) error {
 
-	_, err := r.db.ExecContext(ctx, `UPDATE users SET email_verified = true WHERE id = $1`, userID)
+	_, err := r.db.ExecContext(ctx, `UPDATE users SET email_confirmed = true WHERE id = $1`, userID)
 
 	if err != nil {
 

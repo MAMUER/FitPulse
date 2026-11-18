@@ -84,9 +84,9 @@ const (
 
 	sqlSelectPrefix = "SELECT "
 
-	sqlUsersByIDPrefix = "SELECT id, email_hash, password_hash, full_name_hash, role, email_verified, created_at, updated_at FROM users WHERE id = $1"
+	sqlUsersByIDPrefix = "SELECT id, email_hash, password_hash, full_name_hash, role, email_confirmed, created_at, updated_at FROM users WHERE id = $1"
 
-	sqlUsersByEmailHashPrefix = "SELECT id, email_hash, password_hash, full_name_hash, role, email_verified, created_at, updated_at FROM users WHERE email_hash = $1"
+	sqlUsersByEmailHashPrefix = "SELECT id, email_hash, password_hash, full_name_hash, role, email_confirmed, created_at, updated_at FROM users WHERE email_hash = $1"
 
 	sqlFromUsersByID = " FROM users WHERE id = $1"
 
@@ -708,7 +708,7 @@ func (r *PgsodiumUserRepository) List(ctx context.Context, page, pageSize int) (
 
 	listUsersQuery.WriteString(db.PgsodiumDecryptParam(colUFullNameEncrypted, colUFullNameNonce, "full_name"))
 
-	listUsersQuery.WriteString(",\n               u.role, u.email_verified, u.created_at, u.updated_at\n            FROM users u\n            WHERE 1=1")
+	listUsersQuery.WriteString(",\n               u.role, u.email_confirmed, u.created_at, u.updated_at\n            FROM users u\n            WHERE 1=1")
 
 	args := []interface{}{}
 
@@ -770,7 +770,7 @@ func (r *PgsodiumUserRepository) ListByRole(ctx context.Context, role string, pa
 
 	listUsersQuery.WriteString(db.PgsodiumDecryptParam(colUFullNameEncrypted, colUFullNameNonce, "full_name"))
 
-	listUsersQuery.WriteString(",\n               u.role, u.email_verified, u.created_at, u.updated_at\n            FROM users u\n            WHERE u.role = $1")
+	listUsersQuery.WriteString(",\n               u.role, u.email_confirmed, u.created_at, u.updated_at\n            FROM users u\n            WHERE u.role = $1")
 
 	args := []interface{}{role}
 
@@ -1242,7 +1242,7 @@ func (r *PgsodiumUserRepository) LinkYandexAccount(ctx context.Context, yandexID
 
 func (r *PgsodiumUserRepository) MarkEmailVerified(ctx context.Context, userID string) error {
 
-	_, err := r.db.ExecContext(ctx, "UPDATE users SET email_verified = true, updated_at = NOW() WHERE id = $1", userID)
+	_, err := r.db.ExecContext(ctx, "UPDATE users SET email_confirmed = true, updated_at = NOW() WHERE id = $1", userID)
 
 	if err != nil {
 

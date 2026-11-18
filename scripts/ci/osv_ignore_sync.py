@@ -109,11 +109,17 @@ def range_affects(version: str, version_range: dict) -> bool:
         if "introduced" in event:
             introduced = event["introduced"]
         elif "fixed" in event:
-            if at_least(version, introduced) and compare_versions(version, event["fixed"]) < 0:
+            if (
+                at_least(version, introduced)
+                and compare_versions(version, event["fixed"]) < 0
+            ):
                 return True
             introduced = None
         elif "last_affected" in event:
-            if at_least(version, introduced) and compare_versions(version, event["last_affected"]) <= 0:
+            if (
+                at_least(version, introduced)
+                and compare_versions(version, event["last_affected"]) <= 0
+            ):
                 return True
             introduced = None
     if introduced is not None and at_least(version, introduced):
@@ -125,7 +131,11 @@ def go_versions(module: str) -> list[str] | None:
     if not GO_MOD.is_file():
         return None
     text = GO_MOD.read_text(encoding="utf-8")
-    versions = [match.group(2) for match in GO_REQUIRE_RE.finditer(text) if match.group(1) == module]
+    versions = [
+        match.group(2)
+        for match in GO_REQUIRE_RE.finditer(text)
+        if match.group(1) == module
+    ]
     return versions
 
 
@@ -138,7 +148,9 @@ def npm_versions(package: str) -> list[str] | None:
         return None
     versions = []
     for path, meta in data.get("packages", {}).items():
-        if path == f"node_modules/{package}" or path.endswith(f"/node_modules/{package}"):
+        if path == f"node_modules/{package}" or path.endswith(
+            f"/node_modules/{package}"
+        ):
             version = meta.get("version")
             if version:
                 versions.append(version)
@@ -203,7 +215,9 @@ def ignore_is_stale(advisory: dict) -> bool:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--apply", action="store_true", help="rewrite the config file")
-    parser.add_argument("--check", action="store_true", help="fail if stale ignores exist")
+    parser.add_argument(
+        "--check", action="store_true", help="fail if stale ignores exist"
+    )
     args = parser.parse_args()
     check_only = args.check or not args.apply
 

@@ -1997,7 +1997,7 @@ func TestPgsodiumUserRepo_MarkEmailVerified_Success(t *testing.T) {
 
 	ctx := context.Background()
 
-	mock.ExpectExec("UPDATE users SET email_verified").
+	mock.ExpectExec("UPDATE users SET email_confirmed").
 		WithArgs("user-1").
 		WillReturnResult(sqlmock.NewResult(0, 1))
 
@@ -2012,7 +2012,7 @@ func TestPgsodiumUserRepo_MarkEmailVerified_Error(t *testing.T) {
 
 	ctx := context.Background()
 
-	mock.ExpectExec("UPDATE users SET email_verified").
+	mock.ExpectExec("UPDATE users SET email_confirmed").
 		WithArgs("user-1").
 		WillReturnError(assert.AnError)
 

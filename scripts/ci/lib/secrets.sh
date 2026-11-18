@@ -3,6 +3,105 @@ set -euo pipefail
 
 source "$(dirname "${BASH_SOURCE[0]}")/utils.sh"
 
+# The Go services sign JWTs with ES256 and parse the private key through
+# x509.ParseECPrivateKey, which only accepts a SEC1 "EC PRIVATE KEY" block on
+# P-256. Legacy deploys generated RSA keys here, so every login failed with
+# "failed to generate token". These helpers validate the key shape and rotate
+# invalid (RSA) keys instead of silently reusing them.
+
+is_es256_private_key() {
+	local pem="${1:-}"
+	[[ -n "$pem" ]] || return 1
+	printf '%s\n' "$pem" | grep -q -- '-----BEGIN EC PRIVATE KEY-----' || return 1
+	printf '%s\n' "$pem" | openssl ec -noout >/dev/null 2>&1 || return 1
+	printf '%s\n' "$pem" | openssl ec -noout -text 2>/dev/null | grep -q 'prime256v1'
+}
+
+is_es256_public_key() {
+	local pem="${1:-}"
+	[[ -n "$pem" ]] || return 1
+	printf '%s\n' "$pem" | grep -q -- '-----BEGIN PUBLIC KEY-----' || return 1
+	printf '%s\n' "$pem" | openssl ec -pubin -noout >/dev/null 2>&1 || return 1
+	printf '%s\n' "$pem" | openssl ec -pubin -noout -text 2>/dev/null | grep -q 'prime256v1'
+}
+
+generate_es256_private_key() {
+	openssl ecparam -name prime256v1 -genkey -noout 2>/dev/null
+}
+
+es256_public_from_private() {
+	printf '%s\n' "${1:-}" | openssl ec -pubout 2>/dev/null
+}
+
+JWT_KEY_PRIVATE=""
+JWT_KEY_PUBLIC=""
+# Prefer the keys already stored in the cluster (keeps sessions valid), then a
+# valid ES256 pair from GitHub secrets, and finally generate a new ES256 pair.
+resolve_es256_keypair() {
+	local current_private="${1:-}"
+	local current_public="${2:-}"
+
+	if is_es256_private_key "$current_private"; then
+		JWT_KEY_PRIVATE="$current_private"
+		if is_es256_public_key "$current_public"; then
+			JWT_KEY_PUBLIC="$current_public"
+		else
+			JWT_KEY_PUBLIC="$(es256_public_from_private "$current_private")"
+		fi
+		return 0
+	fi
+	if is_es256_private_key "${JWT_PRIVATE_KEY_PEM:-}"; then
+		JWT_KEY_PRIVATE="$JWT_PRIVATE_KEY_PEM"
+		if is_es256_public_key "${JWT_PUBLIC_KEY_PEM:-}"; then
+			JWT_KEY_PUBLIC="$JWT_PUBLIC_KEY_PEM"
+		else
+			JWT_KEY_PUBLIC="$(es256_public_from_private "$JWT_PRIVATE_KEY_PEM")"
+		fi
+		return 0
+	fi
+	if [[ -n "${JWT_PRIVATE_KEY_PEM:-}${JWT_PUBLIC_KEY_PEM:-}${current_private}${current_public}" ]]; then
+		echo "::warning::JWT keys are not ES256/P-256; generating a new ES256 keypair" >&2
+	fi
+	JWT_KEY_PRIVATE="$(generate_es256_private_key)"
+	JWT_KEY_PUBLIC="$(es256_public_from_private "$JWT_KEY_PRIVATE")"
+	if [[ -z "$JWT_KEY_PRIVATE" ]] || [[ -z "$JWT_KEY_PUBLIC" ]]; then
+		echo "::error::failed to generate ES256 JWT keypair" >&2
+		return 1
+	fi
+}
+
+# JSON-encode multiline PEMs before patching; interpolating them into a JSON
+# literal directly is invalid and made the old patch silently fail.
+patch_app_secret_jwt_keys() {
+	local patch_file
+	patch_file="$(mktemp)"
+	JWT_PRIVATE_PATCH="$1" JWT_PUBLIC_PATCH="$2" python3 - "$patch_file" <<'PY'
+import json
+import os
+import sys
+
+with open(sys.argv[1], "w", encoding="utf-8") as fh:
+    json.dump(
+        {
+            "stringData": {
+                "JWT_PRIVATE_KEY_PEM": os.environ["JWT_PRIVATE_PATCH"],
+                "JWT_PUBLIC_KEY_PEM": os.environ["JWT_PUBLIC_PATCH"],
+            }
+        },
+        fh,
+    )
+PY
+	kubectl patch secret app-secrets -n fitness-platform-production \
+		--type=merge -p "$(cat "$patch_file")" >/dev/null
+	rm -f "$patch_file"
+}
+
+read_stored_jwt_secret() {
+	local field="$1"
+	kubectl get secret app-secrets -n fitness-platform-production \
+		-o jsonpath="{.data.${field}}" 2>/dev/null | base64 -d 2>/dev/null || true
+}
+
 create_secrets() {
 	echo "Creating gRPC mTLS certificates via cert-manager..."
 	kubectl apply -f configs/k8s/base/cert-manager/grpc-selfsigned-ca.yaml
@@ -46,9 +145,10 @@ create_secrets() {
 
 	echo "Creating app-secrets (direct fallback if ExternalSecrets missing)..."
 	kubectl create namespace fitness-platform-production --dry-run=client -o yaml | kubectl apply -f - || true
+	existing_jwt_private="$(read_stored_jwt_secret JWT_PRIVATE_KEY_PEM)"
+	existing_jwt_public="$(read_stored_jwt_secret JWT_PUBLIC_KEY_PEM)"
+	resolve_es256_keypair "$existing_jwt_private" "$existing_jwt_public"
 	if ! kubectl get secret app-secrets -n fitness-platform-production >/dev/null 2>&1; then
-		JWT_PRIV="${JWT_PRIVATE_KEY_PEM:-$(openssl genrsa 2048 2>/dev/null | openssl pkcs8 -topk8 -nocrypt 2>/dev/null || openssl genrsa 2048 2>/dev/null)}"
-		JWT_PUB="${JWT_PUBLIC_KEY_PEM:-$(echo "$JWT_PRIV" | openssl rsa -pubout 2>/dev/null || true)}"
 		POSTGRES_USER_VAL="${POSTGRES_USER:-fitpulse}"
 		POSTGRES_PASS_VAL="${POSTGRES_PASSWORD:-fitpulse-$(date +%s)}"
 		POSTGRES_DB_VAL="${POSTGRES_DB:-fitpulse}"
@@ -59,8 +159,8 @@ create_secrets() {
 		APP_BASE_URL_VAL="${APP_BASE_URL:-https://fittpulse.duckdns.org}"
 
 		kubectl create secret generic app-secrets -n fitness-platform-production \
-			--from-literal=JWT_PRIVATE_KEY_PEM="$JWT_PRIV" \
-			--from-literal=JWT_PUBLIC_KEY_PEM="$JWT_PUB" \
+			--from-literal=JWT_PRIVATE_KEY_PEM="$JWT_KEY_PRIVATE" \
+			--from-literal=JWT_PUBLIC_KEY_PEM="$JWT_KEY_PUBLIC" \
 			--from-literal=POSTGRES_USER="$POSTGRES_USER_VAL" \
 			--from-literal=POSTGRES_PASSWORD="$POSTGRES_PASS_VAL" \
 			--from-literal=POSTGRES_DB="$POSTGRES_DB_VAL" \
@@ -85,12 +185,14 @@ create_secrets() {
 	else
 		echo "✅ app-secrets already exists"
 	fi
-	# Ensure JWT keys exist in app-secrets even if the secret was created earlier
-	# without them (prevents CrashLoopBackOff in gateway/user-service).
-	if ! kubectl get secret app-secrets -n fitness-platform-production -o jsonpath='{.data.JWT_PRIVATE_KEY_PEM}' 2>/dev/null | grep -q .; then
-		JWT_PRIV="${JWT_PRIVATE_KEY_PEM:-$(openssl genrsa 2048 2>/dev/null | openssl pkcs8 -topk8 -nocrypt 2>/dev/null || openssl genrsa 2048 2>/dev/null)}"
-		JWT_PUB="${JWT_PUBLIC_KEY_PEM:-$(echo "$JWT_PRIV" | openssl rsa -pubout 2>/dev/null || true)}"
-		kubectl patch secret app-secrets -n fitness-platform-production --type merge -p "{\"stringData\":{\"JWT_PRIVATE_KEY_PEM\":\"$JWT_PRIV\",\"JWT_PUBLIC_KEY_PEM\":\"$JWT_PUB\"}}" >/dev/null 2>&1 || true
+	# Ensure JWT keys exist in app-secrets and are ES256/P-256. This also
+	# rotates the RSA keys generated by older deploys, which the Go services
+	# cannot parse (x509.ParseECPrivateKey rejects RSA).
+	stored_jwt_private="$(read_stored_jwt_secret JWT_PRIVATE_KEY_PEM)"
+	stored_jwt_public="$(read_stored_jwt_secret JWT_PUBLIC_KEY_PEM)"
+	if ! is_es256_private_key "$stored_jwt_private" || ! is_es256_public_key "$stored_jwt_public"; then
+		patch_app_secret_jwt_keys "$JWT_KEY_PRIVATE" "$JWT_KEY_PUBLIC"
+		echo "✅ app-secrets JWT keys rotated to ES256/P-256"
 	fi
 
 	# Ensure POSTGRES_USER/PASSWORD/DB are present (fix empty/missing keys in pre-existing secrets)

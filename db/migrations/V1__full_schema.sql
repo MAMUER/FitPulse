@@ -134,6 +134,44 @@ BEGIN
     END IF;
 END $$;
 
+-- Compatibility with databases created by the legacy init-db.sql.
+-- Those tables predate the encrypted-PII columns and carry plaintext
+-- NOT NULL columns (users.email, email_verifications.email,
+-- refresh_tokens.token) that the current repositories never populate.
+-- CREATE TABLE IF NOT EXISTS cannot relax them, so drop the constraints
+-- explicitly and backfill the columns the new insert paths require.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS email_nonce BYTEA;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS full_name_nonce BYTEA;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS nickname_nonce BYTEA;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS email_hash VARCHAR(64);
+ALTER TABLE users ADD COLUMN IF NOT EXISTS full_name_hash VARCHAR(64);
+ALTER TABLE users ADD COLUMN IF NOT EXISTS nickname_hash VARCHAR(64);
+
+ALTER TABLE refresh_tokens ADD COLUMN IF NOT EXISTS token_hash VARCHAR(64);
+ALTER TABLE refresh_tokens ADD COLUMN IF NOT EXISTS token_encrypted BYTEA;
+ALTER TABLE refresh_tokens ADD COLUMN IF NOT EXISTS token_nonce BYTEA;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_refresh_tokens_token_hash_unique
+    ON refresh_tokens(token_hash) WHERE token_hash IS NOT NULL;
+
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.columns
+               WHERE table_schema = current_schema()
+                 AND table_name = 'users' AND column_name = 'email') THEN
+        ALTER TABLE users ALTER COLUMN email DROP NOT NULL;
+    END IF;
+    IF EXISTS (SELECT 1 FROM information_schema.columns
+               WHERE table_schema = current_schema()
+                 AND table_name = 'email_verifications' AND column_name = 'email') THEN
+        ALTER TABLE email_verifications ALTER COLUMN email DROP NOT NULL;
+    END IF;
+    IF EXISTS (SELECT 1 FROM information_schema.columns
+               WHERE table_schema = current_schema()
+                 AND table_name = 'refresh_tokens' AND column_name = 'token') THEN
+        ALTER TABLE refresh_tokens ALTER COLUMN token DROP NOT NULL;
+    END IF;
+END $$;
+
 -- ===================== Invite Codes =====================
 CREATE TABLE IF NOT EXISTS invite_codes (
     id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
