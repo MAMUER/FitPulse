@@ -220,9 +220,9 @@ for (const config of CONFIGS) {
       // so assert on the active nav item instead of a global text match.
       for (const key of ['nutrition', 'calendar', 'training', 'ai'] as const) {
         const label = getText(key, config);
+        // Use exact role-based selector to avoid substring matches (e.g., "AI" matching "Training")
         await page
-          .locator('.bottom-nav .nav')
-          .filter({ hasText: label })
+          .getByRole('button', { name: label, exact: true })
           .click();
         await expect(page.locator('.bottom-nav .nav.active')).toContainText(
           label

@@ -78,13 +78,13 @@ spec:
             failureThreshold: 3
           resources:
             requests:
-              cpu: "50m"
+              cpu: "25m"
+              memory: "32Mi"
+              ephemeral-storage: "128Mi"
+            limits:
+              cpu: "100m"
               memory: "64Mi"
               ephemeral-storage: "256Mi"
-            limits:
-              cpu: "200m"
-              memory: "128Mi"
-              ephemeral-storage: "512Mi"
       volumes:
         - name: oncall-config
           configMap:

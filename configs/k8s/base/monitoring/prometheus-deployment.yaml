@@ -47,16 +47,16 @@ spec:
             capabilities:
               drop: ["ALL"]
           resources:
-            # The VPS is 2 vCPU / 4 GiB and already runs ELK, so requests are
-            # kept small; raising them pushes elasticsearch-0 into Pending.
+            # Minimal resources for VPS (2 vCPU / 4 GiB). Monitoring is non-critical;
+            # reduce further if elasticsearch-0 is Pending.
             requests:
-              cpu: 20m
-              memory: 64Mi
-              ephemeral-storage: 128Mi
+              cpu: 10m
+              memory: 32Mi
+              ephemeral-storage: 64Mi
             limits:
-              cpu: 200m
-              memory: 256Mi
-              ephemeral-storage: 1Gi
+              cpu: 100m
+              memory: 128Mi
+              ephemeral-storage: 512Mi
           livenessProbe:
             httpGet:
               path: /-/healthy

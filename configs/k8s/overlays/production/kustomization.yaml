@@ -6,6 +6,82 @@ resources:
   - ingress.yaml
 
 patches:
+  # Scale monitoring and ELK to 0 in production to free VPS resources
+  - target:
+      kind: Deployment
+      name: prometheus
+      namespace: monitoring
+    patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 0
+  - target:
+      kind: Deployment
+      name: grafana
+      namespace: monitoring
+    patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 0
+  - target:
+      kind: Deployment
+      name: alertmanager
+      namespace: monitoring
+    patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 0
+  - target:
+      kind: Deployment
+      name: jaeger
+      namespace: monitoring
+    patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 0
+  - target:
+      kind: Deployment
+      name: opentelemetry-collector
+      namespace: monitoring
+    patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 0
+  - target:
+      kind: Deployment
+      name: oncall-bot
+      namespace: monitoring
+    patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 0
+  - target:
+      kind: StatefulSet
+      name: elasticsearch
+      namespace: elk
+    patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 0
+  - target:
+      kind: Deployment
+      name: kibana
+      namespace: elk
+    patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 0
+  - target:
+      kind: Deployment
+      name: logstash
+      namespace: elk
+    patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 0
+  # Note: fluent-bit is a DaemonSet and cannot be scaled to 0 via replicas.
+  # To disable it, you would need to either delete the resource or set a nodeSelector that matches no nodes.
+  # For now, we leave it as is - it has minimal resource footprint.
   - path: ingress-nginx-watch-namespace-patch.yaml
     target:
       kind: Deployment

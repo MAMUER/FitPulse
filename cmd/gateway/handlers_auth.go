@@ -1674,6 +1674,13 @@ func (g *gateway) confirmTOTPHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// If TOTP confirmation was not successful, return 400 Bad Request
+	if !resp.Success {
+		g.log.Warn("TOTP confirmation failed", zap.String("message", resp.Message))
+		http.Error(w, resp.Message, http.StatusBadRequest)
+		return
+	}
+
 	if g.writeJSONMap(w, map[string]interface{}{
 		"success": resp.Success,
 		"message": resp.Message,
