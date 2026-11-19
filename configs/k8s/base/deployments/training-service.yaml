@@ -66,6 +66,8 @@ spec:
                 path: RABBITMQ_URL
               - key: VALKEY_PASSWORD
                 path: VALKEY_PASSWORD
+              - key: JWT_PUBLIC_KEY_PEM
+                path: JWT_PUBLIC_KEY_PEM
         - name: grpc-tls
           secret:
             secretName: grpc-server-tls
@@ -132,6 +134,10 @@ spec:
               value: "/etc/secrets/VALKEY_PASSWORD"
             - name: RABBITMQ_URL_FILE
               value: "/etc/secrets/RABBITMQ_URL"
+            # training-service валидирует bearer-токен через GRPCAuthInterceptor,
+            # поэтому без публичного ключа каждый вызов отвечает Unauthenticated.
+            - name: JWT_PUBLIC_KEY_PEM_FILE
+              value: "/etc/secrets/JWT_PUBLIC_KEY_PEM"
             - name: ML_GENERATOR_HOST
               valueFrom:
                 configMapKeyRef:

@@ -45,6 +45,7 @@ type TranslationKeys = {
     guest: string;
     terms: string;
     privacy: string;
+    privacyLink: string;
     consent: string;
     forgot: string;
     highContrast: string;
@@ -78,6 +79,7 @@ type TranslationKeys = {
     guest: string;
     terms: string;
     privacy: string;
+    privacyLink: string;
     consent: string;
     forgot: string;
     highContrast: string;
@@ -101,6 +103,19 @@ type TranslationKeys = {
 
 type TextKey = keyof TranslationKeys['ru'];
 
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+// navButton находит кнопку в нижней навигации по её тексту. Иконки
+// FontAwesome попадают в accessible name, из-за чего getByRole с exact:true
+// не находит кнопку; textContent при этом содержит только подпись.
+function navButton(page: Page, label: string) {
+  return page
+    .locator('.bottom-nav .nav')
+    .filter({ hasText: new RegExp(`^\\s*${escapeRegExp(label)}\\s*$`) });
+}
+
 function getText(key: TextKey, config: (typeof CONFIGS)[number]) {
   const map: Record<string, Record<TextKey, string>> = {
     ru: {
@@ -117,10 +132,12 @@ function getText(key: TextKey, config: (typeof CONFIGS)[number]) {
       guest: 'Продолжить как гость',
       terms: 'Пользовательское соглашение',
       privacy: 'Политика конфиденциальности',
+      // На экране логина ссылка стоит в винительном падеже.
+      privacyLink: 'Политику конфиденциальности',
       consent: 'Персональные данные',
       forgot: 'Забыли пароль?',
       highContrast: 'Режим высокой контрастности',
-      startWorkout: 'Начать тренировку',
+      startWorkout: 'Начать',
       water: 'Вода, мл',
       body: 'Профиль тела',
       videos: 'Видео-тренировки',
@@ -150,10 +167,11 @@ function getText(key: TextKey, config: (typeof CONFIGS)[number]) {
       guest: 'Continue as guest',
       terms: 'Terms of Use',
       privacy: 'Privacy Policy',
+      privacyLink: 'Privacy Policy',
       consent: 'Personal Data',
       forgot: 'Forgot password?',
       highContrast: 'High contrast mode',
-      startWorkout: 'Start workout',
+      startWorkout: 'Start',
       water: 'Water, ml',
       body: 'Body profile',
       videos: 'Video workouts',
@@ -201,7 +219,7 @@ for (const config of CONFIGS) {
 
       await page.getByRole('button', { name: back }).click();
       await page
-        .locator(`text=${getText('privacy', config)}`)
+        .locator(`text=${getText('privacyLink', config)}`)
         .first()
         .click();
       await expect(title).toHaveText(getText('privacy', config));
@@ -216,14 +234,12 @@ for (const config of CONFIGS) {
 
     test('home navigates to main screens', async ({ page }) => {
       await page.locator(`text=${getText('guest', config)}`).click();
-      // The nav label is rendered twice on every screen (content + bottom nav),
-      // so assert on the active nav item instead of a global text match.
       for (const key of ['nutrition', 'calendar', 'training', 'ai'] as const) {
         const label = getText(key, config);
-        // Use exact role-based selector to avoid substring matches (e.g., "AI" matching "Training")
-        await page
-          .getByRole('button', { name: label, exact: true })
-          .click();
+        // Кнопки навигации содержат иконку FontAwesome, поэтому точное
+        // сопоставление по accessible name ("AI" ловил "Training") не работает.
+        // Сопоставляем текст кнопки в .bottom-nav регуляркой.
+        await navButton(page, label).click();
         await expect(page.locator('.bottom-nav .nav.active')).toContainText(
           label
         );
@@ -263,16 +279,21 @@ for (const config of CONFIGS) {
           exact: true,
         })
       ).toBeVisible();
-      await page
-        .locator(`text=${getText('timer', config)}`)
-        .first()
-        .click();
+      // На экране тренировок нет таймера: карточка тренировки запускается
+      // кнопкой "Начать". Результат зависит от бэкенда, поэтому проверяем, что
+      // карточка отрисовалась и экран не «прыгнул» после клика.
+      await expect(
+        page.locator(`text=${getText('startWorkout', config)}`).first()
+      ).toBeVisible();
       await page
         .locator(`text=${getText('startWorkout', config)}`)
         .first()
         .click();
       await expect(
-        page.locator(`text=${getText('startWorkout', config)}`).first()
+        page.getByRole('heading', {
+          name: getText('training', config),
+          exact: true,
+        })
       ).toBeVisible();
     });
 
@@ -283,8 +304,15 @@ for (const config of CONFIGS) {
       await page
         .getByRole('button', { name: getText('profile', config) })
         .click();
+      // Кнопка чата в .profile-actions тоже содержит иконку, поэтому
+      // сопоставляем текст, а не accessible name.
       await page
-        .getByRole('button', { name: getText('chat', config), exact: true })
+        .locator('.profile-actions button')
+        .filter({
+          hasText: new RegExp(
+            `^\\s*${getText('chat', config).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*$`
+          ),
+        })
         .click();
       await expect(
         page.getByRole('heading', {

@@ -1576,6 +1576,10 @@ func (g *gateway) getBiometricClient() (biometricpb.BiometricServiceClient, erro
 
 	dialOpts = append(dialOpts, grpc.WithUnaryInterceptor(middleware.CorrelationIDGRPCClient()))
 
+	// biometric-service проверяет bearer-токен сам: без проброса заголовка
+	// каждый вызов падает с Unauthenticated.
+	dialOpts = append(dialOpts, grpc.WithUnaryInterceptor(middleware.GRPCAuthForwardClient()))
+
 	conn, err := grpctls.NewClient(g.biometricAddr, dialOpts...)
 
 	if err != nil {
@@ -1617,6 +1621,10 @@ func (g *gateway) getTrainingClient() (trainingpb.TrainingServiceClient, error) 
 	dialOpts = append(dialOpts, grpc.WithDefaultCallOptions(grpc.WaitForReady(true)))
 
 	dialOpts = append(dialOpts, grpc.WithUnaryInterceptor(resilience.UnaryClientInterceptor(g.log)))
+
+	// training-service проверяет bearer-токен сам: без проброса заголовка
+	// каждый вызов падает с Unauthenticated.
+	dialOpts = append(dialOpts, grpc.WithUnaryInterceptor(middleware.GRPCAuthForwardClient()))
 
 	conn, err := grpctls.NewClient(g.trainingAddr, dialOpts...)
 

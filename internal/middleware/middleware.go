@@ -70,6 +70,7 @@ func AuthMiddleware(publicKeyPEM string, log *zap.Logger) func(http.Handler) htt
 			}
 			ctx := context.WithValue(r.Context(), UserIDKey, claims.UserID)
 			ctx = context.WithValue(ctx, RoleKey, claims.Role)
+			ctx = context.WithValue(ctx, AccessTokenKey, token)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}

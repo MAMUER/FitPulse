@@ -480,10 +480,10 @@ func (r *PgsodiumUserRepository) profileSelectQuery() string {
 
 		getProfileQuery.WriteString(sqlCommaNewline)
 
-		getProfileQuery.WriteString(db.PgsodiumDecryptParam("u.nickname_encrypted", "u.nickname_nonce", "nickname"))
+		getProfileQuery.WriteString(db.PgsodiumDecryptNullableParam("u.nickname_encrypted", "u.nickname_nonce", "nickname"))
 
 		getProfileQuery.WriteString(",\n               ")
-		getProfileQuery.WriteString(db.PgsodiumDecryptParam("u.profile_photo_url_encrypted", "u.profile_photo_url_nonce", "profile_photo_url"))
+		getProfileQuery.WriteString(db.PgsodiumDecryptNullableParam("u.profile_photo_url_encrypted", "u.profile_photo_url_nonce", "profile_photo_url"))
 		getProfileQuery.WriteString(", u.role,\n               p.age, p.gender, p.height_cm, p.weight_kg, p.fitness_level,\n               p.goals, p.nutrition, p.sleep_hours,\n               u.created_at, u.updated_at\n            FROM users u\n            LEFT JOIN user_profiles_with_goals p ON u.id = p.user_id\n            WHERE u.id = $1")
 
 		return getProfileQuery.String()
@@ -608,15 +608,15 @@ func (r *PgsodiumUserRepository) UpdateUserDetails(ctx context.Context, userID, 
 
 	query := strings.Builder{}
 
-	query.WriteString("UPDATE users SET\n\t\t\t\tfull_name_encrypted = CASE WHEN $1 IS NULL THEN full_name_encrypted ELSE ")
+	query.WriteString("UPDATE users SET\n\t\t\t\tfull_name_encrypted = CASE WHEN $1::text IS NULL THEN full_name_encrypted ELSE ")
 
 	query.WriteString(db.PgsodiumRandomEncryptParam(1, 2))
 
-	query.WriteString(" END,\n\t\t\t\tfull_name_nonce = CASE WHEN $1 IS NULL THEN full_name_nonce ELSE $2 END,\n\t\t\t\tfull_name_hash = CASE WHEN $1 IS NULL THEN full_name_hash ELSE $3 END,\n\t\t\t\tnickname_encrypted = CASE WHEN $4 IS NULL THEN nickname_encrypted ELSE ")
+	query.WriteString(" END,\n\t\t\t\tfull_name_nonce = CASE WHEN $1::text IS NULL THEN full_name_nonce ELSE $2 END,\n\t\t\t\tfull_name_hash = CASE WHEN $1::text IS NULL THEN full_name_hash ELSE $3 END,\n\t\t\t\tnickname_encrypted = CASE WHEN $4::text IS NULL THEN nickname_encrypted ELSE ")
 
 	query.WriteString(db.PgsodiumRandomEncryptParam(4, 5))
 
-	query.WriteString(" END,\n\t\t\t\tnickname_nonce = CASE WHEN $4 IS NULL THEN nickname_nonce ELSE $5 END,\n\t\t\t\tnickname_hash = CASE WHEN $4 IS NULL THEN nickname_hash ELSE $6 END,\n\t\t\t\tupdated_at = NOW()\n\t\t\tWHERE id = $7")
+	query.WriteString(" END,\n\t\t\t\tnickname_nonce = CASE WHEN $4::text IS NULL THEN nickname_nonce ELSE $5 END,\n\t\t\t\tnickname_hash = CASE WHEN $4::text IS NULL THEN nickname_hash ELSE $6 END,\n\t\t\t\tupdated_at = NOW()\n\t\t\tWHERE id = $7")
 
 	_, execErr := r.db.ExecContext(ctx, query.String(), fullName, fullNameNonce, fullNameHash, nickname, nicknameNonce, nicknameHash, userID) // NOSONAR go:S2077
 
@@ -1095,7 +1095,11 @@ func buildEmailVerificationInsertQuery(userID, email, emailHash, verificationTok
 
 	b.WriteString(sqlComma4Prefix)
 
-	b.WriteString(sql56Prefix)
+	// $6 (token) идёт и в колонку token, и в pgsodium-шифрование. Без явного
+	// приведения к text Postgres выводит для параметра два разных типа
+	// (varchar из колонки и text из crypto_aead_aegis256_encrypt) и падает с
+	// "inconsistent types deduced for parameter $6" (42P08).
+	b.WriteString("$5, $6::text, ")
 
 	b.WriteString(db.PgsodiumRandomEncryptParam(6, 7))
 

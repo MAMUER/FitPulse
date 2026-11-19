@@ -120,6 +120,19 @@ func PgsodiumDecryptParam(ciphertextColumn, nonceColumn, alias string) string {
 	return fmt.Sprintf("convert_from(pgsodium.crypto_aead_aegis256_decrypt(%s, '', %d, %s), 'UTF8') AS %s", ciphertextColumn, pgsodiumKeyID, nonceColumn, alias)
 }
 
+// PgsodiumDecryptNullableParam возвращает выражение для расшифровки
+// необязательной колонки. В отличие от PgsodiumDecryptParam оно отдаёт NULL
+// вместо ошибки, когда шифротекста нет: pgsodium на NULL-входе падает с
+// "ciphertext cannot be NULL" (22000), а пустые поля профиля (nickname,
+// profile_photo_url) у freshly registered пользователя всегда NULL.
+func PgsodiumDecryptNullableParam(ciphertextColumn, nonceColumn, alias string) string {
+	decrypt := fmt.Sprintf(
+		"pgsodium.crypto_aead_aegis256_decrypt(%s, '', %d, %s)",
+		ciphertextColumn, pgsodiumKeyID, nonceColumn,
+	)
+	return fmt.Sprintf("CASE WHEN %s IS NULL THEN NULL ELSE convert_from(%s, 'UTF8') END AS %s", ciphertextColumn, decrypt, alias)
+}
+
 // PgsodiumRefreshTokenInsertQuery возвращает безопасный INSERT для refresh_tokens
 // с параметризованным шифрованием pgsodium. Все внешние значения передаются
 // через $N-плейсхолдеры и не конкатенируются с SQL напрямую.

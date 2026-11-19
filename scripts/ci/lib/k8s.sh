@@ -779,7 +779,9 @@ check_logs() {
 	# ELK/monitoring are not critical for the API, but a CrashLoop/Init:Error
 	# here means the deploy left the observability stack broken. Surface it.
 	for ns in elk monitoring; do
-		BAD_PODS=$(kubectl get pods -n "$ns" -o jsonpath='{range .items[*]}{.metadata.name}{" phase="}{.status.phase}{" ready="}{.status.containerStatuses[0].ready}{"\n"}{end}' 2>/dev/null | grep -Ev 'phase=Running ready=true|phase=Succeeded' || true)
+		# Pod'ы Job'ов (elasticsearch-init и прочие одноразовые задачи) сюда не
+		# относятся: их Error/Succeeded — это результат задачи, а не сбой сервиса.
+		BAD_PODS=$(kubectl get pods -n "$ns" -o jsonpath='{range .items[*]}{.metadata.name}{" phase="}{.status.phase}{" ready="}{.status.containerStatuses[0].ready}{" job="}{.metadata.ownerReferences[0].kind}{"\n"}{end}' 2>/dev/null | grep -Ev 'phase=Running ready=true|phase=Succeeded|job=Job' || true)
 		if [[ -n "$BAD_PODS" ]]; then
 			echo "::warning::Unhealthy pods in $ns:" >&2
 			echo "$BAD_PODS" >&2

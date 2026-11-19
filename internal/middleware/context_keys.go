@@ -15,4 +15,8 @@ const (
 	RoleKey ContextKey = "role"
 	// RequestIDKey - ключ для идентификатора запроса
 	RequestIDKey ContextKey = "request_id"
+	// AccessTokenKey - ключ для исходного bearer-токена. Нужен, чтобы
+	// пробрасывать его в исходящие gRPC-вызовы: сервисы биометрии и тренировок
+	// проверяют токен сами и без него отвечают Unauthenticated.
+	AccessTokenKey ContextKey = "access_token"
 )

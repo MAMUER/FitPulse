@@ -82,6 +82,20 @@ patches:
   # Note: fluent-bit is a DaemonSet and cannot be scaled to 0 via replicas.
   # To disable it, you would need to either delete the resource or set a nodeSelector that matches no nodes.
   # For now, we leave it as is - it has minimal resource footprint.
+  # elasticsearch-init ждёт Elasticsearch, который в production масштабирован в 0.
+  # Job всё равно создавался на каждом деплое и падал через 5 минут ("Elasticsearch
+  # did not become ready"), оставляя Error-поды и предупреждение о unhealthy в elk.
+  - target:
+      kind: Job
+      name: elasticsearch-init
+      namespace: elk
+    patch: |-
+      $patch: delete
+      apiVersion: batch/v1
+      kind: Job
+      metadata:
+        name: elasticsearch-init
+        namespace: elk
   - path: ingress-nginx-watch-namespace-patch.yaml
     target:
       kind: Deployment

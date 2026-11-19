@@ -110,11 +110,13 @@ spec:
             timeoutSeconds: 5
             failureThreshold: 3
           resources:
+            # /gan/generate запускает python + torch: на 150m CPU импорт torch
+            # занимает минуты, а на 512Mi процесс получает OOMKill (exit 137).
             requests:
-              cpu: "25m"
-              memory: "128Mi"
+              cpu: "100m"
+              memory: "256Mi"
               ephemeral-storage: "128Mi"
             limits:
-              cpu: "150m"
-              memory: "512Mi"
-              ephemeral-storage: "256Mi"
+              cpu: "2"
+              memory: "2Gi"
+              ephemeral-storage: "1Gi"

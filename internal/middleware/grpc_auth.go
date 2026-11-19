@@ -83,3 +83,16 @@ func firstNonEmpty(values []string) string {
 	}
 	return ""
 }
+
+// GRPCAuthForwardClient пробрасывает bearer-токен из HTTP-контекста в
+// исходящие gRPC-метаданные. Сервисы, которые валидируют токен сами
+// (GRPCAuthInterceptor в biometric- и training-service), без этого заголовка
+// отвечают Unauthenticated на каждый вызов.
+func GRPCAuthForwardClient() grpc.UnaryClientInterceptor {
+	return func(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
+		if token, ok := ctx.Value(AccessTokenKey).(string); ok && token != "" {
+			ctx = metadata.AppendToOutgoingContext(ctx, authMetadataKey, "Bearer "+token)
+		}
+		return invoker(ctx, method, req, reply, cc, opts...)
+	}
+}
