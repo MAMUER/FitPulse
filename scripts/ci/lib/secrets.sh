@@ -224,8 +224,20 @@ create_secrets() {
 	fi
 	kubectl patch secret app-secrets -n fitness-platform-production --type=merge -p "{\"stringData\":{\"SEED_ADMIN_HASH\":\"${SEED_ADMIN_HASH}\"}}" >/dev/null 2>&1 || true
 
-	# Ensure DB_ENCRYPTION_KEY exists in app-secrets (required by user-service pgsodium keyring)
-	kubectl patch secret app-secrets -n fitness-platform-production --type=merge -p "{\"stringData\":{\"DB_ENCRYPTION_KEY\":\"${DB_ENCRYPTION_KEY:-$(openssl rand -hex 32 2>/dev/null || echo 'dev-encryption-key-change-me')}\"}}" >/dev/null 2>&1 || true
+	# Ensure DB_ENCRYPTION_KEY exists in app-secrets (required by user-service
+	# pgsodium keyring). Never rotate it automatically: pgsodium derives the PII
+	# keyring from this root key, so a new value makes every existing ciphertext
+	# undecryptable. Prefer the pinned Actions secret; generate only when the
+	# key is genuinely absent (fresh cluster).
+	if [[ -n "${DB_ENCRYPTION_KEY:-}" ]]; then
+		kubectl patch secret app-secrets -n fitness-platform-production --type=merge -p "{\"stringData\":{\"DB_ENCRYPTION_KEY\":\"${DB_ENCRYPTION_KEY}\"}}" >/dev/null 2>&1 || true
+	elif ! kubectl get secret app-secrets -n fitness-platform-production -o jsonpath='{.data.DB_ENCRYPTION_KEY}' 2>/dev/null | grep -q .; then
+		DB_ENCRYPTION_KEY_GENERATED="$(openssl rand -hex 32 2>/dev/null || echo 'dev-encryption-key-change-me')"
+		kubectl patch secret app-secrets -n fitness-platform-production --type=merge -p "{\"stringData\":{\"DB_ENCRYPTION_KEY\":\"${DB_ENCRYPTION_KEY_GENERATED}\"}}" >/dev/null 2>&1 || true
+		echo "✅ app-secrets DB_ENCRYPTION_KEY generated"
+	else
+		echo "✅ app-secrets DB_ENCRYPTION_KEY already exists"
+	fi
 
 	echo "Creating per-service DB credentials (fallback)..."
 	for svc in user-service training-service biometric-service data-processor; do

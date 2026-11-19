@@ -1484,6 +1484,7 @@ jobs:
           SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
           SMTP_USER: ${{ secrets.SMTP_USER }}
           TOTP_ENCRYPTION_KEY: ${{ secrets.TOTP_ENCRYPTION_KEY }}
+          DB_ENCRYPTION_KEY: ${{ secrets.DB_ENCRYPTION_KEY }}
           VALKEY_PASSWORD: ${{ secrets.VALKEY_PASSWORD }}
           EXTERNAL_SECRETS_DB_PASSWORD: ${{ secrets.EXTERNAL_SECRETS_DB_PASSWORD }}
           MINIO_SECRET_KEY: ${{ secrets.MINIO_SECRET_KEY }}
