@@ -14,7 +14,6 @@ on:
       - "configs/**"
       - "scripts/**"
       - "models/**"
-      - "deployments/**"
       - ".dockerignore"
       - "db/migrations/**"
       - "datasets/**"
@@ -34,7 +33,6 @@ on:
       - "configs/**"
       - "scripts/**"
       - "models/**"
-      - "deployments/**"
       - ".dockerignore"
       - "db/migrations/**"
       - "datasets/**"
@@ -122,12 +120,19 @@ jobs:
               - 'cmd/classifier/**'
               - 'models/**'
               - 'datasets/**'
+              # '*.py' не совпадает с файлами во вложенных каталогах, поэтому скрипты
+              # в scripts/ не считались изменениями ML — правка самого ML E2E-теста
+              # проходила с ml=false.
               - '*.py'
+              - '**/*.py'
             docker:
               - 'Dockerfile*'
               - '**/Dockerfile*'
               - 'docker/**'
               - '.dockerignore'
+              # Образы собирает этот скрипт: его правка меняет содержимое образов.
+              - 'scripts/ci/build-push.sh'
+              - 'scripts/ci/lib/images.sh'
 
   validate-workflow:
     name: Validate Workflow Syntax
@@ -960,7 +965,9 @@ jobs:
     # BuildKit cache can exceed 60m. Give the job headroom so the Open Wearables
     # frontend is not cancelled mid-build.
     timeout-minutes: 90
-    if: needs.detect-changes.outputs.go == 'true' || needs.detect-changes.outputs.frontend == 'true' || github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+    # ml — изменения моделей/датасетов/ML-скриптов должны пересобирать ml-generator
+    # и classifier, иначе в кластере остаётся старый образ без правок.
+    if: needs.detect-changes.outputs.go == 'true' || needs.detect-changes.outputs.frontend == 'true' || needs.detect-changes.outputs.ml == 'true' || needs.detect-changes.outputs.docker == 'true' || github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
     permissions:
       packages: write
       security-events: write
@@ -996,28 +1003,6 @@ jobs:
       - name: Build and push pgsodium Postgres image
         if: needs.detect-changes.outputs.docker == 'true' || github.event_name == 'workflow_dispatch'
         run: bash scripts/ci/build-push.sh build_pgsodium_image
-      - name: Scan gateway image with Trivy
-        id: trivy-image
-        continue-on-error: true
-        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25
-        with:
-          version: v0.73.0
-          trivy-config: trivy.yaml
-          trivyignores: .trivyignore
-          image-ref: "${{ env.REGISTRY }}/mamuer/project/gateway:${{ steps.sha.outputs.short_sha }}"
-          format: sarif
-          output: trivy-image.sarif
-          severity: CRITICAL,HIGH
-          exit-code: "0"
-          scanners: "vuln,secret"
-        env:
-          TRIVY_SKIP_VERSION_CHECK: true
-      - name: Upload Trivy image results
-        if: always() && hashFiles('trivy-image.sarif') != ''
-        uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066
-        with:
-          sarif_file: trivy-image.sarif
-          category: trivy-docker
       - name: Install cosign
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -1031,6 +1016,82 @@ jobs:
           IMAGE_TAG: ${{ steps.sha.outputs.short_sha }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: bash scripts/ci/security.sh sign_images
+
+  # Список образов берём из scripts/ci/lib/images.sh (deploy_image_refs) — того же
+  # источника, что и pre-pull на деплое, поэтому скан не может отстать от списка
+  # образов, которые реально публикуются и запускаются в кластере.
+  prepare-image-scan:
+    name: Prepare image list
+    runs-on: ubuntu-latest
+    needs: [validate-workflow, docker]
+    if: always() && needs.docker.result == 'success'
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    outputs:
+      images: ${{ steps.list.outputs.images }}
+    steps:
+      - run: git config --global init.defaultBranch main
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - name: Resolve image list
+        id: list
+        run: |
+          set -euo pipefail
+          images=$(bash scripts/ci/build-push.sh list_deploy_images \
+            | jq -R -s -c 'split("\n")
+                | map(select(length > 0))
+                | map({name: (split(":")[0] | split("/") | last), ref: .})')
+          echo "images=$images" >> "$GITHUB_OUTPUT"
+          echo "$images" | jq '.'
+
+  scan-images:
+    name: Trivy image (${{ matrix.image.name }})
+    runs-on: ubuntu-latest
+    needs: [prepare-image-scan]
+    if: always() && needs.prepare-image-scan.result == 'success'
+    timeout-minutes: 20
+    permissions:
+      security-events: write
+      contents: read
+      packages: read
+    strategy:
+      fail-fast: false
+      matrix:
+        image: ${{ fromJSON(needs.prepare-image-scan.outputs.images) }}
+    steps:
+      - run: git config --global init.defaultBranch main
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - name: Login to GHCR
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GHCR_TOKEN }}
+      - name: Run Trivy image scan
+        id: trivy-image
+        continue-on-error: true
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25
+        with:
+          version: v0.73.0
+          trivy-config: trivy.yaml
+          trivyignores: .trivyignore
+          image-ref: ${{ matrix.image.ref }}
+          format: sarif
+          output: trivy-image.sarif
+          severity: CRITICAL,HIGH
+          exit-code: "0"
+          scanners: "vuln,secret"
+        env:
+          TRIVY_SKIP_VERSION_CHECK: true
+      - name: Upload Trivy SARIF
+        if: always() && hashFiles('trivy-image.sarif') != ''
+        uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066
+        with:
+          sarif_file: trivy-image.sarif
+          # Категория gateway сохранена как trivy-docker: только так уже открытые
+          # алерты (#1773-#1782) будут закрыты новым прогоном, а не останутся
+          # висеть после смены категории.
+          category: ${{ matrix.image.name == 'gateway' && 'trivy-docker' || format('trivy-image-{0}', matrix.image.name) }}
 
   provision-k8s-vps:
     name: Provision k3s Cluster on VPS
@@ -1358,6 +1419,15 @@ jobs:
             kubectl get apiservice v1alpha1.acme.duckdns.org -o yaml >&2 || true
             exit 1
           fi
+      # Чарт не выдаёт вебхуку право читать kube-system/extension-apiserver-authentication,
+      # без которого kube-apiserver не может проверять запросы к APIService.
+      # Применяем сразу после helm, чтобы право появилось в этом же деплое.
+      - name: Apply DuckDNS webhook RBAC
+        if: steps.connectivity.outputs.reachable == 'true'
+        run: |
+          set -euo pipefail
+          kubectl apply -f configs/k8s/base/cert-manager/duckdns-webhook-rbac.yaml
+          kubectl -n cert-manager rollout status deployment/cert-manager-webhook-duckdns --timeout=120s
       - name: Create image pull secret for GHCR
         if: steps.connectivity.outputs.reachable == 'true'
         env:
@@ -1868,29 +1938,23 @@ jobs:
           VPS_HOST: ${{ secrets.VPS_HOST }}
           VPS_PORT: ${{ secrets.VPS_PORT }}
         run: bash scripts/ci/ci-helpers.sh add_vps_to_known_hosts
-      - name: Download and verify kube-bench release
+      # Версия и sha256 — из scripts/ci/security.sh (github_download_verified берёт
+      # checksums.txt релиза), без хардкода в workflow.
+      - name: Install kube-bench
+        run: bash scripts/ci/security.sh install_kube_bench
+      - name: Upload kube-bench binary and config to VPS
         env:
-          KUBE_BENCH_VERSION: 0.8.0
           VPS_HOST: ${{ secrets.VPS_HOST }}
           VPS_PORT: ${{ secrets.VPS_PORT }}
           VPS_USER: ${{ secrets.VPS_USER }}
         run: |
           set -euo pipefail
-          archive="kube-bench_${KUBE_BENCH_VERSION}_linux_amd64.tar.gz"
-          download_dir="$RUNNER_TEMP/kube-bench"
-          mkdir -p "$download_dir"
-          curl -fsSL --proto "=https" --proto-redir "=https" \
-            "https://github.com/aquasecurity/kube-bench/releases/download/v${KUBE_BENCH_VERSION}/${archive}" \
-            -o "$download_dir/$archive"
-          echo "8e8f083819678956b6c36623a6a0638741340397ffc209cd71a6b4907f2bb05e  $download_dir/$archive" \
-            | sha256sum --check
-          tar -tzf "$download_dir/$archive" > "$download_dir/archive.contents"
-          grep -qx 'kube-bench' "$download_dir/archive.contents"
-          grep -q '^cfg/' "$download_dir/archive.contents"
-          scp -P "${VPS_PORT:-22}" \
-            -o StrictHostKeyChecking=accept-new \
-            "$download_dir/$archive" \
-            "${VPS_USER}@${VPS_HOST}:/tmp/$archive"
+          ssh -p "${VPS_PORT:-22}" -o StrictHostKeyChecking=accept-new \
+            "${VPS_USER}@${VPS_HOST}" 'rm -rf /tmp/kube-bench /tmp/kube-bench-cfg'
+          scp -P "${VPS_PORT:-22}" -o StrictHostKeyChecking=accept-new \
+            /usr/local/bin/kube-bench "${VPS_USER}@${VPS_HOST}:/tmp/kube-bench"
+          scp -P "${VPS_PORT:-22}" -o StrictHostKeyChecking=accept-new -r \
+            /usr/local/kube-bench/cfg "${VPS_USER}@${VPS_HOST}:/tmp/kube-bench-cfg"
       - name: Run kube-bench on k3s node via SSH
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
@@ -1901,25 +1965,26 @@ jobs:
           ssh -p "${VPS_PORT:-22}" -o StrictHostKeyChecking=accept-new "${VPS_USER}@${VPS_HOST}" 'bash -s' << 'EOF'
           set -euo pipefail
           mkdir -p ~/security-results
-
-          echo "Installing/updating kube-bench binary and config..."
-          archive=/tmp/kube-bench_0.8.0_linux_amd64.tar.gz
-          work_dir="$(mktemp -d)"
-          trap 'rm -rf "$work_dir" "$archive"' EXIT
-          tar -xzf "$archive" -C "$work_dir"
-          test -x "$work_dir/kube-bench"
-          test -d "$work_dir/cfg"
-          sudo install -m 0755 "$work_dir/kube-bench" /usr/local/bin/kube-bench
-          echo "✅ kube-bench installed successfully"
-
-          echo "Running kube-bench scan..."
-          # Убрали "|| true", чтобы пайплайн честно падал, если сканирование не удалось
-          sudo kube-bench run --config-dir "$work_dir/cfg" --targets node --json > ~/security-results/kube-bench-results.json
+          chmod +x /tmp/kube-bench
+          echo "Running $(/tmp/kube-bench --version 2>&1 | head -1) with cfg from /tmp/kube-bench-cfg"
+          sudo /tmp/kube-bench run --config-dir /tmp/kube-bench-cfg --targets node --json \
+            > ~/security-results/kube-bench-results.json
           EOF
 
           mkdir -p security-results
           # Скачиваем результат. Если файл пустой или команда выше упала, этот шаг тоже упадет (что правильно)
           scp -P "${VPS_PORT:-22}" -o StrictHostKeyChecking=accept-new "${VPS_USER}@${VPS_HOST}:~/security-results/kube-bench-results.json" security-results/
+
+      # Раньше файл скачивался в security-results/ и там же терялся: джоба не
+      # публиковала артефакт, поэтому результаты CIS-скана невозможно было посмотреть.
+      - name: Upload kube-bench results
+        if: always() && hashFiles('security-results/kube-bench-results.json') != ''
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: kube-bench-results
+          path: security-results/
+          retention-days: 14
+          if-no-files-found: warn
 
   kube-hunter:
     name: Kube-Hunter Penetration Test
@@ -2077,6 +2142,8 @@ jobs:
         kube-bench,
         kube-hunter,
         cosign-verify,
+        prepare-image-scan,
+        scan-images,
       ]
     steps:
       - run: git config --global init.defaultBranch main
@@ -2127,6 +2194,8 @@ jobs:
               ('kube-hunter','Kube-Hunter'),
               ('checkov','Checkov'),
               ('cosign-verify','Cosign Verify'),
+              ('prepare-image-scan','Prepare Image Scan'),
+              ('scan-images','Trivy Images'),
           ]
           deploy = [
               ('binary_build','Build Binaries'),

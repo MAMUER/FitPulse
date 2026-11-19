@@ -15,7 +15,7 @@
         "\\.github/workflows/ci\\.yml$"
       ],
       "matchStrings": [
-        "GO_VERSION:\\s*(?P<quote>[\"']?)(?P<currentValue>[0-9]+\\.[0-9]+\\.[0-9]+)\\g<quote>"
+        "GO_VERSION:\\s*[\"']?(?P<currentValue>[0-9]+\\.[0-9]+\\.[0-9]+)[\"']?"
       ],
       "depName": "golang",
       "datasource": "docker",
@@ -60,7 +60,7 @@
         "^Makefile$"
       ],
       "matchStrings": [
-        "^GO_VERSION\\s*:=\\s*(?P<currentValue>[0-9]+\\.[0-9]+\\.[0-9]+)$"
+        "(?m)^GO_VERSION\\s*:=\\s*(?P<currentValue>[0-9]+\\.[0-9]+\\.[0-9]+)$"
       ],
       "depName": "golang",
       "datasource": "docker",
@@ -94,7 +94,7 @@
         "^go\\.mod$"
       ],
       "matchStrings": [
-        "^go\\s+(?P<currentValue>[0-9]+\\.[0-9]+(\\.[0-9]+)?)$"
+        "(?m)^go\\s+(?P<currentValue>[0-9]+\\.[0-9]+(\\.[0-9]+)?)$"
       ],
       "depName": "golang",
       "datasource": "docker",
@@ -103,12 +103,23 @@
     },
     {
       "fileMatch": [
-        "^scripts/ci/security\\.sh$"
+        "^\\.github/workflows/ci\\.yml$"
       ],
       "matchStrings": [
         "semgrep==(?P<currentValue>[0-9]+\\.[0-9]+\\.[0-9]+)"
       ],
       "depName": "semgrep",
+      "datasource": "pypi",
+      "versioning": "semver"
+    },
+    {
+      "fileMatch": [
+        "^scripts/ci/security\\.sh$"
+      ],
+      "matchStrings": [
+        "checkov==(?P<currentValue>[0-9]+\\.[0-9]+\\.[0-9]+)"
+      ],
+      "depName": "checkov",
       "datasource": "pypi",
       "versioning": "semver"
     },
@@ -128,9 +139,42 @@
         "^scripts/ci/security\\.sh$"
       ],
       "matchStrings": [
-        "cosign/v2/cmd/cosign@v(?P<currentValue>[0-9]+\\.[0-9]+\\.[0-9]+)"
+        "sigstore/cosign v(?P<currentValue>[0-9]+\\.[0-9]+\\.[0-9]+)"
       ],
       "depName": "sigstore/cosign",
+      "datasource": "github-releases",
+      "versioning": "semver"
+    },
+    {
+      "fileMatch": [
+        "^scripts/ci/security\\.sh$"
+      ],
+      "matchStrings": [
+        "KUBESCAPE_VERSION:-v?(?P<currentValue>[0-9]+\\.[0-9]+\\.[0-9]+)"
+      ],
+      "depName": "kubescape",
+      "datasource": "github-releases",
+      "versioning": "semver"
+    },
+    {
+      "fileMatch": [
+        "^scripts/ci/security\\.sh$"
+      ],
+      "matchStrings": [
+        "KUBE_BENCH_VERSION:-v?(?P<currentValue>[0-9]+\\.[0-9]+\\.[0-9]+)"
+      ],
+      "depName": "aquasecurity/kube-bench",
+      "datasource": "github-releases",
+      "versioning": "semver"
+    },
+    {
+      "fileMatch": [
+        "^scripts/ci/security\\.sh$"
+      ],
+      "matchStrings": [
+        "TRUFFLEHOG_VERSION:-[\"']?v?(?P<currentValue>[0-9]+\\.[0-9]+\\.[0-9]+)"
+      ],
+      "depName": "trufflesecurity/trufflehog",
       "datasource": "github-releases",
       "versioning": "semver"
     },
@@ -151,7 +195,7 @@
         "^scripts/ci/build-push\\.sh$"
       ],
       "matchStrings": [
-        "OPEN_WEARABLES_REF:-[\"']?(?<currentValue>[0-9]+\\.[0-9]+\\.[0-9]+)[\"']?\\}"
+        "OPEN_WEARABLES_REF:-[\"']?(?P<currentValue>[0-9]+\\.[0-9]+\\.[0-9]+)[\"']?\\}"
       ],
       "depName": "the-momentum/open-wearables",
       "datasource": "github-tags",
@@ -188,7 +232,8 @@
     {
       "matchPackageNames": [
         "black",
-        "semgrep"
+        "semgrep",
+        "checkov"
       ],
       "groupName": "Python tools",
       "automerge": false,
@@ -197,7 +242,10 @@
     {
       "matchPackageNames": [
         "sigstore/cosign",
-        "hadolint/hadolint"
+        "hadolint/hadolint",
+        "kubescape",
+        "trufflesecurity/trufflehog",
+        "aquasecurity/kube-bench"
       ],
       "groupName": "Security tools",
       "automerge": false,
@@ -210,6 +258,15 @@
       "groupName": "Open Wearables (upstream)",
       "automerge": false,
       "minimumReleaseAge": "7 days"
+    },
+    {
+      "matchPackageNames": [
+        "postgres"
+      ],
+      "groupName": "Postgres base image (pgsodium)",
+      "automerge": false,
+      "minimumReleaseAge": "7 days",
+      "pinDigests": true
     }
   ]
 }

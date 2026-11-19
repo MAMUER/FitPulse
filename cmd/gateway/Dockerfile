@@ -38,8 +38,11 @@ FROM alpine:3.24
 ARG APP_UID=1001
 ARG APP_GID=1001
 
+# curl убран: он тянул libssl3/libcrypto3 3.5.9-r0 (пять CVE, заведённых Trivy),
+# а HEALTHCHECK ниже переведён на busybox wget из базового alpine.
 # hadolint ignore=DL3018
-RUN apk add --no-cache ca-certificates curl tzdata && \
+RUN apk upgrade --no-cache && \
+  apk add --no-cache ca-certificates tzdata && \
   addgroup -g "${APP_GID}" -S appgroup && \
   adduser -u "${APP_UID}" -S appuser -G appgroup
 WORKDIR /app
@@ -48,5 +51,5 @@ COPY --from=web-builder --chown=appuser:appgroup /app/web/dist ./web/dist
 USER ${APP_UID}
 EXPOSE 8080 8443
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD ["curl", "-f", "http://localhost:8080/health"]
+  CMD ["wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/health"]
 ENTRYPOINT ["./gateway"]

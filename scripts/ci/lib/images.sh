@@ -210,6 +210,27 @@ pre_pull_public_images() {
 	log_info "Public images pre-pull completed"
 }
 
+# Канонический список образов, которые публикует build-push.sh и запускает кластер.
+# Один источник правды для pre_pull_images() (деплой) и скана образов в CI —
+# иначе список разъедется и часть образов перестанет проверяться.
+deploy_image_refs() {
+	local image_tag="${1:-$(git rev-parse --short HEAD)}"
+	printf '%s\n' \
+		"ghcr.io/mamuer/project/user-service:${image_tag}" \
+		"ghcr.io/mamuer/project/biometric-service:${image_tag}" \
+		"ghcr.io/mamuer/project/training-service:${image_tag}" \
+		"ghcr.io/mamuer/project/gateway:${image_tag}" \
+		"ghcr.io/mamuer/project/classifier:${image_tag}" \
+		"ghcr.io/mamuer/project/device-aggregator:${image_tag}" \
+		"ghcr.io/mamuer/project/ml-generator:${image_tag}" \
+		"ghcr.io/mamuer/project/open-wearables-backend:${image_tag}" \
+		"ghcr.io/mamuer/project/open-wearables-frontend:${image_tag}" \
+		"ghcr.io/mamuer/project/data-processor:${image_tag}" \
+		"ghcr.io/mamuer/project/postgres-pgsodium:pg18" \
+		"ghcr.io/mamuer/project/backup-tools:pg18" \
+		"ghcr.io/mamuer/project/oncall-bot:${image_tag}"
+}
+
 pre_pull_images() {
 	local image_tag remote_script
 	image_tag=$(git rev-parse --short HEAD)
@@ -220,26 +241,12 @@ pre_pull_images() {
 
 	log_info "-> Pre-pulling application images on VPS..."
 	remote_script=$(
-		printf 'GITHUB_ACTOR=%q\nGHCR_TOKEN=%q\nIMAGE_TAG=%q\n' \
-			"$GITHUB_ACTOR" "$GHCR_TOKEN" "$image_tag"
+		printf 'GITHUB_ACTOR=%q\nGHCR_TOKEN=%q\n' \
+			"$GITHUB_ACTOR" "$GHCR_TOKEN"
+		# Список образов подставляем на этапе сборки скрипта: так он берётся из
+		# deploy_image_refs() и не дублируется внутри heredoc.
+		printf 'set -euo pipefail\n\nimages=(\n%s\n)\n' "$(deploy_image_refs "$image_tag")"
 		cat <<'REMOTE'
-set -euo pipefail
-
-images=(
-	"ghcr.io/mamuer/project/user-service:${IMAGE_TAG}"
-	"ghcr.io/mamuer/project/biometric-service:${IMAGE_TAG}"
-	"ghcr.io/mamuer/project/training-service:${IMAGE_TAG}"
-	"ghcr.io/mamuer/project/gateway:${IMAGE_TAG}"
-	"ghcr.io/mamuer/project/classifier:${IMAGE_TAG}"
-	"ghcr.io/mamuer/project/device-aggregator:${IMAGE_TAG}"
-	"ghcr.io/mamuer/project/ml-generator:${IMAGE_TAG}"
-	"ghcr.io/mamuer/project/open-wearables-backend:${IMAGE_TAG}"
-	"ghcr.io/mamuer/project/open-wearables-frontend:${IMAGE_TAG}"
-	"ghcr.io/mamuer/project/data-processor:${IMAGE_TAG}"
-	"ghcr.io/mamuer/project/postgres-pgsodium:pg18"
-	"ghcr.io/mamuer/project/backup-tools:pg18"
-	"ghcr.io/mamuer/project/oncall-bot:${IMAGE_TAG}"
-)
 
 for img in "${images[@]}"; do
 	echo "-> Pulling $img (download progress hidden)..."

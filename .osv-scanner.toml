@@ -1,3 +1,6 @@
-[[IgnoredVulns]]
-id = "GHSA-fc5q-39xc-vjpf"
-reason = "No patched release exists: picomatch 4.0.7 is the latest published version and the advisory marks all versions <=4.0.7 as affected. picomatch is pulled in only as a dev-time transitive dependency of vite/vitest, is not bundled into the production build, and the ReDoS requires attacker-controlled glob patterns. Re-evaluate and remove this ignore once a fixed release is published."
+# Список игнорируемых advisory OSV (см. scripts/ci/osv_ignore_sync.py).
+#
+# Пуст намеренно: osv-scanner сообщает "unused ignores", если запись больше не
+# соответствует ни одному срабатыванию (например, уязвимый пакет исчез из
+# lock-файла или вышел исправленный релиз). Добавлять сюда advisory только
+# вместе с причиной и условием пересмотра.

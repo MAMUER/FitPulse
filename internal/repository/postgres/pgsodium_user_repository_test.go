@@ -913,7 +913,7 @@ func TestPgsodiumUserRepo_GetProfileWithPgsodium_Success(t *testing.T) {
 	now := time.Now()
 
 	rows := mock.NewRows([]string{"id", "email", "full_name", "nickname", "profile_photo_url", "role", "age", "gender", "height_cm", "weight_kg", "fitness_level", "goals", "nutrition", "sleep_hours", "created_at", "updated_at"}).
-		AddRow("user-1", "test@example.com", "Test User", "nick", "photo.jpg", "user", 30, "female", 170, 65.5, "active", []string{"lose_weight", "run"}, "balanced", 8.5, now, now)
+		AddRow("user-1", "test@example.com", "Test User", "nick", "photo.jpg", "user", 30, "female", 170, 65.5, "active", []byte("{lose_weight,run}"), "balanced", 8.5, now, now)
 
 	mock.ExpectQuery("user_profiles_with_goals").
 		WithArgs("user-1").
@@ -946,7 +946,7 @@ func TestPgsodiumUserRepo_GetProfileWithPgsodium_NullableFields(t *testing.T) {
 	now := time.Now()
 
 	rows := mock.NewRows([]string{"id", "email", "full_name", "nickname", "profile_photo_url", "role", "age", "gender", "height_cm", "weight_kg", "fitness_level", "goals", "nutrition", "sleep_hours", "created_at", "updated_at"}).
-		AddRow("user-1", "test@example.com", "Test User", nil, nil, "user", nil, nil, nil, nil, nil, []string{}, nil, nil, now, now)
+		AddRow("user-1", "test@example.com", "Test User", nil, nil, "user", nil, nil, nil, nil, nil, nil, nil, nil, now, now)
 
 	mock.ExpectQuery("user_profiles_with_goals").
 		WithArgs("user-1").
@@ -1028,7 +1028,7 @@ func TestPgsodiumUserRepo_GetProfileWithPgsodium_Encrypted(t *testing.T) {
 	now := time.Now()
 
 	rows := mock.NewRows([]string{"id", "email", "full_name", "nickname", "profile_photo_url", "role", "age", "gender", "height_cm", "weight_kg", "fitness_level", "goals", "nutrition", "sleep_hours", "created_at", "updated_at"}).
-		AddRow("user-1", "decrypted@example.com", "Test User", "nick", "photo.jpg", "user", 30, "female", 170, 65.5, "active", []string{"lose_weight"}, "balanced", 8.5, now, now)
+		AddRow("user-1", "decrypted@example.com", "Test User", "nick", "photo.jpg", "user", 30, "female", 170, 65.5, "active", []byte("{lose_weight}"), "balanced", 8.5, now, now)
 
 	mock.ExpectQuery("user_profiles_with_goals").
 		WithArgs("user-1").

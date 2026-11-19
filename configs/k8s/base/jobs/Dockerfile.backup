@@ -7,7 +7,10 @@
 # required to read the fsGroup=10001 WAL PVC.
 FROM docker.io/library/postgres:18-alpine
 
-RUN apk add --no-cache aws-cli bash openssl
+# apk upgrade: postgres:18-alpine и aws-cli тянут libssl3/libcrypto3, а на момент
+# сборки в репозитории уже лежала исправленная 3.5.9-r1 (Trivy: 5 CVE в 3.5.9-r0).
+RUN apk upgrade --no-cache && \
+  apk add --no-cache aws-cli bash openssl
 
 # AWS CLI writes its cache under $HOME; /tmp is mounted as an emptyDir in the
 # CronJobs because readOnlyRootFilesystem=true.

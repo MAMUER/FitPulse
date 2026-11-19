@@ -1,6 +1,14 @@
 #!/bin/bash
 set -euo pipefail
 
+# Печатает канонический список образов (name:tag), которые публикует этот скрипт
+# и запускает кластер. Источник — scripts/ci/lib/images.sh::deploy_image_refs,
+# так что pre-pull и скан образов в CI не могут разъехаться.
+list_deploy_images() {
+	source "$(dirname "${BASH_SOURCE[0]}")/lib/images.sh"
+	deploy_image_refs "${1:-$(git rev-parse --short HEAD)}"
+}
+
 build_go_services() {
 	# gateway and device-aggregator keep their own Dockerfiles (web-builder stage
 	# and Debian base respectively); the rest share Dockerfile.service.
@@ -236,6 +244,7 @@ main() {
 	build_open_wearables) build_open_wearables ;;
 	build_pgsodium_image) build_pgsodium_image ;;
 	build_go_binaries) build_go_binaries ;;
+	list_deploy_images | list_images) list_deploy_images "${2:-}" ;;
 	*)
 		echo "Unknown function: $cmd"
 		exit 1

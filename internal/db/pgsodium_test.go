@@ -14,7 +14,7 @@ func TestBlindIndexFormat(t *testing.T) {
 	assert.Len(t, got, 64) // SHA256 hex = 64 chars
 	assert.Equal(t, strings.ToLower(got), got)
 	assert.NotEmpty(t, got)
-	assert.Equal(t, got, BlindIndex("test@example.com"))  // case-insensitive
+	assert.Equal(t, got, BlindIndex("test@example.com")) // case-insensitive
 	assert.NotEqual(t, got, BlindIndex("other@example.com"))
 }
 

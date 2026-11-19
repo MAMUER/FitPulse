@@ -8,7 +8,11 @@ spec:
     requests.cpu: "4000m"
     requests.memory: "6Gi"
     limits.cpu: "12000m"
-    limits.memory: "10Gi"
+    # 10Gi не хватало при rolling update: пока под старой реплики ещё жив, сумма
+# limits подходила к 10Gi и создание новых подов падало с
+    # "exceeded quota: fitness-platform-production-quota, requested: limits.memory=2Gi,
+#  used: limits.memory=8432Mi". 12Gi даёт запас на перекрытие реплик.
+    limits.memory: "12Gi"
     pods: "100"
     services: "40"
     secrets: "100"

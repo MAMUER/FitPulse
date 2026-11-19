@@ -38,13 +38,23 @@ install_syft() {
 }
 
 install_trufflehog() {
-	echo "-> Installing trufflehog v3.82.0..."
-	local asset="trufflehog_3.82.0_linux_amd64.tar.gz"
-	github_download_verified trufflesecurity/trufflehog v3.82.0 \
-		"$asset" trufflehog_3.82.0_checksums.txt /tmp
+	# Версия отслеживается Renovate (см. renovate.json, depName trufflesecurity/trufflehog).
+	local version="${TRUFFLEHOG_VERSION:-v3.82.0}"
+	local bin=/usr/local/bin/trufflehog
+	local bare="${version#v}"
+	if [[ -x "$bin" ]] && "$bin" --version 2>&1 | grep -qF "$bare"; then
+		return 0
+	fi
+	# Ставим всегда, а не только когда бинаря нет: в runner-образе уже есть свой
+	# trufflehog (3.99.9), из-за чего `command -v || install` делал пин
+	# декоративным — сканировал не тот бинарь, что указан в репозитории.
+	echo "-> Installing trufflehog ${version}..."
+	local asset="trufflehog_${bare}_linux_amd64.tar.gz"
+	github_download_verified trufflesecurity/trufflehog "${version}" \
+		"$asset" "trufflehog_${bare}_checksums.txt" /tmp
 	sudo tar -xzf "/tmp/${asset}" -C /usr/local/bin trufflehog
-	sudo chmod +x /usr/local/bin/trufflehog
-	rm -f "/tmp/${asset}" /tmp/trufflehog_3.82.0_checksums.txt
+	sudo chmod +x "$bin"
+	rm -f "/tmp/${asset}" "/tmp/trufflehog_${bare}_checksums.txt"
 }
 
 install_gitleaks() {
@@ -64,24 +74,35 @@ install_secret_tools() {
 }
 
 install_kubescape() {
-	echo "-> Installing kubescape v4.0.17..."
-	local asset="kubescape_4.0.17_linux_amd64"
-	github_download_verified kubescape/kubescape v4.0.17 "$asset" checksums.sha256 /tmp
+	# Версия отслеживается Renovate (см. renovate.json, depName kubescape).
+	local version="${KUBESCAPE_VERSION:-v4.0.21}"
+	local asset="kubescape_${version#v}_linux_amd64"
+	echo "-> Installing kubescape ${version}..."
+	github_download_verified kubescape/kubescape "${version}" "$asset" checksums.sha256 /tmp
 	sudo install -m 0755 "/tmp/${asset}" /usr/local/bin/kubescape
 	rm -f "/tmp/${asset}" /tmp/checksums.sha256
 }
 
 install_kube_bench() {
-	command -v kube-bench >/dev/null 2>&1 && return 0
-	echo "-> Installing kube-bench v0.13.0..."
-	local asset="kube-bench_0.13.0_linux_amd64.tar.gz"
-	github_download_verified aquasecurity/kube-bench v0.13.0 \
-		"$asset" kube-bench_0.13.0_checksums.txt /tmp
+	# Версия отслеживается Renovate (см. renovate.json, depName aquasecurity/kube-bench).
+	local version="${KUBE_BENCH_VERSION:-v0.13.0}"
+	local bare="${version#v}"
+	local bin=/usr/local/bin/kube-bench
+	# Проверяем версию, а не наличие: `command -v` позволял уже установленному
+	# бинарю (в runner-образе свой kube-bench) сделать пин декоративным.
+	if [[ -x "$bin" ]] && "$bin" --version 2>&1 | grep -qF "$bare"; then
+		return 0
+	fi
+	echo "-> Installing kube-bench ${version}..."
+	local asset="kube-bench_${bare}_linux_amd64.tar.gz"
+	# sha256 берётся из checksums.txt релиза, а не хардкодится в скрипте/workflow.
+	github_download_verified aquasecurity/kube-bench "${version}" \
+		"$asset" "kube-bench_${bare}_checksums.txt" /tmp
 	sudo mkdir -p /usr/local/kube-bench
 	sudo tar -xzf "/tmp/${asset}" -C /usr/local/kube-bench
-	sudo ln -sf /usr/local/kube-bench/kube-bench /usr/local/bin/kube-bench
-	sudo chmod +x /usr/local/bin/kube-bench /usr/local/kube-bench/kube-bench
-	rm -f "/tmp/${asset}" /tmp/kube-bench_0.13.0_checksums.txt
+	sudo ln -sf /usr/local/kube-bench/kube-bench "$bin"
+	sudo chmod +x "$bin" /usr/local/kube-bench/kube-bench
+	rm -f "/tmp/${asset}" "/tmp/kube-bench_${bare}_checksums.txt"
 }
 
 # install_tools ставит всё разом — вызывать один раз на job (см. ci.yml).
@@ -107,7 +128,9 @@ run_gosec() {
 
 run_govulncheck() {
 	mkdir -p sarif-results
-	govulncheck ./... >sarif-results/govulncheck.txt 2>&1 || true
+	# tee, а не только redirect в файл: иначе шаг занимает 0s и в логе нет
+	# ни одной строки о найденных уязвимостях. Остаётся информационным (|| true).
+	govulncheck ./... 2>&1 | tee sarif-results/govulncheck.txt || true
 }
 
 run_gitleaks() {
@@ -117,9 +140,11 @@ run_gitleaks() {
 }
 
 run_trufflehog() {
-	command -v trufflehog >/dev/null 2>&1 || install_trufflehog
 	mkdir -p sarif-results
-	trufflehog filesystem . --json --only-verified >sarif-results/trufflehog.jsonl
+	# Явный путь к пиновому бинарю: `command -v` подхватывал бы trufflehog из
+	# runner-образа (3.99.9) вместо пиновой версии.
+	install_trufflehog
+	/usr/local/bin/trufflehog filesystem . --json --only-verified >sarif-results/trufflehog.jsonl
 }
 
 generate_sbom() {
@@ -195,7 +220,7 @@ run_semgrep() {
 run_checkov() {
 	echo "-> Running Checkov..."
 	mkdir -p sarif-results
-	pip install --only-binary :all: 'checkov==3.3.9'
+	pip install --only-binary :all: 'checkov==3.4.6'
 	local status=0
 	# checkov 3.3.9 only has --output-file-path (a folder); the SARIF lands as
 	# results_sarif.sarif inside it and is renamed for the upload step.

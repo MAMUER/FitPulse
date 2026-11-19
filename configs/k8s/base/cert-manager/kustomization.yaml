@@ -4,6 +4,7 @@ namespace: cert-manager
 resources:
   - cluster-issuer-staging.yaml
   - cluster-issuer.yaml
+  - duckdns-webhook-rbac.yaml
   - grpc-selfsigned-ca.yaml
   - namespace.yaml
   - rabbitmq-cert.yaml

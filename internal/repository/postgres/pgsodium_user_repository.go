@@ -417,7 +417,7 @@ func (r *PgsodiumUserRepository) loadProfile(ctx context.Context, userID string)
 
 	var fitnessLevel sql.NullString
 
-	var goals []string
+	var goals pq.StringArray
 
 	var nutrition sql.NullString
 
@@ -458,7 +458,9 @@ func (r *PgsodiumUserRepository) loadProfile(ctx context.Context, userID string)
 		SleepHours:      sleepHours,
 	}.applyTo(&profile)
 
-	profile.Goals = goals
+	// pq.StringArray умеет и NULL, и text[]; голый []string lib/pq сканировать не умеет
+	// ("unsupported Scan, storing driver.Value type []uint8 into type *[]string").
+	profile.Goals = []string(goals)
 
 	return &profile, nil
 
@@ -484,7 +486,7 @@ func (r *PgsodiumUserRepository) profileSelectQuery() string {
 
 		getProfileQuery.WriteString(",\n               ")
 		getProfileQuery.WriteString(db.PgsodiumDecryptNullableParam("u.profile_photo_url_encrypted", "u.profile_photo_url_nonce", "profile_photo_url"))
-		getProfileQuery.WriteString(", u.role,\n               p.age, p.gender, p.height_cm, p.weight_kg, p.fitness_level,\n               COALESCE(p.goals, '{}'), p.nutrition, p.sleep_hours,\n               u.created_at, u.updated_at\n            FROM users u\n            LEFT JOIN user_profiles_with_goals p ON u.id = p.user_id\n            WHERE u.id = $1")
+		getProfileQuery.WriteString(", u.role,\n               p.age, p.gender, p.height_cm, p.weight_kg, p.fitness_level,\n               p.goals, p.nutrition, p.sleep_hours,\n               u.created_at, u.updated_at\n            FROM users u\n            LEFT JOIN user_profiles_with_goals p ON u.id = p.user_id\n            WHERE u.id = $1")
 
 		return getProfileQuery.String()
 
@@ -496,7 +498,7 @@ func (r *PgsodiumUserRepository) profileSelectQuery() string {
 
 		       p.age, p.gender, p.height_cm, p.weight_kg, p.fitness_level,
 
-		       COALESCE(p.goals, '{}'), p.nutrition, p.sleep_hours,
+		       p.goals, p.nutrition, p.sleep_hours,
 
 		       u.created_at, u.updated_at
 
@@ -1173,7 +1175,7 @@ func (r *PgsodiumUserRepository) GetPasswordHash(ctx context.Context, userID str
 
 }
 
-func (r *PgsodiumUserRepository) NicknameExists(ctx context.Context, nickname string, excludeUserID string) (bool, error) {
+func (r *PgsodiumUserRepository) NicknameExists(ctx context.Context, nickname, excludeUserID string) (bool, error) {
 
 	var exists bool
 
@@ -1428,7 +1430,7 @@ func (r *PgsodiumUserRepository) EnableTOTP(ctx context.Context, userID string, 
 
 }
 
-func (r *PgsodiumUserRepository) RemoveBackupCode(ctx context.Context, userID string, codeHash string) error {
+func (r *PgsodiumUserRepository) RemoveBackupCode(ctx context.Context, userID, codeHash string) error {
 
 	_, err := r.db.ExecContext(ctx, `
 

@@ -256,8 +256,14 @@ install_k3s() {
 	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "
 set -euo pipefail
 
-# === 1. Ensure PMTUD is enabled (revert previous harm) ===
-sudo sed -i '/ip_no_pmtu_disc/d' /etc/sysctl.conf 2>/dev/null || true
+# === 1. PMTU policy ===
+# net.ipv4.ip_no_pmtu_disc=1 выставляется в restart_k3s_if_needed и start_k3s
+# (строка в /etc/sysctl.conf + sysctl -p) и является намеренной: без неё пакеты
+# большого размера уходят в чёрную дыру через NAT WSL2, когда ICMP
+# fragmentation-needed не доходит. Раньше здесь стоял вызов
+# sed -i '/ip_no_pmtu_disc/d', который удалял эту строку, а следующий шаг
+# возвращал её обратно — состояние кластера не менялось, но конфиг «мигал»
+# и в логах появлялось противоречие. Оставлено только описание политики.
 
 # === 2. MSS Clamping instead of fixed MTU (safe for WSL2) ===
 sudo iptables -t mangle -F FORWARD 2>/dev/null || true

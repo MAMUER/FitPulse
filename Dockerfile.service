@@ -42,8 +42,12 @@ ARG SERVICE
 ENV SERVICE=${SERVICE}
 ARG PORTS
 
+# curl убран: HEALTHCHECK ниже использует busybox ps/grep, а curl тянул за собой
+# libssl3/libcrypto3 3.5.9-r0 с пятью открытыми CVE (Trivy). apk upgrade подтягивает
+# 3.5.9-r1 для ca-certificates/tzdata, если Alpine публикует исправление.
 # hadolint ignore=DL3018
-RUN apk add --no-cache ca-certificates curl tzdata && \
+RUN apk upgrade --no-cache && \
+  apk add --no-cache ca-certificates tzdata && \
   addgroup -g "${APP_GID}" -S appgroup && \
   adduser -u "${APP_UID}" -S appuser -G appgroup
 

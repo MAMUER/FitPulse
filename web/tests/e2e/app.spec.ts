@@ -12,8 +12,12 @@ const CONFIGS = [
 ];
 
 async function setupConfig(page: Page, config: (typeof CONFIGS)[number]) {
-  await page.goto('/');
-  await page.evaluate(
+  // addInitScript выполняется до скриптов страницы, поэтому значение гарантированно
+  // попадает в localStorage раньше, чем приложение успеет записать своё состояние.
+  // Прежняя схема goto('/') -> evaluate(setItem) -> reload() была гонкой: эффект
+  // persist приложения мог перезаписать ключ после evaluate, и тест оставался на
+  // лендинге без кнопки «Продолжить как гость» (отсюда флаки в 4 воркерах).
+  await page.addInitScript(
     (c: { theme: string; highContrast: boolean; lang: string }) => {
       localStorage.setItem(
         'fitpulse-merged-v9',
@@ -27,7 +31,7 @@ async function setupConfig(page: Page, config: (typeof CONFIGS)[number]) {
     },
     config
   );
-  await page.reload();
+  await page.goto('/');
 }
 
 type TranslationKeys = {

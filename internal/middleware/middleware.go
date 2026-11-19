@@ -144,7 +144,7 @@ func RequireRole(db *sql.DB, log *zap.Logger, allowedRoles ...string) func(http.
 	}
 }
 
-func LoggingMiddleware(log *zap.Logger, requestDuration *prometheus.HistogramVec, requestTotal *prometheus.CounterVec, errorTotal *prometheus.CounterVec) func(http.Handler) http.Handler {
+func LoggingMiddleware(log *zap.Logger, requestDuration *prometheus.HistogramVec, requestTotal, errorTotal *prometheus.CounterVec) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			start := time.Now()

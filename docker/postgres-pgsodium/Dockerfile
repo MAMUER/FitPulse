@@ -1,5 +1,8 @@
 # syntax=docker/dockerfile:1
-FROM postgres@sha256:d3e1620b530c944afa6e887d22eb899824da68e19c52024bf98f5220c88a65b2
+# Тег указан явно вместе с digest: без тега Renovate (dockerfile-менеджер) не может
+# понять, какой тег искать, и никогда не предлагает обновление digest.
+# Sonar docker:S8431 (тег+digest одновременно) погашен в sonar-project.properties (e37).
+FROM postgres:18-alpine@sha256:d3e1620b530c944afa6e887d22eb899824da68e19c52024bf98f5220c88a65b2
 
 LABEL maintainer="FitPulse <dev@fitpulse.app>"
 LABEL description="PostgreSQL with pgsodium extension for FitPulse"
@@ -14,7 +17,11 @@ WORKDIR /tmp
 # directory" and takes the whole stack down. The final `apk info -L` assertion
 # makes such an image impossible to build.
 # hadolint ignore=DL3003,DL3018
-RUN apk add --no-cache --virtual .build-deps \
+# apk upgrade --no-cache в начале: база запинена по digest, поэтому патчи Alpine
+# (например libssl3 3.5.9-r1 с пятью CVE из 3.5.9-r0) иначе не попадают в образ
+# до следующего обновления digest через Renovate.
+RUN apk upgrade --no-cache \
+    && apk add --no-cache --virtual .build-deps \
     build-base \
     clang \
     git \

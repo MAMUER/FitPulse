@@ -175,13 +175,15 @@ spec:
             seccompProfile:
               type: RuntimeDefault
           resources:
+            # 16Mi/20m приводили к OOMKill и таймаутам проб при старте контроллера
+            # (в логах k3s: "Memory cgroup out of memory: Killed process ... local-path-prov").
             requests:
-              cpu: "5m"
-              memory: "8Mi"
+              cpu: "10m"
+              memory: "32Mi"
               ephemeral-storage: "100Mi"
             limits:
-              cpu: "20m"
-              memory: "16Mi"
+              cpu: "200m"
+              memory: "128Mi"
           volumeMounts:
             - name: local-path-config
               mountPath: /etc/local-path-config

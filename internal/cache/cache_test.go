@@ -689,7 +689,7 @@ func TestConcurrentGetOrSetDecodedFetchesOnce(t *testing.T) {
 	ctx := context.Background()
 	const workers = 8
 
-var mu sync.Mutex
+	var mu sync.Mutex
 	fetchCalls := 0
 	var fetchErr error
 	// The cache-aside path has no singleflight: every worker that misses the

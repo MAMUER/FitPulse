@@ -214,7 +214,7 @@ func (s *userServer) Register(ctx context.Context, req *pb.RegisterRequest) (*pb
 
 	s.log.Info("Register request", zap.String("email", sanitize.LogString(req.Email)))
 
-if err := validator.ValidateRegisterRequest(req); err != nil {
+	if err := validator.ValidateRegisterRequest(req); err != nil {
 
 		s.log.Warn("Invalid register request", zap.Error(err))
 
@@ -458,7 +458,7 @@ func (s *userServer) Login(ctx context.Context, req *pb.LoginRequest) (*pb.Login
 
 	s.log.Info("Login request", zap.String("email", sanitize.LogString(req.Email)))
 
-if err := validator.ValidateLoginRequest(req); err != nil {
+	if err := validator.ValidateLoginRequest(req); err != nil {
 
 		s.log.Warn("Invalid login request", zap.Error(err))
 
