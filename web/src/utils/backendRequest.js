@@ -69,33 +69,45 @@ function buildUrl(path) {
   return `${BACKEND_CONFIG.baseUrl}${path}`;
 }
 
+function backendError(status) {
+  const error = new Error(`Backend ${status}`);
+  error.status = status;
+  return error;
+}
+
 async function backendRequest(path, options = {}) {
+  // Protected routes hide themselves behind 404 when the access token is
+  // missing or expired, so callers that know the route exists can opt into
+  // treating 404 like 401: refresh the session and retry once.
+  const { retryOnNotFound = false, ...requestOptions } = options;
   const url = buildUrl(path);
   const buildRequestInit = () => ({
-    ...options,
+    ...requestOptions,
     credentials: 'include',
     headers: {
       'Content-Type': 'application/json',
       ...captchaHeaders(),
-      ...options.headers,
+      ...requestOptions.headers,
     },
   });
 
   const res = await fetch(url, buildRequestInit());
-  if (res.status === 401) {
+  const shouldRefresh =
+    res.status === 401 || (retryOnNotFound && res.status === 404);
+  if (shouldRefresh && path !== '/api/v1/auth/refresh') {
     const refreshed = await backendRequest('/api/v1/auth/refresh', {
       method: 'POST',
     });
     if (refreshed !== null) {
       const retry = await fetch(url, buildRequestInit());
       if (!retry.ok) {
-        throw new Error(`Backend ${retry.status}`);
+        throw backendError(retry.status);
       }
       return retry.status === 204 ? null : retry.json();
     }
   }
   if (!res.ok) {
-    throw new Error(`Backend ${res.status}`);
+    throw backendError(res.status);
   }
   return res.status === 204 ? null : res.json();
 }

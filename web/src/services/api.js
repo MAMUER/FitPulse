@@ -292,6 +292,9 @@ export async function sendAIMessage(text) {
   const data = await backendRequest('/api/v1/chat', {
     method: 'POST',
     body: JSON.stringify({ message: text }),
+    // /api/v1/chat is behind AuthMiddleware, which returns 404 (not 401) for
+    // a missing/expired access token. Let backendRequest refresh and retry.
+    retryOnNotFound: true,
   });
   return data;
 }

@@ -41,9 +41,9 @@ describe('auth', () => {
 
   it('register posts and returns data', async () => {
     mocked.mockResolvedValue({ status: 'ok' });
-    await expect(
-      api.register('a@b.com', 'secret1', 'Alice')
-    ).resolves.toEqual({ status: 'ok' });
+    await expect(api.register('a@b.com', 'secret1', 'Alice')).resolves.toEqual({
+      status: 'ok',
+    });
     expect(mocked).toHaveBeenCalledWith('/api/v1/register', {
       method: 'POST',
       body: JSON.stringify({
@@ -73,9 +73,9 @@ describe('auth', () => {
 
   it('register accepts a six character password', async () => {
     mocked.mockResolvedValue({ status: 'ok' });
-    await expect(
-      api.register('a@b.com', '123456', 'Alice')
-    ).resolves.toEqual({ status: 'ok' });
+    await expect(api.register('a@b.com', '123456', 'Alice')).resolves.toEqual({
+      status: 'ok',
+    });
     expect(mocked).toHaveBeenCalledWith(
       '/api/v1/register',
       expect.objectContaining({ method: 'POST' })
@@ -524,6 +524,7 @@ describe('ai, survey and integrations', () => {
     expect(mocked).toHaveBeenCalledWith('/api/v1/chat', {
       method: 'POST',
       body: JSON.stringify({ message: 'Привет' }),
+      retryOnNotFound: true,
     });
   });
 

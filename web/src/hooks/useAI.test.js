@@ -11,6 +11,7 @@ vi.mock('../services/api', () => ({
 function makeState(overrides = {}) {
   return {
     messages: [],
+    guest: false,
     ...overrides,
   };
 }
@@ -170,6 +171,44 @@ describe('useAI', () => {
         expect.objectContaining({
           type: 'ai',
           text: 'Ошибка подключения к AI сервису',
+        }),
+      ],
+    });
+  });
+
+  it('sendAI blocks guest mode without calling the API', async () => {
+    setup({ guest: true });
+    setValue('aiInput', 'вопрос');
+    await act(async () => {
+      await result.current.sendAI();
+    });
+    expect(api.sendAIMessage).not.toHaveBeenCalled();
+    expect(update).toHaveBeenNthCalledWith(2, {
+      messages: [
+        expect.objectContaining({ type: 'user', text: 'вопрос' }),
+        expect.objectContaining({
+          type: 'ai',
+          text: 'AI-чат доступен только после входа в аккаунт.',
+        }),
+      ],
+    });
+  });
+
+  it('sendAI reports an expired session for auth errors', async () => {
+    setup();
+    setValue('aiInput', 'вопрос');
+    const error = new Error('Backend 401');
+    error.status = 401;
+    api.sendAIMessage.mockRejectedValue(error);
+    await act(async () => {
+      await result.current.sendAI();
+    });
+    expect(update).toHaveBeenNthCalledWith(2, {
+      messages: [
+        expect.objectContaining({ type: 'user', text: 'вопрос' }),
+        expect.objectContaining({
+          type: 'ai',
+          text: 'Сессия истекла. Войдите снова, чтобы продолжить.',
         }),
       ],
     });

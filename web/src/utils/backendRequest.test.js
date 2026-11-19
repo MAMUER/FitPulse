@@ -179,9 +179,10 @@ describe('backendRequest', () => {
       ok: false,
       json: async () => ({ error: 'boom' }),
     });
-    await expect(mod.backendRequest('/api/v1/profile')).rejects.toThrow(
-      'Backend 500'
-    );
+    await expect(mod.backendRequest('/api/v1/profile')).rejects.toMatchObject({
+      message: 'Backend 500',
+      status: 500,
+    });
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
@@ -207,6 +208,41 @@ describe('backendRequest', () => {
     expect(fetchMock.mock.calls[2][0]).toBe(
       'https://api.example.com/api/v1/profile'
     );
+  });
+
+  it('refreshes and retries after a 404 when retryOnNotFound is set', async () => {
+    const { mod, fetchMock } = await setup({ baseUrl: BASE });
+    fetchMock.mockResolvedValueOnce(jsonResponse({}, 404));
+    fetchMock.mockResolvedValueOnce(jsonResponse({ refreshed: true }));
+    fetchMock.mockResolvedValueOnce(jsonResponse({ retried: true }));
+    await expect(
+      mod.backendRequest('/api/v1/chat', { retryOnNotFound: true })
+    ).resolves.toEqual({ retried: true });
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(fetchMock.mock.calls[1][0]).toBe(
+      'https://api.example.com/api/v1/auth/refresh'
+    );
+    expect(fetchMock.mock.calls[2][1]).not.toHaveProperty('retryOnNotFound');
+  });
+
+  it('does not retry a 404 unless retryOnNotFound is set', async () => {
+    const { mod, fetchMock } = await setup({ baseUrl: BASE });
+    fetchMock.mockResolvedValueOnce(jsonResponse({}, 404));
+    await expect(mod.backendRequest('/api/v1/chat')).rejects.toMatchObject({
+      message: 'Backend 404',
+      status: 404,
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not recursively refresh when the refresh endpoint rejects', async () => {
+    const { mod, fetchMock } = await setup();
+    fetchMock.mockResolvedValue(jsonResponse({}, 401));
+    await expect(mod.backendRequest('/api/v1/profile')).rejects.toMatchObject({
+      message: 'Backend 401',
+      status: 401,
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
   it('falls through to error handling when refresh returns null', async () => {

@@ -1,6 +1,19 @@
 import { useCallback } from 'react';
 import * as api from '../services/api';
 
+const AI_CONNECTION_ERROR = 'Ошибка подключения к AI сервису';
+const AI_GUEST_NOTICE = 'AI-чат доступен только после входа в аккаунт.';
+const AI_SESSION_EXPIRED = 'Сессия истекла. Войдите снова, чтобы продолжить.';
+
+function aiErrorMessage(error) {
+  // AuthMiddleware hides protected routes behind 404, so 404 here means the
+  // session could not be refreshed rather than that the chat does not exist.
+  if (error?.status === 401 || error?.status === 403 || error?.status === 404) {
+    return AI_SESSION_EXPIRED;
+  }
+  return AI_CONNECTION_ERROR;
+}
+
 export function useAI({ state, update }) {
   const askAI = useCallback(
     (_text) => {
@@ -20,6 +33,20 @@ export function useAI({ state, update }) {
     async (text, sendRequest, userMsg) => {
       const newMessages = [...state.messages, userMsg];
       update({ messages: newMessages });
+
+      if (state.guest) {
+        update({
+          messages: [
+            ...newMessages,
+            {
+              id: `${Date.now()}-e`,
+              type: 'ai',
+              text: AI_GUEST_NOTICE,
+            },
+          ],
+        });
+        return;
+      }
 
       try {
         const data = await sendRequest(text);
@@ -41,20 +68,20 @@ export function useAI({ state, update }) {
             aiDiet: data.diet || null,
           });
         }
-      } catch {
+      } catch (error) {
         update({
           messages: [
             ...newMessages,
             {
               id: `${Date.now()}-e`,
               type: 'ai',
-              text: 'Ошибка подключения к AI сервису',
+              text: aiErrorMessage(error),
             },
           ],
         });
       }
     },
-    [state.messages, update]
+    [state.guest, state.messages, update]
   );
 
   const sendAI = useCallback(
