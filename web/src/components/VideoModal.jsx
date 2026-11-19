@@ -52,7 +52,11 @@ export default function VideoModal({ videos, index, onChange, onClose }) {
           style={{ marginTop: 14 }}
           onClick={() => {
             if (video.video_url || video.videoUrl) {
-              window.open(video.video_url || video.videoUrl, '_blank', 'noopener');
+              window.open(
+                video.video_url || video.videoUrl,
+                '_blank',
+                'noopener'
+              );
               return;
             }
             notify(
@@ -63,8 +67,7 @@ export default function VideoModal({ videos, index, onChange, onClose }) {
             );
           }}
         >
-          <i className='fas fa-play' />{' '}
-          {t('Открыть видео', 'Open video')}
+          <i className='fas fa-play' /> {t('Открыть видео', 'Open video')}
         </button>
         <div className='fp-video-actions'>
           <button

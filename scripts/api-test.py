@@ -181,9 +181,7 @@ class TestRunner:
             # fail the whole suite, but still surface it in the summary.
             print(f"{YELLOW}SKIP (connection: {error}){RESET}")
             self.skipped += 1
-            self.results.append(
-                f"SKIP | {method} {path} | CONNECTION ERROR: {error}"
-            )
+            self.results.append(f"SKIP | {method} {path} | CONNECTION ERROR: {error}")
             return resp_body
 
         ok = status == expected

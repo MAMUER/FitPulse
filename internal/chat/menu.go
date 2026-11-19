@@ -49,6 +49,14 @@ func meal(name, time, description string, protein, carbs, fat int) Meal {
 	}
 }
 
+// Названия приёмов пищи — общие для всех шаблонов меню.
+const (
+	mealBreakfast = "Завтрак"
+	mealLunch     = "Обед"
+	mealSnack     = "Перекус"
+	mealDinner    = "Ужин"
+)
+
 // menuTemplate is a full day of meals for one goal.
 type menuTemplate struct {
 	label     string
@@ -65,38 +73,38 @@ var menuTemplates = map[string]menuTemplate{
 		label:     "Снижение веса",
 		waterMl:   2000,
 		note:      "Лёгкий дефицит калорий, упор на белок и клетчатку. Не является медицинским советом — при заболеваниях или травмах проконсультируйтесь с врачом.",
-		breakfast: meal("Завтрак", "08:00", "Овсянка на воде с ягодами и горстью орехов", 15, 40, 10),
-		lunch:     meal("Обед", "13:00", "Куриная грудка-гриль с гречкой и тушёными овощами", 40, 35, 12),
-		snack:     meal("Перекус", "16:30", "Греческий йогурт с яблоком", 10, 18, 3),
-		dinner:    meal("Ужин", "19:30", "Запечённый лосось с брокколи", 35, 12, 18),
+		breakfast: meal(mealBreakfast, "08:00", "Овсянка на воде с ягодами и горстью орехов", 15, 40, 10),
+		lunch:     meal(mealLunch, "13:00", "Куриная грудка-гриль с гречкой и тушёными овощами", 40, 35, 12),
+		snack:     meal(mealSnack, "16:30", "Греческий йогурт с яблоком", 10, 18, 3),
+		dinner:    meal(mealDinner, "19:30", "Запечённый лосось с брокколи", 35, 12, 18),
 	},
 	"muscle_gain": {
 		label:     "Набор мышечной массы",
 		waterMl:   2500,
 		note:      "Профицит калорий с высоким содержанием белка для роста мышц. Не является медицинским советом — при заболеваниях или травмах проконсультируйтесь с врачом.",
-		breakfast: meal("Завтрак", "08:00", "Омлет из 3 яиц с тостом из цельнозернового хлеба и авокадо", 30, 60, 18),
-		lunch:     meal("Обед", "13:00", "Говядина с рисом и овощами", 50, 70, 20),
-		snack:     meal("Перекус", "16:30", "Творог с бананом и мёдом", 25, 40, 10),
-		dinner:    meal("Ужин", "19:30", "Индейка с пастой из твёрдых сортов и салатом", 45, 55, 18),
+		breakfast: meal(mealBreakfast, "08:00", "Омлет из 3 яиц с тостом из цельнозернового хлеба и авокадо", 30, 60, 18),
+		lunch:     meal(mealLunch, "13:00", "Говядина с рисом и овощами", 50, 70, 20),
+		snack:     meal(mealSnack, "16:30", "Творог с бананом и мёдом", 25, 40, 10),
+		dinner:    meal(mealDinner, "19:30", "Индейка с пастой из твёрдых сортов и салатом", 45, 55, 18),
 	},
 	"balance": {
 		label:     "Сбалансированное питание",
 		waterMl:   2200,
 		note:      "Сбалансированный рацион без крайностей. Не является медицинским советом — при заболеваниях или травмах проконсультируйтесь с врачом.",
-		breakfast: meal("Завтрак", "08:00", "Каша с фруктами, орехами и ложкой мёда", 20, 50, 14),
-		lunch:     meal("Обед", "13:00", "Булгур с курицей, запечёнными овощами и зеленью", 40, 50, 16),
-		snack:     meal("Перекус", "16:30", "Яблоко и горсть миндаля", 12, 25, 6),
-		dinner:    meal("Ужин", "19:30", "Треска с киноа и салатом из свежих овощей", 38, 30, 18),
+		breakfast: meal(mealBreakfast, "08:00", "Каша с фруктами, орехами и ложкой мёда", 20, 50, 14),
+		lunch:     meal(mealLunch, "13:00", "Булгур с курицей, запечёнными овощами и зеленью", 40, 50, 16),
+		snack:     meal(mealSnack, "16:30", "Яблоко и горсть миндаля", 12, 25, 6),
+		dinner:    meal(mealDinner, "19:30", "Треска с киноа и салатом из свежих овощей", 38, 30, 18),
 	},
 	// "light_dinner" — обычный день, но ужин заменён на лёгкий (кнопка «Ужин»).
 	"light_dinner": {
 		label:     "Лёгкий ужин",
 		waterMl:   2200,
 		note:      "Дневной рацион с заменой ужина на лёгкий вариант. Не является медицинским советом — при заболеваниях или травмах проконсультируйтесь с врачом.",
-		breakfast: meal("Завтрак", "08:00", "Каша с фруктами, орехами и ложкой мёда", 20, 50, 14),
-		lunch:     meal("Обед", "13:00", "Булгур с курицей, запечёнными овощами и зеленью", 40, 55, 16),
-		snack:     meal("Перекус", "16:30", "Яблоко и горсть миндаля", 12, 20, 5),
-		dinner:    meal("Ужин (лёгкий)", "19:00", "Овощной салат с тунцом и оливковым маслом", 25, 15, 8),
+		breakfast: meal(mealBreakfast, "08:00", "Каша с фруктами, орехами и ложкой мёда", 20, 50, 14),
+		lunch:     meal(mealLunch, "13:00", "Булгур с курицей, запечёнными овощами и зеленью", 40, 55, 16),
+		snack:     meal(mealSnack, "16:30", "Яблоко и горсть миндаля", 12, 20, 5),
+		dinner:    meal(mealDinner+" (лёгкий)", "19:00", "Овощной салат с тунцом и оливковым маслом", 25, 15, 8),
 	},
 }
 
@@ -117,27 +125,28 @@ func IsMenuRequest(question string) bool {
 	return false
 }
 
+// goalKeywords сопоставляет ключевые слова (в нижнем регистре) с целью питания.
+// Порядок важен: более специфичные (light_dinner) идут раньше общих (weight).
+var goalKeywords = []struct {
+	goal     string
+	keywords []string
+}{
+	{"light_dinner", []string{"ужен", "легк", "лёг", "dinner", "light"}},
+	{"weight_loss", []string{"похуд", "сброс", "сбросить", "вес", "дефиц", "cut", "weight"}},
+	{"muscle_gain", []string{"мышц", "масс", "набор", "протеин", "белок", "bulk", "muscle"}},
+}
+
 // DetectGoal infers a nutrition goal key from the question text.
 func DetectGoal(question string) string {
 	q := strings.ToLower(question)
-	switch {
-	case strings.Contains(q, "ужен") || strings.Contains(q, "легк") ||
-		strings.Contains(q, "лёг") || strings.Contains(q, "dinner") ||
-		strings.Contains(q, "light"):
-		return "light_dinner"
-	case strings.Contains(q, "похуд") || strings.Contains(q, "сброс") ||
-		strings.Contains(q, "сбросить") || strings.Contains(q, "вес") ||
-		strings.Contains(q, "дефиц") || strings.Contains(q, "cut") ||
-		strings.Contains(q, "weight"):
-		return "weight_loss"
-	case strings.Contains(q, "мышц") || strings.Contains(q, "масс") ||
-		strings.Contains(q, "набор") || strings.Contains(q, "протеин") ||
-		strings.Contains(q, "белок") || strings.Contains(q, "bulk") ||
-		strings.Contains(q, "muscle"):
-		return "muscle_gain"
-	default:
-		return "balance"
+	for _, entry := range goalKeywords {
+		for _, kw := range entry.keywords {
+			if strings.Contains(q, kw) {
+				return entry.goal
+			}
+		}
 	}
+	return "balance"
 }
 
 // BuildDayMenu builds a deterministic day menu for the given goal key.

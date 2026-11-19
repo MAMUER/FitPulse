@@ -175,7 +175,8 @@ export default function Nutrition() {
           </div>
           <small>
             {t('цель', 'goal')}:{' '}
-            {Number(displayGoal || 0).toLocaleString('ru-RU')} {t('ккал', 'kcal')}
+            {Number(displayGoal || 0).toLocaleString('ru-RU')}{' '}
+            {t('ккал', 'kcal')}
           </small>
         </div>
         <div className='fp-progress-line'>

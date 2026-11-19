@@ -53,7 +53,9 @@ export default function Integrations() {
       );
       notify(t('Интеграция отключена', 'Integration disconnected'));
     } catch {
-      notify(t('Не удалось изменить интеграцию', 'Failed to update integration'));
+      notify(
+        t('Не удалось изменить интеграцию', 'Failed to update integration')
+      );
     } finally {
       setActionLoading(null);
     }

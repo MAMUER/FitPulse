@@ -297,22 +297,6 @@ export function t(ru, _en) {
   return currentLang === 'en' ? _en : ru;
 }
 
-function getSavedLanguage() {
-  if (typeof localStorage === 'undefined') return 'ru';
-  const saved = localStorage.getItem('fitpulse-merged-v9');
-  if (saved) {
-    try {
-      const parsed = JSON.parse(saved);
-      if (parsed.language) return parsed.language;
-    } catch {
-      // fall through to fallback
-    }
-  }
-  const fallback = localStorage.getItem('fitpulse_lang');
-  if (fallback) return fallback;
-  return 'ru';
-}
-
 export function getMonthName(index, language) {
   if (language === 'en') return MONTHS_EN[index] || '';
   return MONTHS_RU[index] || '';

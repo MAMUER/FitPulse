@@ -816,8 +816,7 @@ h3,
   inset: 0;
   background:
     linear-gradient(#02060455, #020604f2),
-    url("/images/meal-1517836357463-d25dfeac3438.jpg")
-    center / cover;
+    url("/images/meal-1517836357463-d25dfeac3438.jpg") center / cover;
   animation: sceneZoom 5.2s ease;
 }
 
@@ -835,8 +834,7 @@ h3,
   opacity: 0;
   background:
     linear-gradient(#02060455, #020604f2),
-    url("/images/meal-1534438327276-14e5300c3a48.jpg")
-    center / cover;
+    url("/images/meal-1534438327276-14e5300c3a48.jpg") center / cover;
   animation: sceneChange 5.2s 1.5s ease;
 }
 
@@ -1204,8 +1202,7 @@ h3,
   border-radius: 25px;
   background:
     linear-gradient(125deg, #06120bc5, #06120bea),
-    url("/images/meal-1517964603305-11c0f6f66012.jpg")
-    center / cover;
+    url("/images/meal-1517964603305-11c0f6f66012.jpg") center / cover;
 }
 
 .hero h2 {

@@ -121,38 +121,9 @@ func (s *trainingServer) GeneratePlan(ctx context.Context, req *pb.GeneratePlanR
 	biometrics := s.loadBiometricsForUser(ctx, req.UserId)
 	availableDays := prepareAvailableDays(req.AvailableDays)
 
-	// --- Интеграция GAN: классификатор уже определил класс состояния (classificationClass).
-	// Запрашиваем у gan-service персонализированный вектор плана (condition = класс + демография).
-	ganParams := s.resolveGANParams(ctx, req.UserId, classificationClass)
-
-	constraints := planner.PlanConstraints{
-		DurationWeeks: int(req.DurationWeeks),
-		AvailableDays: availableDays,
-	}
-
-	var plan *entity.TrainingPlan
-	var weeks []*entity.PlanWeek
-	var err error
-	if ganParams.GenerationMethod == "gan" && len(ganParams.RawVector) > 0 {
-		// GAN-вектор реально формирует план: интенсивность, длительность, частота,
-		// подходы, повторения, отдых и выбор упражнений из пула класса.
-		plan, weeks, err = planner.GeneratePlanFromGAN(
-			classificationClass,
-			ganParams.RawVector,
-			constraints,
-		)
-	} else {
-		plan, weeks, err = planner.GeneratePlanFromTemplate(
-			classificationClass,
-			&entity.User{},
-			survey,
-			biometrics,
-			constraints,
-		)
-	}
+	plan, weeks, ganParams, err := s.generatePlanData(ctx, req, classificationClass, survey, biometrics, availableDays)
 	if err != nil {
-		s.log.Error("Не удалось сгенерировать план через planner", zap.Error(err))
-		return nil, status.Error(codes.Internal, "failed to generate plan")
+		return nil, err
 	}
 
 	tx, err := s.db.BeginTx(ctx, nil)
@@ -193,6 +164,54 @@ func (s *trainingServer) GeneratePlan(ctx context.Context, req *pb.GeneratePlanR
 		return nil, status.Error(codes.Internal, "failed to serialize plan data")
 	}
 	return &pb.GeneratePlanResponse{PlanId: planID, PlanData: planStruct}, nil
+}
+
+// generatePlanData строит план тренировок: через GAN, если вектор доступен,
+// иначе через шаблон класса. Возвращает план, недели и параметры GAN.
+func (s *trainingServer) generatePlanData(
+	ctx context.Context,
+	req *pb.GeneratePlanRequest,
+	classificationClass string,
+	survey map[string]interface{},
+	biometrics *planner.Biometrics,
+	availableDays []int,
+) (*entity.TrainingPlan, []*entity.PlanWeek, ganPlanParams, error) {
+	// Запрашиваем у gan-service персонализированный вектор плана
+	// (condition = класс + демография).
+	ganParams := s.resolveGANParams(ctx, req.UserId, classificationClass)
+
+	constraints := planner.PlanConstraints{
+		DurationWeeks: int(req.DurationWeeks),
+		AvailableDays: availableDays,
+	}
+
+	if ganParams.GenerationMethod == "gan" && len(ganParams.RawVector) > 0 {
+		// GAN-вектор реально формирует план: интенсивность, длительность, частота,
+		// подходы, повторения, отдых и выбор упражнений из пула класса.
+		plan, weeks, err := planner.GeneratePlanFromGAN(
+			classificationClass,
+			ganParams.RawVector,
+			constraints,
+		)
+		if err != nil {
+			s.log.Error("Не удалось сгенерировать план через GAN", zap.Error(err))
+			return nil, nil, ganParams, status.Error(codes.Internal, "failed to generate plan")
+		}
+		return plan, weeks, ganParams, nil
+	}
+
+	plan, weeks, err := planner.GeneratePlanFromTemplate(
+		classificationClass,
+		&entity.User{},
+		survey,
+		biometrics,
+		constraints,
+	)
+	if err != nil {
+		s.log.Error("Не удалось сгенерировать план через planner", zap.Error(err))
+		return nil, nil, ganParams, status.Error(codes.Internal, "failed to generate plan")
+	}
+	return plan, weeks, ganParams, nil
 }
 
 // prepareAvailableDays конвертирует []int32 в []int, подставляя значения по умолчанию при пустом списке.

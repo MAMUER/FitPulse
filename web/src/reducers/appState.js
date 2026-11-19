@@ -78,8 +78,7 @@ export const defaultState = {
       title: 'Овсянка с ягодами',
       kcal: 360,
       macros: 'Б 16 г · Ж 10 г · У 51 г',
-      image:
-        '/images/meal-1490474418585-ba9bad8fd0ea.jpg',
+      image: '/images/meal-1490474418585-ba9bad8fd0ea.jpg',
     },
     lunch: {
       label: 'Обед',
@@ -97,8 +96,7 @@ export const defaultState = {
       title: 'Боул с лососем',
       kcal: 540,
       macros: 'Б 34 г · Ж 22 г · У 48 г',
-      image:
-        '/images/meal-1512621776951-a57141f2eefd.jpg',
+      image: '/images/meal-1512621776951-a57141f2eefd.jpg',
     },
     snack: {
       label: 'Полдник',
@@ -107,8 +105,7 @@ export const defaultState = {
       title: 'Йогурт и ягоды',
       kcal: 210,
       macros: 'Б 18 г · Ж 5 г · У 24 г',
-      image:
-        '/images/meal-1488477181946-6428a0291777.jpg',
+      image: '/images/meal-1488477181946-6428a0291777.jpg',
     },
   },
   alternatives: {
@@ -411,8 +408,7 @@ export const defaultState = {
       equipment: ['Коврик', 'Гантели 2×5 кг'],
       description:
         'Комплекс без прыжков: приседания, отжимания, выпады, планка. Подходит для дома.',
-      image:
-        '/images/meal-1534438327276-14e5300c3a48.jpg',
+      image: '/images/meal-1534438327276-14e5300c3a48.jpg',
       type: 'home',
     },
     {
@@ -434,8 +430,7 @@ export const defaultState = {
       equipment: ['Очки', 'Шапочка', 'Доска для плавания'],
       description:
         'Разминка в воде, свободный стиль, спокойное плавание. Для бассейна.',
-      image:
-        '/images/meal-1530549387789-4c1017266635.jpg',
+      image: '/images/meal-1530549387789-4c1017266635.jpg',
       type: 'pool',
     },
     {
@@ -445,8 +440,7 @@ export const defaultState = {
       duration: '25 мин',
       equipment: ['Коврик', 'Скакалка'],
       description: 'Интенсивные интервальные тренировки для сжигания жира.',
-      image:
-        '/images/meal-1518611012118-696072aa579a.jpg',
+      image: '/images/meal-1518611012118-696072aa579a.jpg',
       type: 'home',
     },
     {
@@ -702,15 +696,13 @@ export const defaultState = {
       title: 'Сила без перегруза',
       description: 'Тренировки под состояние',
       text: 'Слушай своё тело и выбирай нагрузку, которая приносит пользу.',
-      image:
-        '/images/meal-1517836357463-d25dfeac3438.jpg',
+      image: '/images/meal-1517836357463-d25dfeac3438.jpg',
     },
     {
       title: 'Питание в ритме',
       description: 'КБЖУ без сложностей',
       text: 'Баланс питания помогает сохранять энергию и поддерживать результат.',
-      image:
-        '/images/meal-1490645935967-10de6ba17061.jpg',
+      image: '/images/meal-1490645935967-10de6ba17061.jpg',
     },
     {
       title: 'Улыбайся и двигайся',
@@ -722,15 +714,13 @@ export const defaultState = {
       title: 'Новая привычка',
       description: '12 дней серии',
       text: 'Каждый активный день приближает тебя к цели.',
-      image:
-        '/images/meal-1534438327276-14e5300c3a48.jpg',
+      image: '/images/meal-1534438327276-14e5300c3a48.jpg',
     },
     {
       title: 'Сила духа',
       description: 'Ментальный фитнес',
       text: 'Крепкий дух помогает преодолевать любые физические барьеры.',
-      image:
-        '/images/meal-1518611012118-696072aa579a.jpg',
+      image: '/images/meal-1518611012118-696072aa579a.jpg',
     },
     {
       title: 'Гармония тела',
@@ -742,15 +732,13 @@ export const defaultState = {
       title: 'Водная стихия',
       description: 'Плавание и здоровье',
       text: 'Плавание укрепляет все группы мышц и улучшает дыхательную систему.',
-      image:
-        '/images/meal-1530549387789-4c1017266635.jpg',
+      image: '/images/meal-1530549387789-4c1017266635.jpg',
     },
     {
       title: 'Утренний ритуал',
       description: 'Заряд энергии',
       text: 'Утренняя зарядка запускает обмен веществ и даёт энергию на весь день.',
-      image:
-        '/images/meal-1534438327276-14e5300c3a48.jpg',
+      image: '/images/meal-1534438327276-14e5300c3a48.jpg',
     },
   ],
   nutritionData: {
