@@ -39,11 +39,12 @@ import (
 	"github.com/MAMUER/project/internal/domain/entity"
 	"github.com/MAMUER/project/internal/domain/port"
 	"github.com/MAMUER/project/internal/domain/service"
-	"github.com/MAMUER/project/internal/email"
+	emailpkg "github.com/MAMUER/project/internal/email"
 	grpctls "github.com/MAMUER/project/internal/grpc"
 	"github.com/MAMUER/project/internal/logger"
 	"github.com/MAMUER/project/internal/metrics"
 	"github.com/MAMUER/project/internal/middleware"
+	"github.com/MAMUER/project/internal/queue"
 	"github.com/MAMUER/project/internal/repository/postgres"
 	"github.com/MAMUER/project/internal/sanitize"
 	"github.com/MAMUER/project/internal/server"
@@ -109,7 +110,12 @@ type userServer struct {
 
 	tokenProvider ports.TokenProvider
 
-	emailSender email.EmailSender
+	emailSender emailpkg.EmailSender
+
+	// emailPublisher publishes email tasks to RabbitMQ (async delivery by
+	// email-worker). nil when RABBITMQ_URL is not configured — then email is
+	// sent directly via SMTP (fallback).
+	emailPublisher queue.Publisher
 
 	baseURL string
 
@@ -385,6 +391,27 @@ func sendVerificationEmailIfNeeded(ctx context.Context, s *userServer, email, ve
 	go func() {
 		emailCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Second)
 		defer cancel()
+
+		// Prefer async delivery: publish to RabbitMQ so the email-worker sends
+		// it. If the broker is not configured or the publish fails, fall back
+		// to sending directly via SMTP so registration is never blocked.
+		if s.emailPublisher != nil {
+			task := emailpkg.Task{
+				Type:    emailpkg.TypeVerification,
+				To:      email,
+				Token:   verificationToken,
+				BaseURL: s.baseURL,
+			}
+			if pubErr := s.emailPublisher.Publish(emailCtx, task); pubErr == nil {
+				s.log.Info("Verification email queued for delivery",
+					zap.String("email", sanitize.LogString(email)))
+				return
+			} else {
+				s.log.Warn("Failed to queue verification email, falling back to direct send",
+					zap.Error(pubErr),
+					zap.String("email", sanitize.LogString(email)))
+			}
+		}
 
 		if sendErr := s.emailSender.SendVerificationEmail(emailCtx, email, verificationToken, s.baseURL); sendErr != nil {
 
@@ -3318,7 +3345,9 @@ type userServerConfig struct {
 
 	yandexClientSecret string
 
-	emailSender email.EmailSender
+	emailSender emailpkg.EmailSender
+
+	emailPublisher queue.Publisher
 
 	totpService *totp.Service
 
@@ -3381,7 +3410,8 @@ func buildUserServer(cfg userServerConfig) *userServer {
 
 		tokenProvider: cfg.tokenProvider,
 
-		emailSender: cfg.emailSender,
+		emailSender:    cfg.emailSender,
+		emailPublisher: cfg.emailPublisher,
 
 		baseURL: cfg.baseURL,
 
@@ -3548,6 +3578,22 @@ func buildDomainUserService(repos userServiceRepos) service.UserService {
 	})
 }
 
+// newEmailPublisher creates a RabbitMQ publisher for the email queue. Returns
+// nil when RABBITMQ_URL is not configured or the broker is unreachable — in
+// that case the register handler sends email directly via SMTP (fallback).
+func newEmailPublisher(log *logger.Logger) queue.Publisher {
+	rabbitURL := config.GetEnv("RABBITMQ_URL", "")
+	if rabbitURL == "" {
+		return nil
+	}
+	pub, err := queue.NewPublisher(rabbitURL, emailpkg.QueueName, log, queue.WithPublisherPriority("default"))
+	if err != nil {
+		log.Warn("RabbitMQ email publisher unavailable, emails will be sent directly via SMTP", zap.Error(err))
+		return nil
+	}
+	return pub
+}
+
 func initializeUserService(ctx context.Context, log *logger.Logger, database *sql.DB) *userServer {
 
 	secrets := loadUserServiceSecrets(log)
@@ -3572,7 +3618,9 @@ func initializeUserService(ctx context.Context, log *logger.Logger, database *sq
 
 		yandexClientSecret: secrets.yandexClientSecret,
 
-		emailSender: email.NewSMTPClient(email.LoadConfig()),
+		emailSender: emailpkg.NewSMTPClient(emailpkg.LoadConfig()),
+
+		emailPublisher: newEmailPublisher(log),
 
 		totpService: totp.NewService(secrets.totpEncryptor),
 

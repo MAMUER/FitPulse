@@ -226,6 +226,7 @@ deploy_image_refs() {
 		"ghcr.io/mamuer/project/open-wearables-backend:${image_tag}" \
 		"ghcr.io/mamuer/project/open-wearables-frontend:${image_tag}" \
 		"ghcr.io/mamuer/project/data-processor:${image_tag}" \
+		"ghcr.io/mamuer/project/email-worker:${image_tag}" \
 		"ghcr.io/mamuer/project/postgres-pgsodium:pg18" \
 		"ghcr.io/mamuer/project/backup-tools:pg18" \
 		"ghcr.io/mamuer/project/oncall-bot:${image_tag}"

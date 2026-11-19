@@ -1,0 +1,153 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: email-worker
+  namespace: fitness-platform-production
+  labels:
+    app: email-worker
+    tier: backend
+    environment: production
+    app.kubernetes.io/name: email-worker
+    app.kubernetes.io/instance: email-worker
+    app.kubernetes.io/component: worker
+    app.kubernetes.io/part-of: fitness-platform
+    app.kubernetes.io/managed-by: kustomize
+spec:
+  revisionHistoryLimit: 3
+  replicas: 1
+  selector:
+    matchLabels:
+      app: email-worker
+  template:
+    metadata:
+      labels:
+        app: email-worker
+        zone: dmz
+        environment: production
+        app.kubernetes.io/name: email-worker
+        app.kubernetes.io/instance: email-worker
+        app.kubernetes.io/component: worker
+        app.kubernetes.io/part-of: fitness-platform
+        app.kubernetes.io/managed-by: kustomize
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9097"
+        prometheus.io/path: "/metrics"
+    spec:
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: DoNotSchedule
+          labelSelector:
+            matchLabels:
+              app: email-worker
+      imagePullSecrets:
+        - name: ghcr-pull-secret
+      serviceAccountName: app-service-account
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        - name: secrets
+          secret:
+            secretName: app-secrets
+            items:
+              - key: RABBITMQ_URL
+                path: RABBITMQ_URL
+              - key: SMTP_HOST
+                path: SMTP_HOST
+              - key: SMTP_PORT
+                path: SMTP_PORT
+              - key: SMTP_USER
+                path: SMTP_USER
+              - key: SMTP_PASSWORD
+                path: SMTP_PASSWORD
+              - key: SMTP_FROM
+                path: SMTP_FROM
+      containers:
+        - name: email-worker
+          # checkov:skip=CKV_K8S_43: CI-built image; digest resolved in deployment pipeline
+          image: ghcr.io/mamuer/project/email-worker:0.0.0-dev
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 10001
+            runAsGroup: 10001
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            seccompProfile:
+              type: RuntimeDefault
+          ports:
+            - containerPort: 8086
+              name: http
+            - containerPort: 9097
+              name: metrics
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            - name: secrets
+              mountPath: /etc/secrets
+              readOnly: true
+          env:
+            - name: EMAIL_WORKER_PORT
+              value: "8086"
+            - name: EMAIL_WORKER_METRICS_PORT
+              value: "9097"
+            - name: RABBITMQ_URL_FILE
+              value: "/etc/secrets/RABBITMQ_URL"
+            - name: SMTP_HOST_FILE
+              value: "/etc/secrets/SMTP_HOST"
+            - name: SMTP_PORT_FILE
+              value: "/etc/secrets/SMTP_PORT"
+            - name: SMTP_USER_FILE
+              value: "/etc/secrets/SMTP_USER"
+            - name: SMTP_PASSWORD_FILE
+              value: "/etc/secrets/SMTP_PASSWORD"
+            - name: SMTP_FROM_FILE
+              value: "/etc/secrets/SMTP_FROM"
+            - name: SMTP_TLS
+              value: "true"
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: "opentelemetry-collector.monitoring.svc.cluster.local:4317"
+            - name: OTEL_SERVICE_NAME
+              value: "email-worker"
+            - name: OTEL_TRACES_SAMPLER
+              value: "traceidratio"
+            - name: OTEL_TRACES_SAMPLER_ARG
+              value: "0.01"
+            - name: GOMEMLIMIT
+              value: "230MiB"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8086
+            initialDelaySeconds: 20
+            periodSeconds: 15
+            timeoutSeconds: 3
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8086
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 3
+          resources:
+            requests:
+              cpu: "15m"
+              memory: "64Mi"
+              ephemeral-storage: "50Mi"
+            limits:
+              cpu: "200m"
+              memory: "256Mi"
+              ephemeral-storage: "100Mi"

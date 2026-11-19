@@ -13,7 +13,7 @@ build_go_services() {
 	# gateway and device-aggregator keep their own Dockerfiles (web-builder stage
 	# and Debian base respectively); the rest share Dockerfile.service.
 	SHA=$(git rev-parse --short HEAD)
-	services=(user-service biometric-service training-service data-processor gateway device-aggregator)
+	services=(user-service biometric-service training-service data-processor email-worker gateway device-aggregator)
 	pids=()
 	names=()
 	for svc in "${services[@]}"; do
@@ -26,6 +26,7 @@ build_go_services() {
 			biometric-service) build_args=(--build-arg SERVICE=biometric-service --build-arg PORTS=50052) ;;
 			training-service) build_args=(--build-arg SERVICE=training-service --build-arg PORTS=50053) ;;
 			data-processor) build_args=(--build-arg SERVICE=data-processor --build-arg PORTS=8084) ;;
+			email-worker) build_args=(--build-arg SERVICE=email-worker --build-arg PORTS=8086) ;;
 			gateway) dockerfile="cmd/gateway/Dockerfile" ;;
 			device-aggregator) dockerfile="cmd/device-aggregator/Dockerfile" ;;
 			*)
@@ -141,28 +142,29 @@ build_open_wearables() {
 
 	# Harden the upstream backend image before building: patch OS packages and
 	# upgrade the Python libraries that Trivy flags with an available fix
-	# (urllib3>=2.5, msgpack>=1.2.3, pyasn1>=0.6.5, dnspython>=2.9.2,
-	# setuptools>=78.1.1, tornado, opentelemetry-api). The vulnerable packages
-	# live in the upstream venv at /opt/venv (python3.14), so we upgrade them
-	# through /opt/venv/bin/python (bootstrapping pip via ensurepip) and also
-	# through the system python as a fallback. The block is appended to the
-	# FINAL stage of the upstream Dockerfile; k8s forces runAsUser:10001 at
-	# runtime regardless of the image default. Every step is best-effort
-	# (|| true) so a flaky mirror never breaks the whole image build.
+	# (urllib3>=2.8.0, msgpack>=1.2.3, pyasn1>=0.6.5, dnspython>=2.9.2,
+	# setuptools>=78.1.1, tornado, opentelemetry-api). The packages live in
+	# the app venv (/opt/venv) and/or the system python. We upgrade through
+	# every python we can find (venv + system), using --break-system-packages
+	# for PEP-668 externally-managed system pythons, plus a uv fallback. The
+	# block is appended to the FINAL stage of the upstream Dockerfile; k8s
+	# forces runAsUser:10001 at runtime regardless of the image default. Every
+	# step is best-effort (|| true) so a flaky mirror never breaks the build.
 	# python-jose and python-ecdsa have no fixed release (deprecated) — left
 	# as-is; the image scan excludes unfixed CVEs via `ignore-unfixed: true`.
 	cat >>/tmp/open-wearables/backend/Dockerfile <<'HARDEN'
 
 USER root
 RUN set -eu; \
-    if [ -x /opt/venv/bin/python ]; then \
-        PY=/opt/venv/bin/python; \
-        "$PY" -m ensurepip --upgrade || true; \
-        "$PY" -m pip install --no-cache-dir --upgrade \
-            "urllib3>=2.5" "msgpack>=1.2.3" "pyasn1>=0.6.5" "dnspython>=2.9.2" "setuptools>=78.1.1" || true; \
+    PKGS="urllib3>=2.8.0 msgpack>=1.2.3 pyasn1>=0.6.5 dnspython>=2.9.2 setuptools>=78.1.1 tornado opentelemetry-api"; \
+    for PY in /opt/venv/bin/python python3 python; do \
+        if [ -x "$PY" ] || command -v "$PY" >/dev/null 2>&1; then \
+            "$PY" -m pip install --no-cache-dir --upgrade --break-system-packages $PKGS || true; \
+        fi; \
+    done; \
+    if [ -x /opt/venv/bin/python ] && command -v uv >/dev/null 2>&1; then \
+        uv pip install --python /opt/venv/bin/python --no-cache-dir --upgrade $PKGS || true; \
     fi; \
-    python -m pip install --no-cache-dir --upgrade \
-        "urllib3>=2.5" "msgpack>=1.2.3" "pyasn1>=0.6.5" "dnspython>=2.9.2" "setuptools>=78.1.1" tornado opentelemetry-api || true; \
     if command -v apt-get >/dev/null 2>&1; then \
         apt-get update && apt-get upgrade -y && rm -rf /var/lib/apt/lists/* || true; \
     fi
