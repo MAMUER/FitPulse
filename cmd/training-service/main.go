@@ -125,23 +125,35 @@ func (s *trainingServer) GeneratePlan(ctx context.Context, req *pb.GeneratePlanR
 	// Запрашиваем у gan-service персонализированный вектор плана (condition = класс + демография).
 	ganParams := s.resolveGANParams(ctx, req.UserId, classificationClass)
 
-	plan, weeks, err := planner.GeneratePlanFromTemplate(
-		classificationClass,
-		&entity.User{},
-		survey,
-		biometrics,
-		planner.PlanConstraints{
-			DurationWeeks: int(req.DurationWeeks),
-			AvailableDays: availableDays,
-		},
-	)
+	constraints := planner.PlanConstraints{
+		DurationWeeks: int(req.DurationWeeks),
+		AvailableDays: availableDays,
+	}
+
+	var plan *entity.TrainingPlan
+	var weeks []*entity.PlanWeek
+	var err error
+	if ganParams.GenerationMethod == "gan" && len(ganParams.RawVector) > 0 {
+		// GAN-вектор реально формирует план: интенсивность, длительность, частота,
+		// подходы, повторения, отдых и выбор упражнений из пула класса.
+		plan, weeks, err = planner.GeneratePlanFromGAN(
+			classificationClass,
+			ganParams.RawVector,
+			constraints,
+		)
+	} else {
+		plan, weeks, err = planner.GeneratePlanFromTemplate(
+			classificationClass,
+			&entity.User{},
+			survey,
+			biometrics,
+			constraints,
+		)
+	}
 	if err != nil {
 		s.log.Error("Не удалось сгенерировать план через planner", zap.Error(err))
 		return nil, status.Error(codes.Internal, "failed to generate plan")
 	}
-
-	// Наложить GAN-интенсивность на упражнения плана (если GAN был использован).
-	applyGANIntensity(weeks, ganParams)
 
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -195,18 +207,70 @@ func prepareAvailableDays(days []int32) []int {
 	return availableDays
 }
 
-// applyGANIntensity накладывает интенсивность GAN на все упражнения всех недель плана.
-func applyGANIntensity(weeks []*entity.PlanWeek, ganParams ganPlanParams) {
+// applyGANParams накладывает параметры GAN-вектора на план: интенсивность,
+// длительность занятий и частоту. Раньше применялась только интенсивность,
+// из-за чего GAN-вектор почти не влиял на план. Теперь длительность упражнений
+// масштабируется под целевую из GAN, а частота задаёт число тренировочных дней.
+func applyGANParams(weeks []*entity.PlanWeek, ganParams ganPlanParams) {
 	if ganParams.GenerationMethod != "gan" {
 		return
 	}
 	for _, week := range weeks {
+		week.TotalTrainingDays = clampInt32(int32(ganParams.SessionsPerWeek), 1, int32(len(week.Days)))
+		var weekTotal int32
 		for _, day := range week.Days {
-			for _, ex := range day.Exercises {
-				ex.Intensity = ganParams.Intensity
+			if day.IsRestDay {
+				continue
 			}
+			weekTotal += scaleDayDuration(day, ganParams)
 		}
+		week.TotalDurationMinutes = weekTotal
 	}
+}
+
+// scaleDayDuration масштабирует длительности упражнений дня под целевую
+// длительность GAN, проставляет интенсивность и возвращает новую суммарную
+// длительность дня.
+func scaleDayDuration(day *entity.PlanDay, ganParams ganPlanParams) int32 {
+	var dayTotal int32
+	for _, ex := range day.Exercises {
+		dayTotal += ex.DurationMinutes
+	}
+	scale := ganDurationScale(dayTotal, ganParams.DurationMinutes)
+	var newTotal int32
+	for _, ex := range day.Exercises {
+		ex.Intensity = ganParams.Intensity
+		ex.DurationMinutes = clampInt32(int32(float64(ex.DurationMinutes)*scale), 1, 600)
+		newTotal += ex.DurationMinutes
+	}
+	day.TotalDurationMinutes = newTotal
+	return newTotal
+}
+
+// ganDurationScale вычисляет коэффициент масштабирования длительности (0.5..2.0)
+// относительно целевой длительности GAN.
+func ganDurationScale(dayTotal int32, targetMinutes int) float64 {
+	if dayTotal <= 0 {
+		return 1.0
+	}
+	scale := float64(targetMinutes) / float64(dayTotal)
+	if scale < 0.5 {
+		return 0.5
+	}
+	if scale > 2.0 {
+		return 2.0
+	}
+	return scale
+}
+
+func clampInt32(v, minVal, maxVal int32) int32 {
+	if v < minVal {
+		return minVal
+	}
+	if v > maxVal {
+		return maxVal
+	}
+	return v
 }
 
 // buildPlanData формирует карту данных плана для ответа.

@@ -79,7 +79,7 @@ export const defaultState = {
       kcal: 360,
       macros: 'Б 16 г · Ж 10 г · У 51 г',
       image:
-        'https://images.unsplash.com/photo-1490474418585-ba9bad8fd0ea?w=500',
+        '/images/meal-1490474418585-ba9bad8fd0ea.jpg',
     },
     lunch: {
       label: 'Обед',
@@ -88,7 +88,7 @@ export const defaultState = {
       title: 'Курица с гречкой',
       kcal: 480,
       macros: 'Б 38 г · Ж 14 г · У 48 г',
-      image: 'https://images.unsplash.com/photo-1547592180-85f173990554?w=500',
+      image: '/images/meal-1547592180-85f173990554.jpg',
     },
     dinner: {
       label: 'Ужин',
@@ -98,7 +98,7 @@ export const defaultState = {
       kcal: 540,
       macros: 'Б 34 г · Ж 22 г · У 48 г',
       image:
-        'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=500',
+        '/images/meal-1512621776951-a57141f2eefd.jpg',
     },
     snack: {
       label: 'Полдник',
@@ -108,7 +108,7 @@ export const defaultState = {
       kcal: 210,
       macros: 'Б 18 г · Ж 5 г · У 24 г',
       image:
-        'https://images.unsplash.com/photo-1488477181946-6428a0291777?w=500',
+        '/images/meal-1488477181946-6428a0291777.jpg',
     },
   },
   alternatives: {
@@ -117,19 +117,19 @@ export const defaultState = {
         'Омлет со шпинатом',
         390,
         'Б 27 г · Ж 21 г · У 18 г',
-        'https://images.unsplash.com/photo-1525351484163-7529414344d8?w=300',
+        '/images/meal-1525351484163-7529414344d8.jpg',
       ],
       [
         'Творог с бананом',
         330,
         'Б 29 г · Ж 9 г · У 38 г',
-        'https://images.unsplash.com/photo-1488477181946-6428a0291777?w=300',
+        '/images/meal-1488477181946-6428a0291777.jpg',
       ],
       [
         'Тост с авокадо',
         410,
         'Б 14 г · Ж 19 г · У 46 г',
-        'https://images.unsplash.com/photo-1541519227354-08fa5d50c44d?w=300',
+        '/images/meal-1541519227354-08fa5d50c44d.jpg',
       ],
     ],
     lunch: [
@@ -137,19 +137,19 @@ export const defaultState = {
         'Индейка с киноа',
         510,
         'Б 42 г · Ж 15 г · У 47 г',
-        'https://images.unsplash.com/photo-1547592180-85f173990554?w=300',
+        '/images/meal-1547592180-85f173990554.jpg',
       ],
       [
         'Паста с тунцом',
         560,
         'Б 36 г · Ж 16 г · У 62 г',
-        'https://images.unsplash.com/photo-1473093295043-cdd812d0e601?w=300',
+        '/images/meal-1473093295043-cdd812d0e601.jpg',
       ],
       [
         'Тофу с овощами',
         420,
         'Б 29 г · Ж 17 г · У 39 г',
-        'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=300',
+        '/images/meal-1512621776951-a57141f2eefd.jpg',
       ],
     ],
     dinner: [
@@ -157,19 +157,19 @@ export const defaultState = {
         'Треска с овощами',
         390,
         'Б 38 г · Ж 12 г · У 27 г',
-        'https://images.unsplash.com/photo-1519708227418-c8fd9a32b7a2?w=300',
+        '/images/meal-1519708227418-c8fd9a32b7a2.jpg',
       ],
       [
         'Куриный боул',
         470,
         'Б 40 г · Ж 13 г · У 45 г',
-        'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=300',
+        '/images/meal-1512621776951-a57141f2eefd.jpg',
       ],
       [
         'Овощной суп',
         310,
         'Б 16 г · Ж 9 г · У 39 г',
-        'https://images.unsplash.com/photo-1547592166-23ac45744acd?w=300',
+        '/images/meal-1547592166-23ac45744acd.jpg',
       ],
     ],
     snack: [
@@ -177,13 +177,13 @@ export const defaultState = {
         'Протеиновый смузи',
         240,
         'Б 24 г · Ж 5 г · У 25 г',
-        'https://images.unsplash.com/photo-1553530666-ba11a7da3888?w=300',
+        '/images/meal-1553530666-ba11a7da3888.jpg',
       ],
       [
         'Яблоко и йогурт',
         190,
         'Б 14 г · Ж 4 г · У 27 г',
-        'https://images.unsplash.com/photo-1488477181946-6428a0291777?w=300',
+        '/images/meal-1488477181946-6428a0291777.jpg',
       ],
     ],
   },
@@ -336,7 +336,7 @@ export const defaultState = {
       last: 'Отлично! Завтра в 18:30?',
       time: '12:30',
       unread: 2,
-      avatar: 'https://i.pravatar.cc/150?img=1',
+      avatar: '/images/avatar-1.jpg',
       online: true,
       status: 'gym',
     },
@@ -345,7 +345,7 @@ export const defaultState = {
       last: 'Сделал разминку, готов!',
       time: '10:15',
       unread: 0,
-      avatar: 'https://i.pravatar.cc/150?img=2',
+      avatar: '/images/avatar-2.jpg',
       online: true,
       status: 'pool',
     },
@@ -354,7 +354,7 @@ export const defaultState = {
       last: 'Спасибо за совет!',
       time: 'Вчера',
       unread: 1,
-      avatar: 'https://i.pravatar.cc/150?img=3',
+      avatar: '/images/avatar-3.jpg',
       online: false,
       status: 'offline',
     },
@@ -363,7 +363,7 @@ export const defaultState = {
       last: 'Когда следующая тренировка?',
       time: 'Вчера',
       unread: 0,
-      avatar: 'https://i.pravatar.cc/150?img=4',
+      avatar: '/images/avatar-4.jpg',
       online: true,
       status: 'dnd',
     },
@@ -372,7 +372,7 @@ export const defaultState = {
       last: 'Отличный результат!',
       time: '2 дня',
       unread: 0,
-      avatar: 'https://i.pravatar.cc/150?img=5',
+      avatar: '/images/avatar-5.jpg',
       online: false,
       status: 'offline',
     },
@@ -412,7 +412,7 @@ export const defaultState = {
       description:
         'Комплекс без прыжков: приседания, отжимания, выпады, планка. Подходит для дома.',
       image:
-        'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=1000',
+        '/images/meal-1534438327276-14e5300c3a48.jpg',
       type: 'home',
     },
     {
@@ -423,7 +423,7 @@ export const defaultState = {
       equipment: ['Коврик', 'Резинка'],
       description:
         'Упражнения для спины, таза и дыхания. Снимает напряжение после сидячей работы.',
-      image: 'https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?w=1000',
+      image: '/images/meal-1544367567-0f2fcb009e0b.jpg',
       type: 'home',
     },
     {
@@ -435,7 +435,7 @@ export const defaultState = {
       description:
         'Разминка в воде, свободный стиль, спокойное плавание. Для бассейна.',
       image:
-        'https://images.unsplash.com/photo-1530549387789-4c1017266635?w=1000',
+        '/images/meal-1530549387789-4c1017266635.jpg',
       type: 'pool',
     },
     {
@@ -446,7 +446,7 @@ export const defaultState = {
       equipment: ['Коврик', 'Скакалка'],
       description: 'Интенсивные интервальные тренировки для сжигания жира.',
       image:
-        'https://images.unsplash.com/photo-1518611012118-696072aa579a?w=1000',
+        '/images/meal-1518611012118-696072aa579a.jpg',
       type: 'home',
     },
     {
@@ -456,7 +456,7 @@ export const defaultState = {
       duration: '30 мин',
       equipment: ['Коврик'],
       description: 'Мягкая йога для гибкости и расслабления.',
-      image: 'https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?w=1000',
+      image: '/images/meal-1544367567-0f2fcb009e0b.jpg',
       type: 'home',
     },
   ],
@@ -572,7 +572,7 @@ export const defaultState = {
   friends: [
     {
       name: 'Анна',
-      image: 'https://i.pravatar.cc/150?img=1',
+      image: '/images/avatar-1.jpg',
       online: true,
       status: 'gym',
       bio: 'Бегу к своим целям маленькими шагами каждый день.',
@@ -582,7 +582,7 @@ export const defaultState = {
     },
     {
       name: 'Дмитрий',
-      image: 'https://i.pravatar.cc/150?img=2',
+      image: '/images/avatar-2.jpg',
       online: true,
       status: 'pool',
       bio: 'Сила, дисциплина и хороший сон.',
@@ -592,7 +592,7 @@ export const defaultState = {
     },
     {
       name: 'Елена',
-      image: 'https://i.pravatar.cc/150?img=3',
+      image: '/images/avatar-3.jpg',
       online: false,
       status: 'offline',
       bio: 'Йога и забота о себе в своём ритме.',
@@ -602,7 +602,7 @@ export const defaultState = {
     },
     {
       name: 'Сергей',
-      image: 'https://i.pravatar.cc/150?img=4',
+      image: '/images/avatar-4.jpg',
       online: true,
       status: 'dnd',
       bio: 'Работаю над выносливостью и результатом.',
@@ -612,7 +612,7 @@ export const defaultState = {
     },
     {
       name: 'Ольга',
-      image: 'https://i.pravatar.cc/150?img=5',
+      image: '/images/avatar-5.jpg',
       online: false,
       status: 'offline',
       bio: 'Здоровье --- это ежедневный выбор.',
@@ -622,7 +622,7 @@ export const defaultState = {
     },
     {
       name: 'Алексей',
-      image: 'https://i.pravatar.cc/150?img=6',
+      image: '/images/avatar-6.jpg',
       online: true,
       status: 'gym',
       bio: 'Каждая тренировка --- это маленькая победа.',
@@ -703,54 +703,54 @@ export const defaultState = {
       description: 'Тренировки под состояние',
       text: 'Слушай своё тело и выбирай нагрузку, которая приносит пользу.',
       image:
-        'https://images.unsplash.com/photo-1517836357463-d25dfeac3438?w=900',
+        '/images/meal-1517836357463-d25dfeac3438.jpg',
     },
     {
       title: 'Питание в ритме',
       description: 'КБЖУ без сложностей',
       text: 'Баланс питания помогает сохранять энергию и поддерживать результат.',
       image:
-        'https://images.unsplash.com/photo-1490645935967-10de6ba17061?w=900',
+        '/images/meal-1490645935967-10de6ba17061.jpg',
     },
     {
       title: 'Улыбайся и двигайся',
       description: 'Энергия каждый день',
       text: 'Регулярное движение помогает укреплять тело и улучшать настроение.',
-      image: 'https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?w=900',
+      image: '/images/meal-1544367567-0f2fcb009e0b.jpg',
     },
     {
       title: 'Новая привычка',
       description: '12 дней серии',
       text: 'Каждый активный день приближает тебя к цели.',
       image:
-        'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=900',
+        '/images/meal-1534438327276-14e5300c3a48.jpg',
     },
     {
       title: 'Сила духа',
       description: 'Ментальный фитнес',
       text: 'Крепкий дух помогает преодолевать любые физические барьеры.',
       image:
-        'https://images.unsplash.com/photo-1518611012118-696072aa579a?w=900',
+        '/images/meal-1518611012118-696072aa579a.jpg',
     },
     {
       title: 'Гармония тела',
       description: 'Баланс и гибкость',
       text: 'Сочетание силы и гибкости создаёт идеальный баланс для здоровья.',
-      image: 'https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?w=900',
+      image: '/images/meal-1544367567-0f2fcb009e0b.jpg',
     },
     {
       title: 'Водная стихия',
       description: 'Плавание и здоровье',
       text: 'Плавание укрепляет все группы мышц и улучшает дыхательную систему.',
       image:
-        'https://images.unsplash.com/photo-1530549387789-4c1017266635?w=900',
+        '/images/meal-1530549387789-4c1017266635.jpg',
     },
     {
       title: 'Утренний ритуал',
       description: 'Заряд энергии',
       text: 'Утренняя зарядка запускает обмен веществ и даёт энергию на весь день.',
       image:
-        'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=900',
+        '/images/meal-1534438327276-14e5300c3a48.jpg',
     },
   ],
   nutritionData: {

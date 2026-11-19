@@ -139,6 +139,27 @@ build_open_wearables() {
 	OW_UPSTREAM_SHA=$(git -C /tmp/open-wearables rev-parse HEAD)
 	echo "Open Wearables upstream: ${OPEN_WEARABLES_REF} (${OW_UPSTREAM_SHA})"
 
+	# Harden the upstream backend image before building: patch OS packages and
+	# upgrade the Python libraries that Trivy flags with an available fix
+	# (dnspython>=2.9.2, urllib3>=2.5, msgpack, pyasn1, setuptools, tornado,
+	# opentelemetry-api). The block is appended to the FINAL stage of the
+	# upstream Dockerfile so it runs on top of whatever base/user upstream chose;
+	# k8s forces runAsUser:10001 at runtime regardless of the image default.
+	# apt is guarded (no-op on non-Debian bases) and pip is best-effort so a
+	# flaky mirror never breaks the whole image build. python-jose and
+	# python-ecdsa have no fixed release (deprecated) — left as-is; the image
+	# scan excludes unfixed CVEs via `ignore-unfixed: true`.
+	cat >>/tmp/open-wearables/backend/Dockerfile <<'HARDEN'
+
+USER root
+RUN if command -v apt-get >/dev/null 2>&1; then \
+        apt-get update && apt-get upgrade -y && rm -rf /var/lib/apt/lists/*; \
+    fi \
+    && (python -m pip install --no-cache-dir --upgrade \
+        "dnspython>=2.9.2" "urllib3>=2.5" msgpack pyasn1 setuptools tornado opentelemetry-api \
+        || true)
+HARDEN
+
 	SHA=$(git rev-parse --short HEAD)
 	pids=()
 	names=()

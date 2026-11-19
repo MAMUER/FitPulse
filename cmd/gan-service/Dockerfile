@@ -23,6 +23,11 @@ RUN --mount=type=cache,target=/go/pkg/mod \
 
 FROM python:3.14-slim
 
+# hadolint ignore=DL3008
+RUN apt-get update \
+    && apt-get upgrade -y \
+    && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 
 COPY cmd/gan-service/requirements.txt /tmp/requirements.txt

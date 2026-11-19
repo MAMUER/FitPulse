@@ -1099,6 +1099,15 @@ jobs:
           format: sarif
           output: trivy-image.sarif
           severity: CRITICAL,HIGH
+          # Без этого SARIF содержал ВСЕ severity (сотни Low/Medium OS-CVE из
+          # базовых образов open-wearables-backend/ml-generator: glibc, krb5,
+          # openldap, systemd, util-linux, perl…), и code-scanning заваливало
+          # ~892 алертами. Ограничиваем SARIF только CRITICAL/HIGH — как в
+          # scan-trivy-fs (строка с limit-severities-for-sarif выше).
+          limit-severities-for-sarif: "true"
+          # Пропускаем CVE без доступного фикса (большинство Low в базовых
+          # образах не имеют апстрим-исправления и не эксплуатируемы в контейнере).
+          ignore-unfixed: true
           exit-code: "0"
           scanners: "vuln,secret"
         env:

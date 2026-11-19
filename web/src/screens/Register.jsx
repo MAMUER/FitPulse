@@ -89,7 +89,7 @@ export default function Register() {
       </label>
       <p className='medical-disclaimer'>
         {t(
-          'Это не медицинский совет. При заболеваниях или травмах consult врача.',
+          'Это не медицинский совет. При заболеваниях или травмах проконсультируйтесь с врачом.',
           'This is not medical advice. Consult a doctor if you have medical conditions or injuries.'
         )}
       </p>

@@ -112,45 +112,47 @@ export default function Calendar() {
         </div>
       ))}
 
-      <section className='card'>
-        <MonthSwitcher
-          label={`${getMonthName(monthIndex)} ${year}`}
-          onPrev={() => changeCalendar(-1)}
-          onNext={() => changeCalendar(1)}
-        />
-        <div className='week' style={{ marginTop: 10 }}>
-          {weekDays.map((day) => (
-            <div className='day' key={day} style={{ fontSize: 8 }}>
-              {day}
-            </div>
-          ))}
-        </div>
-        <div className='month' style={{ marginTop: 8 }}>
-          {Array.from({ length: startOffset }, (_, index) => (
-            <span className='muted' key={`empty-${index}`} />
-          ))}
-          {Array.from({ length: daysInMonth }, (_, index) => {
-            const day = index + 1;
-            const hasEvent = (monthEventsByDay[day] || []).length > 0;
-            const isToday =
-              day === today.getDate() &&
-              monthIndex === today.getMonth() &&
-              year === today.getFullYear();
-            return (
-              <button
-                type='button'
-                key={day}
-                className={`${hasEvent ? 'has-event' : ''} ${
-                  isToday ? 'active' : ''
-                } ${selectedDay === day ? 'selected' : ''}`}
-                onClick={() => selectCalendarDay(day)}
-              >
+      {!state.calendarOpen && (
+        <section className='card'>
+          <MonthSwitcher
+            label={`${getMonthName(monthIndex)} ${year}`}
+            onPrev={() => changeCalendar(-1)}
+            onNext={() => changeCalendar(1)}
+          />
+          <div className='week' style={{ marginTop: 10 }}>
+            {weekDays.map((day) => (
+              <div className='day' key={day} style={{ fontSize: 8 }}>
                 {day}
-              </button>
-            );
-          })}
-        </div>
-      </section>
+              </div>
+            ))}
+          </div>
+          <div className='month' style={{ marginTop: 8 }}>
+            {Array.from({ length: startOffset }, (_, index) => (
+              <span className='muted' key={`empty-${index}`} />
+            ))}
+            {Array.from({ length: daysInMonth }, (_, index) => {
+              const day = index + 1;
+              const hasEvent = (monthEventsByDay[day] || []).length > 0;
+              const isToday =
+                day === today.getDate() &&
+                monthIndex === today.getMonth() &&
+                year === today.getFullYear();
+              return (
+                <button
+                  type='button'
+                  key={day}
+                  className={`${hasEvent ? 'has-event' : ''} ${
+                    isToday ? 'active' : ''
+                  } ${selectedDay === day ? 'selected' : ''}`}
+                  onClick={() => selectCalendarDay(day)}
+                >
+                  {day}
+                </button>
+              );
+            })}
+          </div>
+        </section>
+      )}
 
       {state.calendarOpen && (
         <section className='fp-calendar-page'>

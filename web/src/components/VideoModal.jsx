@@ -50,17 +50,21 @@ export default function VideoModal({ videos, index, onChange, onClose }) {
           type='button'
           className='primary full'
           style={{ marginTop: 14 }}
-          onClick={() =>
+          onClick={() => {
+            if (video.video_url || video.videoUrl) {
+              window.open(video.video_url || video.videoUrl, '_blank', 'noopener');
+              return;
+            }
             notify(
               t(
-                'Видео-плеер подключается через внешний сервис.',
-                'The video player is provided by an external service.'
+                'Видео пока недоступно: у ролика не задан источник. Видео-уроки подключаются через backend/API.',
+                'Video is unavailable: this lesson has no source. Video lessons are provided through the backend/API.'
               )
-            )
-          }
+            );
+          }}
         >
           <i className='fas fa-play' />{' '}
-          {t('Подключиться к видео', 'Connect to video')}
+          {t('Открыть видео', 'Open video')}
         </button>
         <div className='fp-video-actions'>
           <button

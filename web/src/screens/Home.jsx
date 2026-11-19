@@ -92,6 +92,59 @@ export default function Home() {
   const calendarEvents = state.calendarEvents || {};
   const today = now.getDate();
 
+  // Реальные значения из подключённого устройства (state.biometrics), а не
+  // заглушки. Если данных нет — показываем «—», а не выдуманные числа.
+  const bioRecords = state.biometrics || [];
+  const recordType = (r) =>
+    String(r.metric_type ?? r.metricType ?? r.type ?? '').toLowerCase();
+  const recordValue = (r) => {
+    const v = r.value ?? r.Value;
+    return typeof v === 'number' ? v : Number.parseFloat(v);
+  };
+  const recordTime = (r) => {
+    const raw = r.timestamp ?? r.measured_at ?? r.date ?? r.Timestamp;
+    const ms = raw ? new Date(raw).getTime() : 0;
+    return Number.isFinite(ms) ? ms : 0;
+  };
+  const latestOf = (...types) => {
+    let best = null;
+    let bestTime = -1;
+    for (const r of bioRecords) {
+      const rt = recordType(r);
+      if (!types.some((tt) => rt === tt || rt.includes(tt))) continue;
+      const tm = recordTime(r);
+      if (tm >= bestTime) {
+        bestTime = tm;
+        best = recordValue(r);
+      }
+    }
+    return best;
+  };
+  const fmt = (v, digits = 0) => {
+    if (v == null || Number.isNaN(v)) return '—';
+    const s = Number(v).toFixed(digits);
+    return s.replace(/\.0+$/, '');
+  };
+  const metricValue = (key) => {
+    switch (key) {
+      case 'pulse':
+        return fmt(latestOf('heart_rate', 'heart', 'pulse'));
+      case 'sleep':
+        return fmt(latestOf('sleep', 'sleep_hours'), 1);
+      case 'oxygen':
+        return fmt(latestOf('spo2', 'oxygen'));
+      case 'stress':
+        return fmt(latestOf('stress'));
+      default:
+        return '—';
+    }
+  };
+  const stepsVal = fmt(latestOf('steps', 'step_count', 'шаги'));
+  const kcalVal = fmt(latestOf('calories', 'kcal', 'calories_burned'));
+  const sleepVal = fmt(latestOf('sleep', 'sleep_hours'), 1);
+  const workoutMinVal =
+    state.trainingMinutes != null ? fmt(state.trainingMinutes) : '—';
+
   const scrollStories = (direction) => {
     storyStrip.current?.scrollBy({
       left: direction * 180,
@@ -252,7 +305,7 @@ export default function Home() {
             onClick={() => openMetric(metric.key)}
           >
             <i className={`fas ${metric.icon}`} />
-            <strong>{metric.value}</strong>
+            <strong>{metricValue(metric.key)}</strong>
             <small>
               {Array.isArray(metric.unit) ? t(...metric.unit) : metric.unit}
             </small>
@@ -315,24 +368,24 @@ export default function Home() {
       </div>
       <section className='card'>
         <div className='activity-chart'>
-          <strong>68%</strong>
+          <strong>{stepsVal}</strong>
         </div>
         <div className='legend'>
           <span>
-            <i className='fas fa-circle' style={{ color: 'var(--green)' }} />8
-            421 {t('шаг', 'steps')}
+            <i className='fas fa-circle' style={{ color: 'var(--green)' }} />
+            {stepsVal} {t('шаг', 'steps')}
           </span>
           <span>
-            <i className='fas fa-circle' style={{ color: 'var(--blue)' }} />1
-            680 {t('ккал', 'kcal')}
+            <i className='fas fa-circle' style={{ color: 'var(--blue)' }} />
+            {kcalVal} {t('ккал', 'kcal')}
           </span>
           <span>
             <i className='fas fa-circle' style={{ color: 'var(--orange)' }} />
-            42 {t('мин тренировки', 'min workout')}
+            {workoutMinVal} {t('мин тренировки', 'min workout')}
           </span>
           <span>
             <i className='fas fa-circle' style={{ color: 'var(--purple)' }} />
-            7.2 {t('ч сна', 'h sleep')}
+            {sleepVal} {t('ч сна', 'h sleep')}
           </span>
         </div>
       </section>

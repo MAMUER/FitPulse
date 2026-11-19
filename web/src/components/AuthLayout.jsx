@@ -8,7 +8,7 @@ export default function AuthLayout({ children }) {
       <div className='auth-brand'>
         <img
           className='auth-logo'
-          src='https://uploads.onecompiler.io/44temhxkf/1785230799105/fit%20pulse.jpg'
+          src='/images/logo.jpg'
           alt='FitPulse'
         />
         <h1>FitPulse</h1>

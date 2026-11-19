@@ -1,8 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useApp } from '../contexts/AppContext';
 
-const AI_LOGO_URL =
-  'https://uploads.onecompiler.io/44temhxkf/1785230795002/fitai.jpg';
+const AI_LOGO_URL = '/images/ai.jpg';
 
 export default function Ai() {
   const { state, t, sendAI, quickAI } = useApp();

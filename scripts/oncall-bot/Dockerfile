@@ -1,6 +1,11 @@
 FROM python:3.14-slim
 
-RUN groupadd -r -g 1000 appgroup && useradd -r -u 1000 -g appgroup -d /app -s /sbin/nologin appuser
+# hadolint ignore=DL3008
+RUN apt-get update \
+    && apt-get upgrade -y \
+    && rm -rf /var/lib/apt/lists/* \
+    && groupadd -r -g 1000 appgroup \
+    && useradd -r -u 1000 -g appgroup -d /app -s /sbin/nologin appuser
 
 WORKDIR /app
 COPY main.py .

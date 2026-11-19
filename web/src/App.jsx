@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import Modal from './components/Modal';
 import { useApp } from './contexts/AppContext';
@@ -24,6 +25,7 @@ import Videos from './screens/Videos';
 
 function TabBar() {
   const { state, t, go } = useApp();
+  const [moreOpen, setMoreOpen] = useState(false);
   const tabs = [
     { key: 'home', label: t('Главная', 'Home'), icon: 'fas fa-house' },
     {
@@ -32,41 +34,105 @@ function TabBar() {
       icon: 'fas fa-utensils',
     },
     {
-      key: 'calendar',
-      label: t('Календарь', 'Calendar'),
-      icon: 'fas fa-calendar-alt',
-    },
-    {
       key: 'training',
       label: t('Тренировки', 'Training'),
       icon: 'fas fa-dumbbell',
     },
     { key: 'ai', label: 'AI', icon: 'fas fa-robot' },
     {
+      key: 'calendar',
+      label: t('Календарь', 'Calendar'),
+      icon: 'fas fa-calendar-alt',
+    },
+  ];
+  // Дополнительные экраны, которые не помещаются в нижнюю панель, доступны
+  // через меню «Ещё». Раньше их не было в навигации вообще — до менструации и
+  // интеграций (OpenWearables) нельзя было дойти.
+  const moreItems = [
+    {
+      key: 'body',
+      label: t('Тело', 'Body'),
+      icon: 'fas fa-heart-pulse',
+    },
+    {
+      key: 'menstrual',
+      label: t('Цикл', 'Cycle'),
+      icon: 'fas fa-droplet',
+    },
+    {
+      key: 'integrations',
+      label: t('Устройства', 'Devices'),
+      icon: 'fas fa-watch',
+    },
+    {
+      key: 'videos',
+      label: t('Видео', 'Videos'),
+      icon: 'fas fa-video',
+    },
+    {
+      key: 'profile',
+      label: t('Профиль', 'Profile'),
+      icon: 'fas fa-user',
+    },
+    {
       key: 'chat',
       label: t('Чат', 'Chat'),
       icon: 'fas fa-comments',
-      chatOnly: true,
     },
   ];
-  const visibleTabs = tabs.filter(
-    (tab) =>
-      !tab.chatOnly || state.screen === 'chat' || state.screen === 'chatDetail'
-  );
+  const isMoreActive = moreItems.some((item) => state.screen === item.key);
+
+  const goTo = (key) => {
+    setMoreOpen(false);
+    go(key);
+  };
 
   return (
     <nav className='bottom-nav'>
-      {visibleTabs.map((tab) => (
+      {tabs.map((tab) => (
         <button
           type='button'
           key={tab.key}
           className={`nav${state.screen === tab.key ? ' active' : ''}`}
-          onClick={() => go(tab.key)}
+          onClick={() => goTo(tab.key)}
         >
           <i className={tab.icon}></i>
           <span>{tab.label}</span>
         </button>
       ))}
+      <button
+        type='button'
+        className={`nav${isMoreActive ? ' active' : ''}`}
+        aria-expanded={moreOpen}
+        onClick={() => setMoreOpen((open) => !open)}
+      >
+        <i className='fas fa-ellipsis-h'></i>
+        <span>{t('Ещё', 'More')}</span>
+      </button>
+      {moreOpen && (
+        <>
+          <button
+            type='button'
+            aria-hidden='true'
+            tabIndex={-1}
+            className='fp-nav-backdrop'
+            onClick={() => setMoreOpen(false)}
+          />
+          <div className='fp-nav-more-menu'>
+            {moreItems.map((item) => (
+              <button
+                type='button'
+                key={item.key}
+                className={state.screen === item.key ? 'active' : ''}
+                onClick={() => goTo(item.key)}
+              >
+                <i className={item.icon}></i>
+                <span>{item.label}</span>
+              </button>
+            ))}
+          </div>
+        </>
+      )}
     </nav>
   );
 }

@@ -39,17 +39,24 @@ func (g *gateway) chatHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	answer := chat.FindAnswer(req.Message)
+	answer, menu := chat.Respond(req.Message)
 
-	w.Header().Set(headerContentType, contentTypeJSON)
-	w.WriteHeader(http.StatusOK)
-	if err := json.NewEncoder(w).Encode(map[string]interface{}{
+	resp := map[string]interface{}{
 		"status":    "ok",
 		"message":   req.Message,
 		"answer":    answer,
 		"user_id":   userID,
 		"timestamp": time.Now().Unix(),
-	}); err != nil {
+	}
+	// When the user asked for a menu, attach the generated day plan so the
+	// frontend renders a structured "План питания" block (see web useAI.js).
+	if menu != nil {
+		resp["diet"] = menu
+	}
+
+	w.Header().Set(headerContentType, contentTypeJSON)
+	w.WriteHeader(http.StatusOK)
+	if err := json.NewEncoder(w).Encode(resp); err != nil {
 		g.log.Error("Failed to encode chat response", zap.Error(err))
 	}
 }

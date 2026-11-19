@@ -52,10 +52,23 @@ export default function Nutrition() {
     fats: 0,
     carbs: 0,
   };
-  const percentage = data.goal
-    ? Math.min(100, Math.round((data.calories / data.goal) * 100))
-    : 0;
   const diary = state.mealsList || [];
+  // Реальные значения: потреблённые калории считаем из дневника (mealsList),
+  // цель — из профиля (goalCalories), с fallback на цель из плана.
+  const consumedCalories = diary.reduce(
+    (sum, entry) => sum + (Number(entry.calories) || 0),
+    0
+  );
+  const goalCalories =
+    Number(state.profile?.goalCalories) ||
+    Number(state.survey?.goalCalories) ||
+    data.goal ||
+    0;
+  const displayCalories = period === 'day' ? consumedCalories : data.calories;
+  const displayGoal = goalCalories || data.goal;
+  const percentage = displayGoal
+    ? Math.min(100, Math.round((displayCalories / displayGoal) * 100))
+    : 0;
   const selectedMealSlot = state.selectedMeal;
   const selectedMealData = selectedMealSlot
     ? { ...FALLBACK_MEAL, ...meals[selectedMealSlot] }
@@ -131,7 +144,7 @@ export default function Nutrition() {
           {t('Персональные настройки', 'Personal settings')}
         </button>
         <button type='button' className='chip'>
-          {data.goal || 2350} {t('ккал', 'kcal')}
+          {displayGoal || '—'} {t('ккал', 'kcal')}
         </button>
       </div>
 
@@ -156,13 +169,13 @@ export default function Nutrition() {
         <div className='fp-main-number'>
           <div>
             <strong>
-              {Number(data.calories || 0).toLocaleString('ru-RU')}
+              {Number(displayCalories || 0).toLocaleString('ru-RU')}
             </strong>
             <small>{t('ккал в периоде', 'kcal in period')}</small>
           </div>
           <small>
             {t('цель', 'goal')}:{' '}
-            {Number(data.goal || 0).toLocaleString('ru-RU')} {t('ккал', 'kcal')}
+            {Number(displayGoal || 0).toLocaleString('ru-RU')} {t('ккал', 'kcal')}
           </small>
         </div>
         <div className='fp-progress-line'>

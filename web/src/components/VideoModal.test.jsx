@@ -95,9 +95,9 @@ describe('VideoModal', () => {
         onClose={vi.fn()}
       />
     );
-    fireEvent.click(screen.getByText('Подключиться к видео'));
+    fireEvent.click(screen.getByText('Открыть видео'));
     expect(notify).toHaveBeenCalledWith(
-      'Видео-плеер подключается через внешний сервис.'
+      expect.stringContaining('Видео пока недоступно')
     );
   });
 

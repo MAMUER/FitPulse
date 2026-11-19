@@ -84,8 +84,16 @@ export default function Training() {
     minutes: 0,
     workouts: [],
   };
-  const percentage = data.goal
-    ? Math.round((data.completed / data.goal) * 100)
+  // Реальные значения из состояния (обновляются при завершении тренировок),
+  // а не статичные демо-числа из trainingData.
+  const completedCount = (state.completedWorkouts || []).length;
+  const goalCount = data.goal || 3;
+  const realCalories = state.caloriesBurned || 0;
+  const realMinutes = state.trainingMinutes || 0;
+  const workoutNames =
+    (data.workouts?.length ? data.workouts : state.completedWorkouts) || [];
+  const percentage = goalCount
+    ? Math.min(100, Math.round((completedCount / goalCount) * 100))
     : 0;
   const completedWorkouts = state.completedWorkouts || [];
   const exercises = customExercises || [];
@@ -143,12 +151,12 @@ export default function Training() {
         <div className='fp-main-number'>
           <div>
             <strong>
-              {data.completed}/{data.goal}
+              {completedCount}/{goalCount}
             </strong>
             <small>{t('выполнено тренировок', 'workouts completed')}</small>
           </div>
           <small>
-            {data.calories} {t('ккал', 'kcal')}
+            {realCalories} {t('ккал', 'kcal')}
           </small>
         </div>
         <div className='fp-progress-line'>
@@ -156,44 +164,46 @@ export default function Training() {
         </div>
         <div className='fp-stats'>
           <div className='fp-stat'>
-            <strong>{data.minutes}</strong>
+            <strong>{realMinutes}</strong>
             <small>{t('минут', 'minutes')}</small>
           </div>
           <div className='fp-stat'>
-            <strong>{data.calories}</strong>
+            <strong>{realCalories}</strong>
             <small>{t('ккал', 'kcal')}</small>
           </div>
           <div className='fp-stat'>
-            <strong>{data.goal}</strong>
+            <strong>{goalCount}</strong>
             <small>{t('цель', 'goal')}</small>
           </div>
         </div>
         <div className='fp-training-list'>
-          {(data.workouts || []).map((workout, index) => (
+          {workoutNames.map((workout, index) => (
             <div className='fp-training-item' key={`${workout}-${index}`}>
               <i
                 className={`fas ${
-                  index < data.completed ? 'fa-circle-check' : 'fa-circle'
+                  index < completedCount ? 'fa-circle-check' : 'fa-circle'
                 }`}
               />
               <div>
                 <strong>{workout}</strong>
                 <small>
-                  {index < data.completed
+                  {index < completedCount
                     ? t('Выполнено', 'Completed')
                     : t('Запланировано', 'Scheduled')}
                 </small>
               </div>
-              {index < data.completed ? <span>+40 XP</span> : null}
+              {index < completedCount ? <span>+40 XP</span> : null}
             </div>
           ))}
         </div>
       </section>
 
-      <div className='section'>
-        <h3>{t('Мой план', 'My plan')}</h3>
-      </div>
-      {WORKOUTS.map((workout) => {
+      {plans.length === 0 && (
+        <>
+          <div className='section'>
+            <h3>{t('Пример тренировок', 'Example workouts')}</h3>
+          </div>
+          {WORKOUTS.map((workout) => {
         const title = t(...workout.title);
         const completed = completedWorkouts.includes(title);
         const open = state.selectedWorkout === workout.id;
@@ -273,6 +283,8 @@ export default function Training() {
           </article>
         );
       })}
+        </>
+      )}
 
       {plans.length > 0 && (
         <>

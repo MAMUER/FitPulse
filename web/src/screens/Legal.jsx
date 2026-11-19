@@ -81,6 +81,98 @@ FitPulse («мы», «наша», «наш») — это открытая пла
 10. Контакты
 По вопросам конфиденциальности: mihnikolaenko12@yandex.ru`;
 
+const CONSENT = `Согласие на обработку персональных данных — FitPulse
+
+Дата последнего обновления: 2026-07-29
+
+1. Общие положения
+Настоящее Согласие регулирует обработку персональных данных, которые вы предоставляете FitPulse («мы», «наш») при использовании сервиса. Действует совместно с Политикой конфиденциальности и Пользовательским соглашением.
+
+2. Какие данные обрабатываются
+2.1 Данные учётной записи
+- Адрес электронной почты (для входа и восстановления доступа)
+- Имя пользователя и отображаемое имя
+- Хеш пароля (Argon2id, не хранится в открытом виде)
+
+2.2 Данные о здоровье и активности (специальные категории)
+- Биометрические показатели: пульс, SpO2, шаги, калории, сон
+- Данные тренировок: упражнения, подходы, повторения, веса
+- Данные о менструальном цикле (при наличии)
+- Сведения о состоянии здоровья, заболеваниях, травмах, противопоказаниях
+
+2.3 Технические данные
+- IP-адрес (для ограничения частоты запросов и безопасности)
+- Журналы запросов API (с обезличиванием входных данных)
+
+3. Правовые основания
+Обработка специальных категорий персональных данных (сведения о здоровье и менструальном цикле) осуществляется на основании вашего явного согласия (GDPR ст. 9, 152-ФЗ) и только в объёме, необходимом для предоставления сервиса.
+
+4. Цели обработки
+- Идентификация и управление сессиями
+- Синхронизация данных между устройствами и сервисами
+- Подбор персонализированных планов питания и тренировок
+- Аналитика в обезличенном виде
+
+5. Хранение и защита
+- Данные хранятся в PostgreSQL с шифрованием AES-256-GCM (pgsodium)
+- Резервные копии шифруются AES-256-CBC и хранятся 7 дней
+- Сведения о здоровье хранятся до удаления учётной записи
+
+6. Ваши права
+Вы вправе в любой момент отозвать настоящее Согласие, удалив соответствующие данные в разделе «Профиль» или запросив удаление учётной записи. Отзыв согласия не влияет на правомерность обработки до момента отзыва.
+
+7. Несовершеннолетние
+Сервис не предназначен для пользователей младше 13 лет. Данные несовершеннолетних не собираются.
+
+8. Контакты
+По вопросам обработки персональных данных: mihnikolaenko12@yandex.ru`;
+
+const CONSENT_EN = `Personal Data Processing Consent — FitPulse
+
+Last updated: 2026-07-29
+
+1. General provisions
+This Consent governs the processing of personal data that you provide to FitPulse ("we", "our") when using the service. It operates together with the Privacy Policy and the Terms of Use.
+
+2. What data is processed
+2.1 Account data
+- Email address (for login and account recovery)
+- Username and display name
+- Password hash (Argon2id, never stored in plain text)
+
+2.2 Health and activity data (special categories)
+- Biometric metrics: heart rate, SpO2, steps, calories, sleep
+- Workout data: exercises, sets, reps, weights
+- Menstrual cycle data (if provided)
+- Health conditions, illnesses, injuries, contraindications
+
+2.3 Technical data
+- IP address (for rate limiting and security)
+- API request logs (with sanitized input)
+
+3. Legal basis
+Processing of special categories of personal data (health and menstrual cycle) is carried out on the basis of your explicit consent (GDPR Art. 9, 152-FZ) and only to the extent necessary to provide the service.
+
+4. Purposes of processing
+- Identification and session management
+- Data synchronization between devices and services
+- Personalized nutrition and training plans
+- Anonymized analytics
+
+5. Storage and protection
+- Data is stored in PostgreSQL with AES-256-GCM encryption (pgsodium)
+- Backups are encrypted with AES-256-CBC and kept for 7 days
+- Health data is stored until account deletion
+
+6. Your rights
+You may withdraw this Consent at any time by deleting the relevant data in the "Profile" section or by requesting account deletion. Withdrawal does not affect the lawfulness of processing before the withdrawal.
+
+7. Minors
+The service is not intended for users under 13. Data of minors is not collected.
+
+8. Contacts
+For personal data processing questions: mihnikolaenko12@yandex.ru`;
+
 const TERMS = `Пользовательское соглашение — FitPulse
 
 Дата последнего обновления: 2026-07-29
@@ -306,10 +398,7 @@ export default function Legal() {
   if (kind === 'terms') {
     body = t(TERMS, TERMS_EN);
   } else if (kind === 'consent') {
-    body = t(
-      'Согласие на обработку персональных данных.',
-      'Personal Data Processing Consent.'
-    );
+    body = t(CONSENT, CONSENT_EN);
   } else {
     body = t(PRIVACY, PRIVACY_EN);
   }
