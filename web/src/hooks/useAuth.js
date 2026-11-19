@@ -36,33 +36,56 @@ export function useAuth({ state, update, notify }) {
     void navigate('/login');
   }, [update, navigate]);
 
-  const doRegister = useCallback(() => {
+  const doRegister = useCallback(async () => {
     const email = document.getElementById('regEmail')?.value.trim();
     const pass = document.getElementById('regPassword')?.value;
     const confirm = document.getElementById('regConfirm')?.value;
-    try {
-      api.register(email, pass, confirm);
-    } catch (e) {
-      notify(e.message);
+    const fullName =
+      document.getElementById('regName')?.value.trim() ||
+      email?.split('@')[0] ||
+      '';
+    if (!email || !pass || !confirm) {
+      notify('Заполните все поля');
+      return;
+    }
+    if (pass !== confirm) {
+      notify('Пароли не совпадают');
+      return;
+    }
+    if (pass.length < 6) {
+      notify('Пароль должен содержать минимум 6 символов');
       return;
     }
     if (!document.getElementById('regConsent')?.checked) {
       notify('Подтвердите согласие с документами.');
       return;
     }
-    update({
-      guest: false,
-      registrationData: { email, password: pass, confirm, code: '' },
-      profile: { ...state.profile, email },
-      registered: true,
-      screen: 'login',
-    });
-    notify('Регистрация успешна. Проверьте email для подтверждения.');
-  }, [state.profile, update, notify]);
+    try {
+      const data = await api.register(email, pass, fullName);
+      if (data?.status !== 'ok') {
+        notify(data?.message || 'Ошибка регистрации');
+        return;
+      }
+      update({
+        guest: false,
+        registrationData: { email, password: pass, confirm, code: '' },
+        profile: { ...state.profile, email },
+        screen: 'login',
+      });
+      void navigate('/login');
+      notify(
+        data?.message ||
+          'Регистрация успешна. Проверьте email для подтверждения.'
+      );
+    } catch (e) {
+      notify(e?.message || 'Ошибка регистрации');
+    }
+  }, [state.profile, update, notify, navigate]);
 
-  const forgotPassword = useCallback(async () => {
+  const forgotPassword = useCallback(() => {
     update({ screen: 'reset', resetStep: 0 });
-  }, [update]);
+    void navigate('/reset');
+  }, [update, navigate]);
 
   const submitResetEmail = useCallback(async () => {
     const email = document.getElementById('resetEmail')?.value.trim();
@@ -125,6 +148,10 @@ export function useAuth({ state, update, notify }) {
 
   const socialLogin = useCallback(
     (provider) => {
+      // OAuth-провайдеры (Yandex) требуют настроенного на бэкенде приложения и
+      // публичного HTTPS-домена. На локальном стенде без конфигурации переход
+      // привёл бы к ошибке «Yandex OAuth not configured», поэтому показываем
+      // понятное сообщение вместо сломанного редиректа.
       try {
         const result = api.socialLogin(provider);
         if (result.redirect) {
@@ -133,7 +160,13 @@ export function useAuth({ state, update, notify }) {
         }
       } catch (e) {
         notify(e.message);
+        return;
       }
+      notify(
+        provider === 'yandex'
+          ? 'Вход через Яндекс пока не настроен на этом сервере.'
+          : 'Этот способ входа пока не настроен.'
+      );
     },
     [notify]
   );

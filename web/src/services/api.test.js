@@ -17,7 +17,7 @@ describe('auth', () => {
     await expect(api.login('user@example.com', 'secret1')).resolves.toEqual({
       token: 'abc',
     });
-    expect(mocked).toHaveBeenCalledWith('/api/v1/auth/login', {
+    expect(mocked).toHaveBeenCalledWith('/api/v1/login', {
       method: 'POST',
       body: JSON.stringify({ email: 'user@example.com', password: 'secret1' }),
     });
@@ -39,36 +39,47 @@ describe('auth', () => {
     await expect(api.logout()).resolves.toBeUndefined();
   });
 
-  it('register validates fields', () => {
-    expect(api.register('a@b.com', 'secret1', 'secret1')).toEqual({
-      email: 'a@b.com',
-      password: 'secret1',
-      confirm: 'secret1',
+  it('register posts and returns data', async () => {
+    mocked.mockResolvedValue({ status: 'ok' });
+    await expect(
+      api.register('a@b.com', 'secret1', 'Alice')
+    ).resolves.toEqual({ status: 'ok' });
+    expect(mocked).toHaveBeenCalledWith('/api/v1/register', {
+      method: 'POST',
+      body: JSON.stringify({
+        email: 'a@b.com',
+        password: 'secret1',
+        full_name: 'Alice',
+        role: 'client',
+      }),
     });
-    expect(() => api.register('', 'secret1', 'secret1')).toThrow(
+  });
+
+  it('register validates fields', async () => {
+    await expect(api.register('', 'secret1', 'Alice')).rejects.toThrow(
       'Заполните все поля'
     );
-    expect(() => api.register('a@b.com', '', 'secret1')).toThrow(
+    await expect(api.register('a@b.com', '', 'Alice')).rejects.toThrow(
       'Заполните все поля'
     );
-    expect(() => api.register('a@b.com', 'secret1', '')).toThrow(
+    await expect(api.register('a@b.com', 'secret1', '')).rejects.toThrow(
       'Заполните все поля'
     );
-    expect(() => api.register('a@b.com', 'secret1', 'secret2')).toThrow(
-      'Пароли не совпадают'
-    );
-    expect(() => api.register('a@b.com', '12345', '12345')).toThrow(
+    await expect(api.register('a@b.com', '12345', 'Alice')).rejects.toThrow(
       'Пароль должен содержать минимум 6 символов'
     );
     expect(mocked).not.toHaveBeenCalled();
   });
 
-  it('register accepts a six character password', () => {
-    expect(api.register('a@b.com', '123456', '123456')).toEqual({
-      email: 'a@b.com',
-      password: '123456',
-      confirm: '123456',
-    });
+  it('register accepts a six character password', async () => {
+    mocked.mockResolvedValue({ status: 'ok' });
+    await expect(
+      api.register('a@b.com', '123456', 'Alice')
+    ).resolves.toEqual({ status: 'ok' });
+    expect(mocked).toHaveBeenCalledWith(
+      '/api/v1/register',
+      expect.objectContaining({ method: 'POST' })
+    );
   });
 
   it('forgotPassword validates email', () => {

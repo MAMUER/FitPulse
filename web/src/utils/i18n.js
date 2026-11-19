@@ -224,7 +224,7 @@ const EN_TEXT = {
   Сообщение: 'Message',
   'Напишите сообщение...': 'Write a message...',
   'Пользовательское соглашение': 'Terms of Use',
-  'соглашение об использовании персональных данных': 'Personal Data Agreement',
+  'Соглашение об использовании персональных данных': 'Personal Data Agreement',
   и: 'and',
   'Персональные данные': 'Personal Data',
   Сменить: 'Switch',
@@ -272,8 +272,29 @@ const EN_TEXT = {
   Повторить: 'Retry',
 };
 
+// Язык интерфейса хранится в React-state (AppContext), а не читается из
+// localStorage на каждом рендере. Раньe `t()` дёргал `getSavedLanguage()` из
+// localStorage, что приводило к тому, что язык «прыгал» после любого клика
+// (любой update → save() перезаписывал localStorage, и `t()` видел устаревшее
+// значение). Теперь AppContext проталкивает актуальный язык сюда через
+// `setLanguage`, а `t()` читает синхронную переменную.
+let currentLang = 'ru';
+
+export function setLanguage(lang) {
+  currentLang = lang === 'en' ? 'en' : 'ru';
+  try {
+    localStorage.setItem('fitpulse_lang', currentLang);
+  } catch {
+    // localStorage может быть недоступен — не критично
+  }
+}
+
+export function getLanguage() {
+  return currentLang;
+}
+
 export function t(ru, _en) {
-  return getSavedLanguage() === 'en' ? _en : ru;
+  return currentLang === 'en' ? _en : ru;
 }
 
 function getSavedLanguage() {
@@ -295,10 +316,6 @@ function getSavedLanguage() {
 export function getMonthName(index, language) {
   if (language === 'en') return MONTHS_EN[index] || '';
   return MONTHS_RU[index] || '';
-}
-
-export function setLanguage(lang) {
-  localStorage.setItem('fitpulse_lang', lang);
 }
 
 export { EN_TEXT, MONTHS_EN, MONTHS_RU };

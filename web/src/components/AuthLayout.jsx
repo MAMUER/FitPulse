@@ -7,7 +7,7 @@ export default function AuthLayout({ children }) {
     <section className='auth'>
       <div className='auth-brand'>
         <img
-          className='splash-logo'
+          className='auth-logo'
           src='https://uploads.onecompiler.io/44temhxkf/1785230799105/fit%20pulse.jpg'
           alt='FitPulse'
         />

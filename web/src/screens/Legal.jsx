@@ -139,6 +139,144 @@ FitPulse предоставляется «как есть» без гарант�
 11. Контакты
 По вопросам, связанным с условиями: mihnikolaenko12@yandex.ru`;
 
+const PRIVACY_EN = `Privacy Policy — FitPulse
+
+Last updated: 2026-07-29
+
+1. General provisions
+FitPulse ("we", "our") is an open platform for fitness and health tracking. This Privacy Policy describes how we collect, use, store and protect your data when you use the service.
+
+2. What data we collect
+2.1 Account data
+- Email address (for authentication and account recovery)
+- Username and display name
+- Password hash (Argon2id, never stored in plain text)
+
+2.2 Health and activity data
+- Biometric metrics: heart rate, SpO2, steps, calories, sleep
+- Device information: device type, model, sync time
+- Workout data: exercises, sets, reps, weights
+
+2.3 OAuth data (when using Yandex ID)
+- Yandex account identifier (yandex_id from userinfo)
+- Email address (from Yandex ID)
+- Basic profile information (name, photo URL)
+
+2.4 Technical data
+- IP address (for rate limiting and security)
+- User-Agent (for analytics)
+- API request logs (structured logs with sanitized input)
+- TLS connection metadata (SNI, cipher)
+
+3. How we use your data
+- Authentication: identity verification, session management
+- Service delivery: data sync between devices and services
+- Analytics: aggregated statistics without personal identification
+- Security: detection and prevention of violations and fraud
+- Notifications: service messages (with user consent)
+
+3.1 Special categories of data
+- Health information (conditions, symptoms, allergies, contraindications) and menstrual cycle data are special categories of personal data under GDPR Art. 9 and 152-FZ.
+- Processing of this data is carried out only with your explicit consent.
+- You can withdraw consent at any time by deleting the relevant data in the "Profile" section or by requesting account deletion.
+
+4. Storage and retention
+- Database: PostgreSQL with AES-256-GCM encryption (pgsodium)
+- Backups: encrypted with AES-256-CBC, stored for 7 days
+- Retention period: health data is stored until account deletion is requested
+- Anonymization: after account deletion, data is pseudonymized within 30 days
+
+5. Data protection
+We use industry-standard security measures:
+- TLS 1.3 for all external connections
+- Argon2id password hashing (64 MB memory, 3 iterations, parallelism 1)
+- AES-256-GCM encryption for sensitive medical data
+- mTLS for internal communication between services
+- Rate limiting and WAF (ModSecurity + OWASP CRS v4)
+
+6. Data sharing with third parties
+We do not sell or transfer your personal data to third parties, except as required by law or technical integration:
+- Yandex ID 2.0 — authentication
+- Open Wearables — aggregated health data from various sources
+- Telegram Bot API — notifications (with consent)
+- DuckDNS — DNS record
+
+7. Your rights (GDPR / CCPA)
+- Access: request a copy of your personal data
+- Rectification: correct inaccurate data
+- Deletion: request account and data deletion
+- Portability: export data in JSON/CSV
+- Objection: object to non-essential processing
+
+Contact for requests: mihnikolaenko12@yandex.ru
+
+8. Children's privacy
+The service is not intended for users under 13. We do not collect personal data from minors.
+
+9. Policy changes
+We may update this policy periodically. Material changes will be communicated via email or in-app notification.
+
+10. Contacts
+For privacy questions: mihnikolaenko12@yandex.ru`;
+
+const TERMS_EN = `Terms of Use — FitPulse
+
+Last updated: 2026-07-29
+
+1. Acceptance of terms
+By using FitPulse (the "Service"), you agree to these Terms of Use. If you do not agree, please do not use the Service.
+
+2. Service description
+FitPulse is an open platform for fitness and health tracking that allows you to:
+- track biometric metrics (heart rate, SpO2, steps, calories);
+- sync data through the Open Wearables aggregator;
+- track workout progress;
+- get health analytics.
+
+3. Accounts
+- You must provide accurate and complete information when creating an account
+- You are responsible for the security of your credentials
+- Immediately notify us of unauthorized access
+- Creating multiple accounts by one person is prohibited
+
+4. Acceptable use
+You agree not to:
+- use the Service for illegal purposes;
+- attempt to gain unauthorized access to any part of the Service;
+- interfere with the operation of the Service or violate its integrity;
+- use automated access methods without our permission;
+- reverse engineer or attempt to extract source code.
+
+5. Disclaimer regarding medical data
+- FitPulse provides only tracking and analytics tools;
+- We do not provide medical advice, diagnoses or treatment;
+- Always consult a qualified physician for medical decisions;
+- The accuracy of health metrics depends on device sensors and user data.
+
+6. Intellectual property
+- FitPulse source code is available under an open license — see the LICENSE file in the repository
+- Trademarks and logos belong to their respective owners
+- You retain rights to your health data
+
+7. Third-party integrations
+The Service integrates with Open Wearables to aggregate health data from various sources. Your use of these services is governed by their respective terms and privacy policies.
+
+8. Limitation of liability
+FitPulse is provided "as is" without warranties. We are not liable for:
+- data loss or corruption;
+- service interruptions;
+- inaccurate measurement of health metrics;
+- indirect or consequential damages.
+
+9. Termination of access
+We reserve the right to suspend or delete accounts that violate these terms, with or without notice.
+
+10. Governing law
+These terms are governed by applicable law. Disputes are resolved in accordance with the jurisdiction of the service operator.
+
+11. Contacts
+For questions regarding the terms: mihnikolaenko12@yandex.ru`;
+
 export default function Legal() {
   const { t, backFromLegal } = useApp();
   const { pathname } = useLocation();
@@ -166,14 +304,14 @@ export default function Legal() {
 
   let body;
   if (kind === 'terms') {
-    body = TERMS;
+    body = t(TERMS, TERMS_EN);
   } else if (kind === 'consent') {
     body = t(
       'Согласие на обработку персональных данных.',
       'Personal Data Processing Consent.'
     );
   } else {
-    body = PRIVACY;
+    body = t(PRIVACY, PRIVACY_EN);
   }
 
   return (

@@ -40,7 +40,7 @@ describe('Login', () => {
     fireEvent.click(screen.getByText('Пользовательское соглашение'));
     expect(openLegal).toHaveBeenCalledWith('terms');
     fireEvent.click(
-      screen.getByText('соглашение об использовании персональных данных')
+      screen.getByText('Соглашение об использовании персональных данных')
     );
     expect(openLegal).toHaveBeenCalledWith('consent');
     fireEvent.click(screen.getByText('Политику конфиденциальности'));

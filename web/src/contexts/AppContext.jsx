@@ -23,7 +23,7 @@ import { useUI } from '../hooks/useUI';
 import { getInitialState } from '../reducers/appState';
 import { saveState } from '../services/storage';
 import { formatRelativeDate, safeText } from '../utils/helpers';
-import { getMonthName, t } from '../utils/i18n';
+import { getMonthName, setLanguage, t } from '../utils/i18n';
 
 const AppContext = createContext(null);
 
@@ -121,6 +121,13 @@ export function AppProvider({ children }) {
   useEffect(() => {
     save();
   }, [save]);
+
+  // Синхронизируем язык i18n с React-state. `t()` читает эту переменную, а не
+  // localStorage, поэтому любой рендер после смены языка сразу видит новый язык
+  // и не «прыгает» при кликах на другие кнопки.
+  useEffect(() => {
+    setLanguage(state.language === 'en' ? 'en' : 'ru');
+  }, [state.language]);
 
   useEffect(() => {
     document.documentElement.dataset.theme = state.theme;

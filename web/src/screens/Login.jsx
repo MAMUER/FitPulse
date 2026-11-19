@@ -18,11 +18,21 @@ export default function Login() {
     <AuthLayout>
       <div className='field'>
         <label htmlFor='loginEmail'>{t('Электронная почта', 'Email')}</label>
-        <input id='loginEmail' type='email' defaultValue='mih@example.com' />
+        <input
+          id='loginEmail'
+          type='email'
+          autoComplete='email'
+          placeholder={t('you@example.com', 'you@example.com')}
+        />
       </div>
       <div className='field'>
         <label htmlFor='loginPassword'>{t('Пароль', 'Password')}</label>
-        <input id='loginPassword' type='password' defaultValue='password' />
+        <input
+          id='loginPassword'
+          type='password'
+          autoComplete='current-password'
+          placeholder={t('Введите пароль', 'Enter password')}
+        />
       </div>
       <Captcha onToken={setCaptchaToken} />
       <button type='button' className='primary full' onClick={doLogin}>
@@ -62,7 +72,7 @@ export default function Login() {
           onClick={() => openLegal('consent')}
         >
           {t(
-            'соглашение об использовании персональных данных',
+            'Соглашение об использовании персональных данных',
             'Personal Data Agreement'
           )}
         </button>{' '}

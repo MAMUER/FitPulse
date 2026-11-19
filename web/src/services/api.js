@@ -2,7 +2,7 @@ import { backendRequest } from '../utils/backendRequest';
 import { pathSegment } from '../utils/pathSegment';
 
 export async function login(email, password) {
-  return backendRequest('/api/v1/auth/login', {
+  return backendRequest('/api/v1/login', {
     method: 'POST',
     body: JSON.stringify({ email, password }),
   });
@@ -16,17 +16,25 @@ export async function logout() {
   }
 }
 
-export function register(email, password, confirm) {
-  if (!email || !password || !confirm) {
+export async function register(email, password, fullName, role = 'client') {
+  if (!email || !password || !fullName) {
     throw new Error('Заполните все поля');
-  }
-  if (password !== confirm) {
-    throw new Error('Пароли не совпадают');
   }
   if (password.length < 6) {
     throw new Error('Пароль должен содержать минимум 6 символов');
   }
-  return { email, password, confirm };
+  // Возвращаем промис напрямую (как в login), без внутреннего await —
+  // иначе SonarJS неверно выводит тип возврата и считает await у вызывающего
+  // ошибочным (javascript:S4123).
+  return backendRequest('/api/v1/register', {
+    method: 'POST',
+    body: JSON.stringify({
+      email,
+      password,
+      full_name: fullName,
+      role,
+    }),
+  });
 }
 
 export function forgotPassword(email) {

@@ -9,18 +9,42 @@ export default function Register() {
   return (
     <AuthLayout>
       <div className='field'>
+        <label htmlFor='regName'>{t('Имя', 'Name')}</label>
+        <input
+          id='regName'
+          type='text'
+          autoComplete='name'
+          placeholder={t('Как к вам обращаться', 'What should we call you')}
+        />
+      </div>
+      <div className='field'>
         <label htmlFor='regEmail'>{t('Электронная почта', 'Email')}</label>
-        <input id='regEmail' type='email' placeholder='example@mail.com' />
+        <input
+          id='regEmail'
+          type='email'
+          autoComplete='email'
+          placeholder='example@mail.com'
+        />
       </div>
       <div className='field'>
         <label htmlFor='regPassword'>{t('Пароль', 'Password')}</label>
-        <input id='regPassword' type='password' placeholder='••••••••' />
+        <input
+          id='regPassword'
+          type='password'
+          autoComplete='new-password'
+          placeholder={t('Минимум 6 символов', 'At least 6 characters')}
+        />
       </div>
       <div className='field'>
         <label htmlFor='regConfirm'>
           {t('Подтверждение пароля', 'Confirm password')}
         </label>
-        <input id='regConfirm' type='password' placeholder='••••••••' />
+        <input
+          id='regConfirm'
+          type='password'
+          autoComplete='new-password'
+          placeholder={t('Повторите пароль', 'Repeat password')}
+        />
       </div>
       <label className='consent-row'>
         <input id='regConsent' type='checkbox' />{' '}

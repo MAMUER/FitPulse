@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 // Public site key, must match CLOUDFLARE_TURNSTILE_SITE_KEY in
 // configs/k8s/base/captcha/configmap.yaml. The matching secret stays
@@ -41,10 +41,18 @@ function loadTurnstile() {
 /**
  * Renders the Cloudflare Turnstile widget and reports its token through
  * `onToken`, which the auth screens wire to the X-Captcha-Token header.
+ *
+ * Turnstile is bound to the production domain (fittpulse.duckdns.org). On a
+ * local/LAN host (e.g. 172.27.x.x) the sitekey cannot be verified and the
+ * widget would render an error box that blocks the form, so when Turnstile
+ * fails to load or errors we hide the container instead of showing the error.
+ * The backend still validates the captcha token only when its rate limiter
+ * challenges the client.
  */
 export default function Captcha({ onToken, className = 'captcha' }) {
   const containerRef = useRef(null);
   const onTokenRef = useRef(onToken);
+  const [hidden, setHidden] = useState(false);
   onTokenRef.current = onToken;
 
   useEffect(() => {
@@ -55,6 +63,9 @@ export default function Captcha({ onToken, className = 'captcha' }) {
     let widgetId = null;
     let cancelled = false;
     const emit = (token) => onTokenRef.current?.(token || '');
+    const hide = () => {
+      if (!cancelled) setHidden(true);
+    };
 
     loadTurnstile()
       .then((turnstile) => {
@@ -65,10 +76,16 @@ export default function Captcha({ onToken, className = 'captcha' }) {
           sitekey: CAPTCHA_SITE_KEY,
           callback: emit,
           'expired-callback': () => emit(''),
-          'error-callback': () => emit(''),
+          'error-callback': () => {
+            emit('');
+            hide();
+          },
         });
       })
-      .catch(() => emit(''));
+      .catch(() => {
+        emit('');
+        hide();
+      });
 
     return () => {
       cancelled = true;
@@ -78,5 +95,11 @@ export default function Captcha({ onToken, className = 'captcha' }) {
     };
   }, []);
 
-  return <div ref={containerRef} className={className} />;
+  return (
+    <div
+      ref={containerRef}
+      className={className}
+      style={hidden ? { display: 'none' } : undefined}
+    />
+  );
 }

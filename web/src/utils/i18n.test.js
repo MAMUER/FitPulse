@@ -10,6 +10,8 @@ import {
 
 beforeEach(() => {
   localStorage.clear();
+  // По умолчанию тесты работают на русском.
+  setLanguage('ru');
 });
 
 describe('t', () => {
@@ -17,51 +19,41 @@ describe('t', () => {
     expect(t('Привет', 'Hello')).toBe('Привет');
   });
 
-  it('uses the saved fallback language', () => {
+  it('returns english after switching language', () => {
     setLanguage('en');
-    expect(localStorage.getItem('fitpulse_lang')).toBe('en');
     expect(t('Привет', 'Hello')).toBe('Hello');
     expect(t('Питание', 'Nutrition')).toBe('Nutrition');
   });
 
-  it('uses the language from merged state', () => {
-    localStorage.setItem(
-      'fitpulse-merged-v9',
-      JSON.stringify({ language: 'en', screen: 'home' })
-    );
-    setLanguage('ru');
-    expect(t('Привет', 'Hello')).toBe('Hello');
-  });
-
-  it('keeps russian when merged state has no language', () => {
-    localStorage.setItem(
-      'fitpulse-merged-v9',
-      JSON.stringify({ screen: 'home' })
-    );
-    expect(t('Привет', 'Hello')).toBe('Привет');
-  });
-
-  it('falls back to saved language when merged state is invalid', () => {
-    localStorage.setItem('fitpulse-merged-v9', '{not-json');
+  it('switches back to russian', () => {
     setLanguage('en');
     expect(t('Привет', 'Hello')).toBe('Hello');
-  });
-
-  it('keeps russian when merged state is invalid and no fallback exists', () => {
-    localStorage.setItem('fitpulse-merged-v9', '{not-json');
+    setLanguage('ru');
     expect(t('Привет', 'Hello')).toBe('Привет');
   });
 
-  it('uses ru when localStorage is unavailable', () => {
+  it('persists the selected language to localStorage', () => {
+    setLanguage('en');
+    expect(localStorage.getItem('fitpulse_lang')).toBe('en');
+    setLanguage('ru');
+    expect(localStorage.getItem('fitpulse_lang')).toBe('ru');
+  });
+
+  it('keeps russian when localStorage is unavailable', () => {
     const orig = globalThis.localStorage;
-    // eslint-disable-next-line no-unused-expressions
     delete globalThis.localStorage;
     try {
+      setLanguage('ru');
       expect(t('Привет', 'Hello')).toBe('Привет');
       expect(t('Питание', 'Nutrition')).toBe('Питание');
     } finally {
       globalThis.localStorage = orig;
     }
+  });
+
+  it('normalizes unknown language codes to russian', () => {
+    setLanguage('fr');
+    expect(t('Привет', 'Hello')).toBe('Привет');
   });
 });
 

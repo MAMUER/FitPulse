@@ -3587,8 +3587,12 @@ textarea:focus {
   height: 100%;
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  padding: 25px;
+  /* justify-content: flex-start (а не center) — иначе высокий контент
+   * регистрации обрезается по краям #app overflow:hidden. */
+  justify-content: flex-start;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 28px 25px 40px;
 }
 
 .auth-brand {
@@ -4609,9 +4613,10 @@ button:focus-visible {
   margin: 0 0 12px;
   padding: 10px 12px;
   border-radius: 10px;
-  background: #fff3cd33;
-  border: 1px solid #ffc10755;
-  color: var(--text);
+  /* Тёмный фон карточки вместо «серого» #fff3cd33. */
+  background: var(--card-2);
+  border: 1px solid var(--line);
+  color: var(--muted);
   font-size: 11px;
   line-height: 1.4;
 }
@@ -4676,4 +4681,105 @@ button:focus-visible {
   padding: 11px;
   border-radius: 12px;
   font-size: 16px;
+}
+
+/* ═══════════════════════════════════════════
+   SCREEN SCROLL + AUTH LAYOUT FIXES
+   ═══════════════════════════════════════════ */
+
+/*
+ * Экраны приложения рендерятся как <section className='home|body|...'> внутри
+ * #app (overflow:hidden, фиксированная высота). Раньше ни у одной из этих
+ * секций не было своей прокрутки, поэтому контент выше высоты #app обрезался и
+ * его нельзя было прокрутить колесом. Делаем каждую секцию-экран
+ * скроллируемым контейнером на всю высоту #app.
+ */
+.home,
+.body,
+.calendar,
+.nutrition,
+.training,
+.profile,
+.videos,
+.menstrual,
+.integrations,
+.ai,
+.chat,
+.landing,
+.legal,
+.survey,
+.reset,
+.confirm,
+.twofa-setup,
+.twofa-verify {
+  height: 100%;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding: 24px 17px 108px;
+}
+
+/* Нижняя навигация не должна перекрывать последний контент экрана. */
+.body,
+.calendar,
+.nutrition,
+.training,
+.profile,
+.videos,
+.menstrual,
+.integrations,
+.ai,
+.chat {
+  padding-bottom: 108px;
+}
+
+/* Логотип в auth-брендинге: отдельный класс без обрезки (border-radius/padding
+ * от .splash-logo квадратного формата обрезали неквадратное изображение). */
+.auth-logo {
+  width: 96px;
+  height: 96px;
+  display: block;
+  margin: 0 auto;
+  object-fit: contain;
+  border-radius: 18px;
+}
+
+/* Строки согласия: чекбокс + текст. Раньше .consent-row не имел стилей и текст
+ * переносился криво. Делаем аккуратный flex-лейаут. */
+.consent-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 0 0 12px;
+  padding: 0;
+  color: var(--text);
+  font-size: 11px;
+  line-height: 1.45;
+  cursor: pointer;
+}
+
+.consent-row input[type="checkbox"] {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  margin: 1px 0 0;
+  accent-color: var(--blue);
+  cursor: pointer;
+}
+
+.consent-row span {
+  flex: 1;
+  min-width: 0;
+}
+
+.consent-row .legal-link {
+  color: var(--blue);
+  font-weight: 700;
+}
+
+/* Текст соглашений не должен обрезаться по краям auth-блока. */
+.auth .consent-row span,
+.auth .medical-disclaimer,
+.auth .auth-link {
+  overflow-wrap: anywhere;
 }

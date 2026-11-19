@@ -33,6 +33,7 @@ vi.mock('../services/api', () => ({
 const INPUT_IDS = [
   'loginEmail',
   'loginPassword',
+  'regName',
   'regEmail',
   'regPassword',
   'regConfirm',
@@ -192,26 +193,33 @@ describe('useAuth', () => {
     expect(result.current.location.pathname).toBe('/login');
   });
 
-  it('doRegister notifies when consent is missing', () => {
+  it('doRegister notifies when consent is missing', async () => {
     setValue('regEmail', 'user@example.com');
     setValue('regPassword', 'secret123');
     setValue('regConfirm', 'secret123');
-    result.current.doRegister();
-    expect(api.register).toHaveBeenCalledWith(
-      'user@example.com',
-      'secret123',
-      'secret123'
-    );
+    await act(async () => {
+      await result.current.doRegister();
+    });
+    expect(api.register).not.toHaveBeenCalled();
     expect(update).not.toHaveBeenCalled();
     expect(notify).toHaveBeenCalledWith('Подтвердите согласие с документами.');
   });
 
-  it('doRegister stores registration data on success', () => {
+  it('doRegister posts registration data on success', async () => {
     setValue('regEmail', 'user@example.com');
     setValue('regPassword', 'secret123');
     setValue('regConfirm', 'secret123');
+    setValue('regName', 'Alice');
     setChecked('regConsent', true);
-    result.current.doRegister();
+    api.register.mockResolvedValue({ status: 'ok' });
+    await act(async () => {
+      await result.current.doRegister();
+    });
+    expect(api.register).toHaveBeenCalledWith(
+      'user@example.com',
+      'secret123',
+      'Alice'
+    );
     expect(update).toHaveBeenCalledWith({
       guest: false,
       registrationData: {
@@ -221,31 +229,30 @@ describe('useAuth', () => {
         code: '',
       },
       profile: { ...state.profile, email: 'user@example.com' },
-      registered: true,
       screen: 'login',
     });
-    expect(notify).toHaveBeenCalledWith(
-      'Регистрация успешна. Проверьте email для подтверждения.'
-    );
+    expect(result.current.location.pathname).toBe('/login');
   });
 
-  it('doRegister surfaces api validation errors', () => {
+  it('doRegister surfaces api validation errors', async () => {
     setValue('regEmail', 'user@example.com');
     setValue('regPassword', 'secret123');
     setValue('regConfirm', 'secret123');
-    api.register.mockImplementation(() => {
-      throw new Error('Пароли не совпадают');
+    setChecked('regConsent', true);
+    api.register.mockRejectedValue(new Error('Пароли не совпадают'));
+    await act(async () => {
+      await result.current.doRegister();
     });
-    result.current.doRegister();
     expect(update).not.toHaveBeenCalled();
     expect(notify).toHaveBeenCalledWith('Пароли не совпадают');
   });
 
-  it('forgotPassword moves to reset step', async () => {
+  it('forgotPassword moves to reset step and navigates to /reset', async () => {
     await act(async () => {
       await result.current.forgotPassword();
     });
     expect(update).toHaveBeenCalledWith({ screen: 'reset', resetStep: 0 });
+    expect(result.current.location.pathname).toBe('/reset');
   });
 
   it('submitResetEmail rejects invalid email', async () => {
