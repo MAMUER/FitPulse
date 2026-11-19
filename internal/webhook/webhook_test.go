@@ -320,7 +320,7 @@ func (f failingHash) Write(p []byte) (int, error) {
 	return 0, f.err
 }
 
-func signTestBody(t *testing.T, secret []byte, body []byte) string {
+func signTestBody(t *testing.T, secret, body []byte) string {
 
 	t.Helper()
 

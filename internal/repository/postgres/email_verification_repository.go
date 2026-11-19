@@ -21,7 +21,7 @@ func NewEmailVerificationRepository(db *sql.DB) port.EmailVerificationRepository
 
 }
 
-func (r *emailVerificationRepository) queryEmailVerification(ctx context.Context, query string, notFoundMsg string, args ...interface{}) (*port.EmailVerification, error) {
+func (r *emailVerificationRepository) queryEmailVerification(ctx context.Context, query, notFoundMsg string, args ...interface{}) (*port.EmailVerification, error) {
 
 	ev := &port.EmailVerification{}
 

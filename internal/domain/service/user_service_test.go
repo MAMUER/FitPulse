@@ -851,7 +851,7 @@ func TestUpdateProfile(t *testing.T) {
 	t.Run("delegates to profile repository", func(t *testing.T) {
 		var capturedUserID string
 		mockProfiles := &mockProfileRepository{
-			updateProfileFn: func(_ context.Context, userID, _ string, _ []string, _ []string, _ string, _ float32) error {
+			updateProfileFn: func(_ context.Context, userID, _ string, _, _ []string, _ string, _ float32) error {
 				capturedUserID = userID
 				return nil
 			},
@@ -866,7 +866,7 @@ func TestUpdateProfile(t *testing.T) {
 
 	t.Run("returns profile repository error", func(t *testing.T) {
 		mockProfiles := &mockProfileRepository{
-			updateProfileFn: func(_ context.Context, _ string, _ string, _ []string, _ []string, _ string, _ float32) error {
+			updateProfileFn: func(_ context.Context, _, _ string, _, _ []string, _ string, _ float32) error {
 				return apperrors.Internal("db error", nil)
 			},
 		}
@@ -1028,7 +1028,7 @@ func TestListUsers(t *testing.T) {
 	t.Run("delegates to user repository and returns users with total", func(t *testing.T) {
 		expectedUsers := []*entity.User{{ID: "u1"}, {ID: "u2"}}
 		mockUsers := &mockUserRepository{
-			listFn: func(_ context.Context, _ int, _ int) ([]*entity.User, error) {
+			listFn: func(_ context.Context, _, _ int) ([]*entity.User, error) {
 				return expectedUsers, nil
 			},
 			countFn: func(_ context.Context) (int, error) {
@@ -1046,7 +1046,7 @@ func TestListUsers(t *testing.T) {
 
 	t.Run("returns list error", func(t *testing.T) {
 		mockUsers := &mockUserRepository{
-			listFn: func(_ context.Context, _ int, _ int) ([]*entity.User, error) {
+			listFn: func(_ context.Context, _, _ int) ([]*entity.User, error) {
 				return nil, apperrors.Internal("db error", nil)
 			},
 		}
@@ -1061,7 +1061,7 @@ func TestListUsers(t *testing.T) {
 
 	t.Run("returns count error", func(t *testing.T) {
 		mockUsers := &mockUserRepository{
-			listFn: func(_ context.Context, _ int, _ int) ([]*entity.User, error) {
+			listFn: func(_ context.Context, _, _ int) ([]*entity.User, error) {
 				return nil, nil
 			},
 			countFn: func(_ context.Context) (int, error) {
@@ -1302,7 +1302,7 @@ func TestRemoveDevice(t *testing.T) {
 
 	t.Run("returns repository error", func(t *testing.T) {
 		mockDevices := &mockDeviceRepository{
-			deleteFn: func(_ context.Context, _ string, _ string) error {
+			deleteFn: func(_ context.Context, _, _ string) error {
 				return apperrors.Internal("db error", nil)
 			},
 		}

@@ -134,7 +134,7 @@ type WithingsMeasureResponse struct {
 
 // postV2 отправляет form-запрос к одному из v2 эндпоинтов Withings
 // (measure / sleep / activity), принимающих action и access_token.
-func (c *WithingsClient) postV2(ctx context.Context, endpoint string, action, accessToken string, since time.Time) (*WithingsMeasureResponse, error) {
+func (c *WithingsClient) postV2(ctx context.Context, endpoint, action, accessToken string, since time.Time) (*WithingsMeasureResponse, error) {
 	u := c.config.APIBaseURL + endpoint
 	form := url.Values{}
 	form.Set("action", action)

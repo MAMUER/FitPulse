@@ -563,7 +563,7 @@ func TestRecoveryMiddlewareNextHandlerCompletes(t *testing.T) {
 // RequireRole Tests
 // ==========================================
 
-func setupRequireRoleDB(t *testing.T, expectedRole string, userID string) (*sql.DB, *zap.Logger) {
+func setupRequireRoleDB(t *testing.T, expectedRole, userID string) (*sql.DB, *zap.Logger) {
 	t.Helper()
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)

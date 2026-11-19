@@ -48,7 +48,9 @@ const UNSAFE_PATH = /\\|(^|\/)\.\.?($|\/)/;
 
 function hasControlCharacters(value) {
   for (const char of value) {
-    const code = char.charCodeAt(0);
+    // codePointAt, а не charCodeAt: суррогатные пары (эмодзи и прочие
+    // символы вне BMP) иначе разбираются как два невалидных code unit.
+    const code = char.codePointAt(0);
     if (code < 0x20 || code === 0x7f) return true;
   }
   return false;

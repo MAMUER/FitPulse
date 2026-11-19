@@ -202,7 +202,7 @@ func TestGetPlan(t *testing.T) {
 
 	t.Run("returns repository not found error", func(t *testing.T) {
 		mock := &mockTrainingRepository{
-			getPlanFn: func(_ context.Context, _ string, _ string) (*entity.TrainingPlan, error) {
+			getPlanFn: func(_ context.Context, _, _ string) (*entity.TrainingPlan, error) {
 				return nil, apperrors.NotFound("plan not found")
 			},
 		}
@@ -334,7 +334,7 @@ func TestCompleteWorkout(t *testing.T) {
 
 	t.Run("returns repository error", func(t *testing.T) {
 		mock := &mockTrainingRepository{
-			completeWorkoutFn: func(_ context.Context, _ string, _ string) error {
+			completeWorkoutFn: func(_ context.Context, _, _ string) error {
 				return apperrors.Internal("db error", nil)
 			},
 		}

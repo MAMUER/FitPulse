@@ -488,7 +488,7 @@ func vectorToGANParams(vec []float64) ganPlanParams {
 
 // resolveGANParams вызывает GAN-сервис и возвращает параметры плана.
 // При недоступности GAN возвращает параметры шаблона (template).
-func (s *trainingServer) resolveGANParams(ctx context.Context, userID string, classificationClass string) ganPlanParams {
+func (s *trainingServer) resolveGANParams(ctx context.Context, userID, classificationClass string) ganPlanParams {
 	params := ganPlanParams{
 		Intensity:        0.5,
 		DurationMinutes:  45,
@@ -621,7 +621,7 @@ func (s *trainingServer) calculatePlanDates(durationWeeks int32) (time.Time, tim
 
 const errDatabaseError = "database error"
 
-func (s *trainingServer) publishPlanEvent(ctx context.Context, userID, planID string, classificationClass string) {
+func (s *trainingServer) publishPlanEvent(ctx context.Context, userID, planID, classificationClass string) {
 	event := map[string]interface{}{
 		"event": "plan_generated", "user_id": userID, "plan_id": planID,
 		"class": classificationClass, "timestamp": time.Now(),
@@ -1075,7 +1075,7 @@ func assembleWeeks(weeksMap map[int32]map[string]interface{}, log *logger.Logger
 	return weeks, nil
 }
 
-func loadDayWithExercises(ctx context.Context, db *sql.DB, log *logger.Logger, planID string, dayID string) (map[string]interface{}, error) {
+func loadDayWithExercises(ctx context.Context, db *sql.DB, log *logger.Logger, planID, dayID string) (map[string]interface{}, error) {
 	var dayOfWeek, duration int32
 	var trainingDate sql.NullTime
 	var trainingType, notes sql.NullString

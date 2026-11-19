@@ -249,7 +249,7 @@ func TestGetRecords(t *testing.T) {
 	t.Run("defaults limit to 100 when <= 0", func(t *testing.T) {
 		var capturedLimit int
 		mock := &mockBiometricRepository{
-			getByUserIDFn: func(_ context.Context, _ string, _ string, limit, _ int) ([]*entity.BiometricRecord, error) {
+			getByUserIDFn: func(_ context.Context, _, _ string, limit, _ int) ([]*entity.BiometricRecord, error) {
 				capturedLimit = limit
 				return nil, nil
 			},
@@ -265,7 +265,7 @@ func TestGetRecords(t *testing.T) {
 	t.Run("caps limit at 10000", func(t *testing.T) {
 		var capturedLimit int
 		mock := &mockBiometricRepository{
-			getByUserIDFn: func(_ context.Context, _ string, _ string, limit, _ int) ([]*entity.BiometricRecord, error) {
+			getByUserIDFn: func(_ context.Context, _, _ string, limit, _ int) ([]*entity.BiometricRecord, error) {
 				capturedLimit = limit
 				return nil, nil
 			},
@@ -340,7 +340,7 @@ func TestGetLatest(t *testing.T) {
 	t.Run("returns first record from repository", func(t *testing.T) {
 		expected := &entity.BiometricRecord{ID: "r1", UserID: "user1", MetricType: "hr", Timestamp: now}
 		mock := &mockBiometricRepository{
-			getByUserIDFn: func(_ context.Context, _ string, _ string, _, _ int) ([]*entity.BiometricRecord, error) {
+			getByUserIDFn: func(_ context.Context, _, _ string, _, _ int) ([]*entity.BiometricRecord, error) {
 				return []*entity.BiometricRecord{expected}, nil
 			},
 		}
@@ -354,7 +354,7 @@ func TestGetLatest(t *testing.T) {
 
 	t.Run("passes repository error through", func(t *testing.T) {
 		mock := &mockBiometricRepository{
-			getByUserIDFn: func(_ context.Context, _ string, _ string, _, _ int) ([]*entity.BiometricRecord, error) {
+			getByUserIDFn: func(_ context.Context, _, _ string, _, _ int) ([]*entity.BiometricRecord, error) {
 				return nil, apperrors.Internal("db error", nil)
 			},
 		}

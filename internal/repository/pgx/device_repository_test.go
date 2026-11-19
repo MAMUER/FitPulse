@@ -36,7 +36,7 @@ func newMockRows(rows [][]interface{}, scanFunc func(dest ...interface{}) error)
 	return &mockRows{rows: rows, scanFunc: scanFunc}
 }
 
-func scanValue(dest interface{}, value interface{}) error {
+func scanValue(dest, value interface{}) error {
 	switch ptr := dest.(type) {
 	case *string:
 		if s, ok := value.(string); ok {
@@ -220,7 +220,7 @@ func newDeviceRow(now time.Time) *mockRow {
 	}}
 }
 
-func scanRow(dest []interface{}, values []interface{}) error {
+func scanRow(dest, values []interface{}) error {
 	if len(dest) < len(values) {
 		return nil
 	}

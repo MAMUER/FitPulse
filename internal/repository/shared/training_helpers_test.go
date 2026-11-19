@@ -591,7 +591,7 @@ func (m *mockPGXAchievementRows) TypeMap() *pgtype.Map {
 	return nil
 }
 
-func assignScanValue(dest interface{}, value interface{}) error {
+func assignScanValue(dest, value interface{}) error {
 	switch ptr := dest.(type) {
 	case *string:
 		s, ok := value.(string)

@@ -67,7 +67,7 @@ func GetBool(v *viper.Viper, key string, defaultVal bool) bool {
 	return v.GetBool(key)
 }
 
-func GetDuration(v *viper.Viper, key string, defaultVal string) time.Duration {
+func GetDuration(v *viper.Viper, key, defaultVal string) time.Duration {
 	val := GetString(v, key, defaultVal)
 	d, err := time.ParseDuration(val)
 	if err != nil {

@@ -251,7 +251,7 @@ func GetViperBool(v *viper.Viper, key string, defaultVal bool) bool {
 	return v.GetBool(key)
 }
 
-func GetViperDuration(v *viper.Viper, key string, defaultVal string) time.Duration {
+func GetViperDuration(v *viper.Viper, key, defaultVal string) time.Duration {
 	val := GetViperString(v, key, defaultVal)
 	d, err := time.ParseDuration(val)
 	if err != nil {
