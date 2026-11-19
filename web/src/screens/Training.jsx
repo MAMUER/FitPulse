@@ -84,14 +84,13 @@ export default function Training() {
     minutes: 0,
     workouts: [],
   };
-  // Реальные значения из состояния (обновляются при завершении тренировок),
-  // а не статичные демо-числа из trainingData.
-  const completedCount = (state.completedWorkouts || []).length;
-  const goalCount = data.goal || 3;
-  const realCalories = state.caloriesBurned || 0;
-  const realMinutes = state.trainingMinutes || 0;
-  const workoutNames =
-    (data.workouts?.length ? data.workouts : state.completedWorkouts) || [];
+  // Значения берём из trainingData (счётчик приложения, обновляется при
+  // завершении тренировок через startWorkout).
+  const completedCount = data.completed || 0;
+  const goalCount = data.goal || 0;
+  const realCalories = data.calories || 0;
+  const realMinutes = data.minutes || 0;
+  const workoutNames = data.workouts || [];
   const percentage = goalCount
     ? Math.min(100, Math.round((completedCount / goalCount) * 100))
     : 0;
@@ -198,94 +197,89 @@ export default function Training() {
         </div>
       </section>
 
-      {plans.length === 0 && (
-        <>
-          <div className='section'>
-            <h3>{t('Пример тренировок', 'Example workouts')}</h3>
-          </div>
-          {WORKOUTS.map((workout) => {
-            const title = t(...workout.title);
-            const completed = completedWorkouts.includes(title);
-            const open = state.selectedWorkout === workout.id;
-            return (
-              <article
-                className={`workout-card ${open ? 'open' : ''} ${
-                  completed ? 'completed' : ''
-                }`}
-                key={workout.id}
+      <div className='section'>
+        <h3>{t('Мой план', 'My plan')}</h3>
+      </div>
+      {WORKOUTS.map((workout) => {
+        const title = t(...workout.title);
+        const completed = completedWorkouts.includes(title);
+        const open = state.selectedWorkout === workout.id;
+        return (
+          <article
+            className={`workout-card ${open ? 'open' : ''} ${
+              completed ? 'completed' : ''
+            }`}
+            key={workout.id}
+          >
+            <div className='workout-title'>
+              <strong>
+                {completed ? '✓ ' : ''}
+                {title}
+              </strong>
+              <small>{workout.time}</small>
+            </div>
+            <p style={{ marginTop: 5, color: 'var(--muted)', fontSize: 9 }}>
+              {formatRelativeDate(workout.offset, state.language)}
+            </p>
+            <div className='workout-meta'>
+              <span>
+                <i className='fas fa-clock' /> {workout.duration}
+              </span>
+              <span>
+                <i className='fas fa-fire' /> {workout.calories}{' '}
+                {t('ккал', 'kcal')}
+              </span>
+              <span>
+                <i className='fas fa-signal' /> {t(...workout.level)}
+              </span>
+            </div>
+            <div className='interval'>
+              <div>
+                <b>45</b>
+                <small>{t('сек работа', 'sec work')}</small>
+              </div>
+              <div>
+                <b>20</b>
+                <small>{t('сек отдых', 'sec rest')}</small>
+              </div>
+              <div>
+                <b>{workout.exercises.length}</b>
+                <small>{t('упражнений', 'exercises')}</small>
+              </div>
+            </div>
+            <div className='exercise-list'>
+              {workout.exercises.map((exercise) => (
+                <div className='exercise' key={exercise[0]}>
+                  <strong>{exercise[0]}</strong>
+                  <span>{exercise[1]}</span>
+                </div>
+              ))}
+            </div>
+            <div className='form-row'>
+              <button
+                type='button'
+                className='secondary'
+                onClick={() => toggleWorkout(workout.id)}
               >
-                <div className='workout-title'>
-                  <strong>
-                    {completed ? '✓ ' : ''}
-                    {title}
-                  </strong>
-                  <small>{workout.time}</small>
-                </div>
-                <p style={{ marginTop: 5, color: 'var(--muted)', fontSize: 9 }}>
-                  {formatRelativeDate(workout.offset, state.language)}
-                </p>
-                <div className='workout-meta'>
-                  <span>
-                    <i className='fas fa-clock' /> {workout.duration}
-                  </span>
-                  <span>
-                    <i className='fas fa-fire' /> {workout.calories}{' '}
-                    {t('ккал', 'kcal')}
-                  </span>
-                  <span>
-                    <i className='fas fa-signal' /> {t(...workout.level)}
-                  </span>
-                </div>
-                <div className='interval'>
-                  <div>
-                    <b>45</b>
-                    <small>{t('сек работа', 'sec work')}</small>
-                  </div>
-                  <div>
-                    <b>20</b>
-                    <small>{t('сек отдых', 'sec rest')}</small>
-                  </div>
-                  <div>
-                    <b>{workout.exercises.length}</b>
-                    <small>{t('упражнений', 'exercises')}</small>
-                  </div>
-                </div>
-                <div className='exercise-list'>
-                  {workout.exercises.map((exercise) => (
-                    <div className='exercise' key={exercise[0]}>
-                      <strong>{exercise[0]}</strong>
-                      <span>{exercise[1]}</span>
-                    </div>
-                  ))}
-                </div>
-                <div className='form-row'>
-                  <button
-                    type='button'
-                    className='secondary'
-                    onClick={() => toggleWorkout(workout.id)}
-                  >
-                    <i className='fas fa-list' /> {t('Упражнения', 'Exercises')}
-                  </button>
-                  {completed ? (
-                    <button type='button' className='secondary' disabled>
-                      <i className='fas fa-check' />{' '}
-                      {t('Выполнено', 'Completed')}
-                    </button>
-                  ) : (
-                    <button
-                      type='button'
-                      className='primary'
-                      onClick={() => startWorkout(title)}
-                    >
-                      <i className='fas fa-play' /> {t('Начать', 'Start')}
-                    </button>
-                  )}
-                </div>
-              </article>
-            );
-          })}
-        </>
-      )}
+                <i className='fas fa-list' /> {t('Упражнения', 'Exercises')}
+              </button>
+              {completed ? (
+                <button type='button' className='secondary' disabled>
+                  <i className='fas fa-check' /> {t('Выполнено', 'Completed')}
+                </button>
+              ) : (
+                <button
+                  type='button'
+                  className='primary'
+                  onClick={() => startWorkout(title)}
+                >
+                  <i className='fas fa-play' /> {t('Начать', 'Start')}
+                </button>
+              )}
+            </div>
+          </article>
+        );
+      })}
 
       {plans.length > 0 && (
         <>

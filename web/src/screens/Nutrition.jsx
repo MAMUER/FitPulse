@@ -53,19 +53,9 @@ export default function Nutrition() {
     carbs: 0,
   };
   const diary = state.mealsList || [];
-  // Реальные значения: потреблённые калории считаем из дневника (mealsList),
-  // цель — из профиля (goalCalories), с fallback на цель из плана.
-  const consumedCalories = diary.reduce(
-    (sum, entry) => sum + (Number(entry.calories) || 0),
-    0
-  );
-  const goalCalories =
-    Number(state.profile?.goalCalories) ||
-    Number(state.survey?.goalCalories) ||
-    data.goal ||
-    0;
-  const displayCalories = period === 'day' ? consumedCalories : data.calories;
-  const displayGoal = goalCalories || data.goal;
+  // Значения берём из nutritionData (сводка приложения).
+  const displayCalories = data.calories;
+  const displayGoal = data.goal;
   const percentage = displayGoal
     ? Math.min(100, Math.round((displayCalories / displayGoal) * 100))
     : 0;
