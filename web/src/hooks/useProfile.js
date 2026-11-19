@@ -117,6 +117,50 @@ export function useProfile({ state, update, notify }) {
     update({ profile: { ...state.profile, devices } });
   }, [state.profile, update]);
 
+  const loadFriends = useCallback(async () => {
+    try {
+      const data = await api.loadFriends();
+      if (data?.friends) {
+        update({ friends: data.friends });
+      }
+    } catch {
+      // ignore — friends stay as-is (empty) when backend is unavailable
+    }
+  }, [update]);
+
+  const addFriend = useCallback(
+    async (name, status = 'offline') => {
+      const trimmed = String(name || '').trim();
+      if (!trimmed) {
+        notify(t('Введите имя друга', 'Enter a friend name'));
+        return false;
+      }
+      try {
+        await api.addFriend(trimmed, '', status);
+        notify(t('Друг добавлен', 'Friend added'));
+        await loadFriends();
+        return true;
+      } catch {
+        notify(t('Не удалось добавить друга', 'Failed to add friend'));
+        return false;
+      }
+    },
+    [notify, loadFriends]
+  );
+
+  const removeFriendById = useCallback(
+    async (id) => {
+      try {
+        await api.removeFriend(id);
+        notify(t('Друг удалён', 'Friend removed'));
+        await loadFriends();
+      } catch {
+        notify(t('Не удалось удалить друга', 'Failed to remove friend'));
+      }
+    },
+    [notify, loadFriends]
+  );
+
   const loadProfile = useCallback(async () => {
     try {
       const data = await api.loadProfile();
@@ -133,12 +177,15 @@ export function useProfile({ state, update, notify }) {
             status: p.status || state.profile.status,
           },
           profileLoaded: true,
+          authenticated: true,
         });
       } else {
-        update({ profileLoaded: true });
+        // No profile but the request succeeded → session is valid.
+        update({ profileLoaded: true, authenticated: true });
       }
     } catch {
-      update({ profileLoaded: true });
+      // 401/403 or network error → not authenticated.
+      update({ profileLoaded: true, authenticated: false });
     }
   }, [state.profile, update]);
 
@@ -228,6 +275,9 @@ export function useProfile({ state, update, notify }) {
     searchFriends,
     showDevices,
     loadProfile,
+    loadFriends,
+    addFriend,
+    removeFriendById,
     saveProfile,
     uploadPhoto,
     toggleFriendAdded,

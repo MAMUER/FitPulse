@@ -1474,6 +1474,15 @@ func (g *gateway) registerTrainingRoutes(r chi.Router) {
 
 	r.Get("/achievements", g.getAchievementsHandler)
 
+	// Friends (social graph)
+	r.Get("/friends", g.getFriendsHandler)
+	r.Post("/friends", g.addFriendHandler)
+	r.Delete("/friends/{id}", g.removeFriendHandler)
+
+	// Dish catalog (nutrition)
+	r.Get("/dishes", g.getDishesHandler)
+	r.Post("/dishes", g.addDishHandler)
+
 	// ML
 
 	r.Post("/ml/feedback", g.handleMLFeedback)

@@ -20,6 +20,7 @@ export default function Nutrition() {
     t,
     go,
     loadMeals,
+    loadDishes,
     openMeal,
     closeMeal,
     selectMeal,
@@ -38,7 +39,8 @@ export default function Nutrition() {
 
   useEffect(() => {
     loadMeals();
-  }, [loadMeals]);
+    void loadDishes();
+  }, [loadMeals, loadDishes]);
 
   const now = new Date();
   const locale = state.language === 'en' ? 'en-US' : 'ru-RU';
@@ -277,6 +279,44 @@ export default function Nutrition() {
             </div>
           );
         })}
+      </div>
+
+      {state.dishes && state.dishes.length > 0 && (
+        <div className='section'>
+          <h3>{t('Каталог блюд', 'Dish catalog')}</h3>
+        </div>
+      )}
+      <div className='ai-suggestions'>
+        {(state.dishes || [])
+          .filter((d) => matchesQuery(d.name || ''))
+          .map((dish) => (
+            <article className='ai-suggestion' key={dish.id}>
+              <div className='ai-suggestion-info'>
+                <strong>{dish.name}</strong>
+                <small>
+                  {dish.kcal} {t('ккал', 'kcal')} · Б {dish.protein_g} · Ж{' '}
+                  {dish.fat_g} · У {dish.carbs_g}
+                </small>
+              </div>
+              <button
+                type='button'
+                className='choose'
+                onClick={() =>
+                  selectMeal(
+                    dish.meal_slot && dish.meal_slot !== 'any'
+                      ? dish.meal_slot
+                      : 'breakfast',
+                    dish.name,
+                    dish.kcal,
+                    `Б ${dish.protein_g} · Ж ${dish.fat_g} · У ${dish.carbs_g}`,
+                    ''
+                  )
+                }
+              >
+                {t('Выбрать', 'Choose')}
+              </button>
+            </article>
+          ))}
       </div>
 
       <div className='warning'>

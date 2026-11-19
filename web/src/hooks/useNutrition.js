@@ -59,6 +59,18 @@ export function useNutrition({
     [update]
   );
 
+  const loadDishes = useCallback(
+    async (slot = '', q = '') => {
+      try {
+        const data = await api.loadDishes(slot, q);
+        if (data?.dishes) update({ dishes: data.dishes });
+      } catch {
+        // ignore — dish catalog stays as-is when backend is unavailable
+      }
+    },
+    [update]
+  );
+
   const setTrainingPeriod = useCallback(
     (period) => {
       update({ trainingPeriod: period });
@@ -138,6 +150,7 @@ export function useNutrition({
 
   return {
     loadMeals,
+    loadDishes,
     createMeal,
     removeMeal,
     setNutritionPeriod,

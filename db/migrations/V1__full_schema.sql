@@ -692,3 +692,51 @@ BEGIN
     INSERT INTO invite_code_uses (invite_code_id, user_id) VALUES (v_invite_id, p_user_id);
 END;
 $$ LANGUAGE plpgsql;
+
+-- ----------------------------------------------------------------------------
+-- Friends (social graph)
+-- ----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS friends (
+    id              SERIAL PRIMARY KEY,
+    user_id         TEXT NOT NULL,
+    friend_name     TEXT NOT NULL,
+    friend_user_id  TEXT,
+    status          TEXT NOT NULL DEFAULT 'offline',
+    added_at        TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_friends_user ON friends(user_id);
+CREATE INDEX IF NOT EXISTS idx_friends_pair ON friends(user_id, friend_name);
+
+-- ----------------------------------------------------------------------------
+-- Dish catalog (nutrition) — global + per-user dishes with calories/macros
+-- ----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS dishes (
+    id           SERIAL PRIMARY KEY,
+    owner_user_id TEXT,                          -- NULL = global dish
+    name         TEXT NOT NULL,
+    meal_slot    TEXT NOT NULL DEFAULT 'any',     -- breakfast/lunch/dinner/snack/any
+    kcal         INTEGER NOT NULL DEFAULT 0,
+    protein_g    INTEGER NOT NULL DEFAULT 0,
+    fat_g        INTEGER NOT NULL DEFAULT 0,
+    carbs_g      INTEGER NOT NULL DEFAULT 0,
+    created_at   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_dishes_owner ON dishes(owner_user_id);
+CREATE INDEX IF NOT EXISTS idx_dishes_name ON dishes(name);
+
+-- Seed a small global catalog so the UI has real data out of the box.
+INSERT INTO dishes (owner_user_id, name, meal_slot, kcal, protein_g, fat_g, carbs_g)
+SELECT NULL, v.name, v.meal_slot, v.kcal, v.protein_g, v.fat_g, v.carbs_g
+FROM (VALUES
+    ('Овсянка с ягодами', 'breakfast', 360, 12, 10, 54),
+    ('Омлет со шпинатом', 'breakfast', 390, 27, 21, 18),
+    ('Курица с гречкой', 'lunch', 480, 38, 14, 48),
+    ('Индейка с киноа', 'lunch', 510, 42, 15, 47),
+    ('Боул с лососем', 'dinner', 540, 34, 22, 48),
+    ('Треска с овощами', 'dinner', 390, 38, 12, 27),
+    ('Йогурт и ягоды', 'snack', 210, 18, 5, 24),
+    ('Протеиновый смузи', 'snack', 240, 24, 5, 25)
+) AS v(name, meal_slot, kcal, protein_g, fat_g, carbs_g)
+WHERE NOT EXISTS (SELECT 1 FROM dishes WHERE owner_user_id IS NULL);

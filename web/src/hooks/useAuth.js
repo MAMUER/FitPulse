@@ -22,6 +22,7 @@ export function useAuth({ state, update, notify }) {
         profile: { ...state.profile, email, password: pass },
         registered: true,
         guest: false,
+        authenticated: true,
         screen: 'home',
       });
       void navigate('/home');
@@ -32,7 +33,12 @@ export function useAuth({ state, update, notify }) {
 
   const logout = useCallback(async () => {
     await api.logout();
-    update({ registered: false, guest: false, screen: 'login' });
+    update({
+      registered: false,
+      guest: false,
+      authenticated: false,
+      screen: 'login',
+    });
     void navigate('/login');
   }, [update, navigate]);
 
@@ -142,7 +148,12 @@ export function useAuth({ state, update, notify }) {
   }, [state.profile, state.resetEmail, update, notify]);
 
   const continueAsGuest = useCallback(() => {
-    update({ guest: true, registered: false, screen: 'home' });
+    update({
+      guest: true,
+      registered: false,
+      authenticated: false,
+      screen: 'home',
+    });
     void navigate('/home');
   }, [update, navigate]);
 

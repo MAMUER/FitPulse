@@ -21,6 +21,8 @@ export default function Profile() {
     setup2FA,
     disable2FA,
     loadProfile,
+    loadFriends,
+    loadAchievements,
     changePassword,
     deleteAccount,
     uploadPhoto,
@@ -29,23 +31,30 @@ export default function Profile() {
     showRestrictions,
     nutritionSettings,
     saveChatSettings: persistChatSettings,
-    searchFriends,
+    addFriend,
     openFriendProfile,
     showAchievement,
   } = useApp();
   const [code, setCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [passwordOpen, setPasswordOpen] = useState(false);
+  const [friendModalOpen, setFriendModalOpen] = useState(false);
+  const [friendName, setFriendName] = useState('');
   const [chatSettingsOpen, setChatSettingsOpen] = useState(false);
 
   useEffect(() => {
     loadProfile();
+    loadFriends();
     load2FAStatus();
-  }, [loadProfile, load2FAStatus]);
+    void loadAchievements();
+  }, [loadProfile, loadFriends, load2FAStatus, loadAchievements]);
 
-  const name = state.profile?.name || t('Михаил', 'Mikhail');
+  const name = state.profile?.name || state.profile?.email?.split('@')[0] || '';
   const friends = state.friends || [];
-  const achievements = state.achievements || [];
+  const achievements =
+    state.achievementsBackend && state.achievementsBackend.length > 0
+      ? state.achievementsBackend
+      : state.achievements || [];
   const eventCount =
     state.events?.length ||
     Object.values(state.calendarEvents || {}).reduce(
@@ -252,8 +261,12 @@ export default function Profile() {
       <div className='section'>
         <div className='between'>
           <h3>{t('Друзья', 'Friends')}</h3>
-          <button type='button' className='secondary' onClick={searchFriends}>
-            <i className='fas fa-user-plus' /> {t('Найти', 'Find')}
+          <button
+            type='button'
+            className='secondary'
+            onClick={() => setFriendModalOpen(true)}
+          >
+            <i className='fas fa-user-plus' /> {t('Добавить', 'Add')}
           </button>
         </div>
         <p className='muted fs-10' style={{ marginTop: 4 }}>
@@ -554,6 +567,43 @@ export default function Profile() {
           onClose={() => setChatSettingsOpen(false)}
           onSave={handleSaveChatSettings}
         />
+      )}
+
+      {friendModalOpen && (
+        <Modal
+          className='fp-profile-modal'
+          label={t('Добавить друга', 'Add friend')}
+          onClose={() => setFriendModalOpen(false)}
+        >
+          <section className='fp-profile-box'>
+            <div className='field'>
+              <label htmlFor='friendName'>
+                {t('Имя друга', 'Friend name')}
+              </label>
+              <input
+                id='friendName'
+                type='text'
+                value={friendName}
+                placeholder={t('Например, Анна', 'e.g. Anna')}
+                onChange={(e) => setFriendName(e.target.value)}
+              />
+            </div>
+            <button
+              type='button'
+              className='primary full'
+              style={{ marginTop: 12 }}
+              onClick={async () => {
+                const ok = await addFriend(friendName);
+                if (ok) {
+                  setFriendName('');
+                  setFriendModalOpen(false);
+                }
+              }}
+            >
+              <i className='fas fa-user-plus' /> {t('Добавить', 'Add')}
+            </button>
+          </section>
+        </Modal>
       )}
     </section>
   );

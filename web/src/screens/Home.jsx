@@ -80,7 +80,7 @@ export default function Home() {
     return () => clearInterval(timer);
   }, [nextHack]);
 
-  const profileName = state.profile?.name || 'Михаил';
+  const profileName = state.profile?.name || '';
   const stories = state.stories || [];
   const storySeen = state.storySeen || [];
   const now = new Date();
@@ -165,7 +165,8 @@ export default function Home() {
         <div>
           <div className='eyebrow'>FITPULSE · {t('СЕГОДНЯ', 'TODAY')}</div>
           <h1>
-            {t('Привет', 'Hello')}, {profileName}
+            {t('Привет', 'Hello')}
+            {profileName ? `, ${profileName}` : '!'}
           </h1>
         </div>
         <div className='row' style={{ gap: 7 }}>
@@ -196,7 +197,7 @@ export default function Home() {
             {state.profileImage ? (
               <img src={state.profileImage} alt='' />
             ) : (
-              profileName[0]
+              profileName[0] || 'Я'
             )}
           </button>
         </div>

@@ -222,6 +222,53 @@ export async function loadAchievements() {
   return data;
 }
 
+export async function loadFriends() {
+  const data = await backendRequest('/api/v1/friends');
+  return data;
+}
+
+export async function loadDishes(slot = '', q = '') {
+  const params = [];
+  if (slot) params.push(`slot=${encodeURIComponent(slot)}`);
+  if (q) params.push(`q=${encodeURIComponent(q)}`);
+  const qs = params.length ? `?${params.join('&')}` : '';
+  const data = await backendRequest(`/api/v1/dishes${qs}`);
+  return data;
+}
+
+export async function addDish(dish) {
+  return backendRequest('/api/v1/dishes', {
+    method: 'POST',
+    body: JSON.stringify({
+      name: dish.name,
+      meal_slot: dish.meal_slot || 'any',
+      kcal: dish.kcal || 0,
+      protein_g: dish.protein_g || 0,
+      fat_g: dish.fat_g || 0,
+      carbs_g: dish.carbs_g || 0,
+    }),
+  });
+}
+
+export async function addFriend(
+  friendName,
+  friendUserId = '',
+  status = 'offline'
+) {
+  return backendRequest('/api/v1/friends', {
+    method: 'POST',
+    body: JSON.stringify({
+      friend_name: friendName,
+      friend_user_id: friendUserId,
+      status,
+    }),
+  });
+}
+
+export async function removeFriend(id) {
+  return backendRequest(`/api/v1/friends/${id}`, { method: 'DELETE' });
+}
+
 export async function loadMeals() {
   const data = await backendRequest('/api/v1/nutrition/meals');
   return data;

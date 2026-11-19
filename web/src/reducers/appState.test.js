@@ -30,10 +30,10 @@ describe('getInitialState defaults', () => {
     expect(state.customMeals).toEqual([]);
     expect(state.waterIntake).toBe(0);
     expect(state.waterDate).toBe('');
-    expect(state.points).toBe(1270);
-    expect(state.level).toBe(5);
-    expect(state.streak).toBe(12);
-    expect(state.maxStreak).toBe(18);
+    expect(state.points).toBe(0);
+    expect(state.level).toBe(0);
+    expect(state.streak).toBe(0);
+    expect(state.maxStreak).toBe(0);
     expect(state.friends).toEqual(defaultState.friends);
     expect(state.pinnedPlaces).toEqual(defaultState.pinnedPlaces);
     expect(state.hackIndex).toBe(0);

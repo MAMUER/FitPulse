@@ -9,7 +9,6 @@ import Chat from './screens/Chat';
 import Confirm from './screens/Confirm';
 import Home from './screens/Home';
 import Integrations from './screens/Integrations';
-import Landing from './screens/Landing';
 import Legal from './screens/Legal';
 import Login from './screens/Login';
 import Menstrual from './screens/Menstrual';
@@ -127,10 +126,10 @@ export default function App() {
         <Route
           path='/'
           element={
-            authScreens.has(state.screen) ? (
-              <Navigate to='/login' replace />
+            state.authenticated ? (
+              <Navigate to='/home' replace />
             ) : (
-              <Landing />
+              <Navigate to='/login' replace />
             )
           }
         />
