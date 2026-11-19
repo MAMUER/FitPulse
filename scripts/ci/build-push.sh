@@ -141,23 +141,31 @@ build_open_wearables() {
 
 	# Harden the upstream backend image before building: patch OS packages and
 	# upgrade the Python libraries that Trivy flags with an available fix
-	# (dnspython>=2.9.2, urllib3>=2.5, msgpack, pyasn1, setuptools, tornado,
-	# opentelemetry-api). The block is appended to the FINAL stage of the
-	# upstream Dockerfile so it runs on top of whatever base/user upstream chose;
-	# k8s forces runAsUser:10001 at runtime regardless of the image default.
-	# apt is guarded (no-op on non-Debian bases) and pip is best-effort so a
-	# flaky mirror never breaks the whole image build. python-jose and
-	# python-ecdsa have no fixed release (deprecated) — left as-is; the image
-	# scan excludes unfixed CVEs via `ignore-unfixed: true`.
+	# (urllib3>=2.5, msgpack>=1.2.3, pyasn1>=0.6.5, dnspython>=2.9.2,
+	# setuptools>=78.1.1, tornado, opentelemetry-api). The vulnerable packages
+	# live in the upstream venv at /opt/venv (python3.14), so we upgrade them
+	# through /opt/venv/bin/python (bootstrapping pip via ensurepip) and also
+	# through the system python as a fallback. The block is appended to the
+	# FINAL stage of the upstream Dockerfile; k8s forces runAsUser:10001 at
+	# runtime regardless of the image default. Every step is best-effort
+	# (|| true) so a flaky mirror never breaks the whole image build.
+	# python-jose and python-ecdsa have no fixed release (deprecated) — left
+	# as-is; the image scan excludes unfixed CVEs via `ignore-unfixed: true`.
 	cat >>/tmp/open-wearables/backend/Dockerfile <<'HARDEN'
 
 USER root
-RUN if command -v apt-get >/dev/null 2>&1; then \
-        apt-get update && apt-get upgrade -y && rm -rf /var/lib/apt/lists/*; \
-    fi \
-    && (python -m pip install --no-cache-dir --upgrade \
-        "dnspython>=2.9.2" "urllib3>=2.5" msgpack pyasn1 setuptools tornado opentelemetry-api \
-        || true)
+RUN set -eu; \
+    if [ -x /opt/venv/bin/python ]; then \
+        PY=/opt/venv/bin/python; \
+        "$PY" -m ensurepip --upgrade || true; \
+        "$PY" -m pip install --no-cache-dir --upgrade \
+            "urllib3>=2.5" "msgpack>=1.2.3" "pyasn1>=0.6.5" "dnspython>=2.9.2" "setuptools>=78.1.1" || true; \
+    fi; \
+    python -m pip install --no-cache-dir --upgrade \
+        "urllib3>=2.5" "msgpack>=1.2.3" "pyasn1>=0.6.5" "dnspython>=2.9.2" "setuptools>=78.1.1" tornado opentelemetry-api || true; \
+    if command -v apt-get >/dev/null 2>&1; then \
+        apt-get update && apt-get upgrade -y && rm -rf /var/lib/apt/lists/* || true; \
+    fi
 HARDEN
 
 	SHA=$(git rev-parse --short HEAD)

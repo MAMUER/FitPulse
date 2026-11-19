@@ -26,59 +26,24 @@ import Videos from './screens/Videos';
 function TabBar() {
   const { state, t, go } = useApp();
   const [moreOpen, setMoreOpen] = useState(false);
+  const navItem = (key, ru, en, icon) => ({ key, label: t(ru, en), icon });
   const tabs = [
-    { key: 'home', label: t('Главная', 'Home'), icon: 'fas fa-house' },
-    {
-      key: 'nutrition',
-      label: t('Питание', 'Nutrition'),
-      icon: 'fas fa-utensils',
-    },
-    {
-      key: 'training',
-      label: t('Тренировки', 'Training'),
-      icon: 'fas fa-dumbbell',
-    },
-    { key: 'ai', label: 'AI', icon: 'fas fa-robot' },
-    {
-      key: 'calendar',
-      label: t('Календарь', 'Calendar'),
-      icon: 'fas fa-calendar-alt',
-    },
+    navItem('home', 'Главная', 'Home', 'fas fa-house'),
+    navItem('nutrition', 'Питание', 'Nutrition', 'fas fa-utensils'),
+    navItem('training', 'Тренировки', 'Training', 'fas fa-dumbbell'),
+    navItem('ai', 'AI', 'AI', 'fas fa-robot'),
+    navItem('calendar', 'Календарь', 'Calendar', 'fas fa-calendar-alt'),
   ];
   // Дополнительные экраны, которые не помещаются в нижнюю панель, доступны
   // через меню «Ещё». Раньше их не было в навигации вообще — до менструации и
   // интеграций (OpenWearables) нельзя было дойти.
   const moreItems = [
-    {
-      key: 'body',
-      label: t('Тело', 'Body'),
-      icon: 'fas fa-heart-pulse',
-    },
-    {
-      key: 'menstrual',
-      label: t('Цикл', 'Cycle'),
-      icon: 'fas fa-droplet',
-    },
-    {
-      key: 'integrations',
-      label: t('Устройства', 'Devices'),
-      icon: 'fas fa-watch',
-    },
-    {
-      key: 'videos',
-      label: t('Видео', 'Videos'),
-      icon: 'fas fa-video',
-    },
-    {
-      key: 'profile',
-      label: t('Профиль', 'Profile'),
-      icon: 'fas fa-user',
-    },
-    {
-      key: 'chat',
-      label: t('Чат', 'Chat'),
-      icon: 'fas fa-comments',
-    },
+    navItem('body', 'Тело', 'Body', 'fas fa-heart-pulse'),
+    navItem('menstrual', 'Цикл', 'Cycle', 'fas fa-droplet'),
+    navItem('integrations', 'Устройства', 'Devices', 'fas fa-watch'),
+    navItem('videos', 'Видео', 'Videos', 'fas fa-video'),
+    navItem('profile', 'Профиль', 'Profile', 'fas fa-user'),
+    navItem('chat', 'Чат', 'Chat', 'fas fa-comments'),
   ];
   const isMoreActive = moreItems.some((item) => state.screen === item.key);
 
