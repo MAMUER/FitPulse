@@ -320,13 +320,22 @@ for (const config of CONFIGS) {
           exact: true,
         })
       ).toBeVisible();
+      // «Настройки чата» есть и как подпись кнопки, и как aria-label иконки-шестерёнки,
+      // поэтому кликаем по кнопке с таким именем, а диалог проверяем по факту открытия
+      // и aria-label — без зависимости от вычисления accessible name.
       await page
-        .locator(`text=${getText('chatSettings', config)}`)
+        .getByRole('button', {
+          name: getText('chatSettings', config),
+          exact: true,
+        })
         .first()
         .click();
-      await expect(
-        page.getByRole('dialog', { name: getText('chatSettings', config) })
-      ).toBeVisible();
+      const dialog = page.locator('dialog.fp-dialog[open]');
+      await expect(dialog).toBeVisible();
+      await expect(dialog).toHaveAttribute(
+        'aria-label',
+        getText('chatSettings', config)
+      );
     });
 
     test('nutrition period tabs exist', async ({ page }) => {

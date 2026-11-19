@@ -9,6 +9,7 @@ ingress or on NetworkPolicies. Standard library only.
 import argparse
 import json
 import sys
+import time
 import urllib.error
 import urllib.request
 
@@ -48,6 +49,26 @@ def fail(step, status, body):
     else:
         print(f"FAIL {step}: {status} {body}")
     sys.exit(1)
+
+
+def request_with_retry(method, url, payload=None, timeout=30, attempts=3, pause=5):
+    """Request with retries for a cold start.
+
+    gan-service запускает python + torch на каждый /gan/generate, поэтому первый
+    запрос после старта пода может занимать минуты; kubectl port-forward при этом
+    иногда рвёт соединение ("Remote end closed connection without response").
+    Повтор делаем только для сетевых ошибок (status is None), а не для 4xx/5xx.
+    """
+    for attempt in range(1, attempts + 1):
+        status, body = request(method, url, payload=payload, timeout=timeout)
+        if status is not None or attempt == attempts:
+            return status, body
+        print(
+            f"WARN {url} attempt {attempt}/{attempts} failed "
+            f"({body.get('error', 'connection error')}); retrying in {pause}s"
+        )
+        time.sleep(pause)
+    return None, {"error": "unreachable"}
 
 
 def main():
@@ -97,7 +118,7 @@ def main():
     )
 
     # 3. GAN service health.
-    status, body = request("GET", f"{args.gan_url}/health", timeout=15)
+    status, body = request_with_retry("GET", f"{args.gan_url}/health", timeout=15)
     if status != 200 or body.get("status") != "healthy":
         fail("gan /health", status, body)
     print(f"OK gan /health: {body}")
@@ -112,7 +133,7 @@ def main():
         "goal": 1,
         "num_samples": 1,
     }
-    status, body = request(
+    status, body = request_with_retry(
         "POST", f"{args.gan_url}/gan/generate", payload=gan_payload, timeout=120
     )
     if status != 200 or not body.get("plans"):

@@ -259,6 +259,31 @@ CREATE TABLE IF NOT EXISTS biometric_data (
 CREATE INDEX IF NOT EXISTS idx_biometric_user_metric_time ON biometric_data(user_id, metric_type, timestamp, source);
 CREATE INDEX IF NOT EXISTS idx_biometric_timestamp ON biometric_data(timestamp);
 
+-- Уникальность для дедупликации: вставки в cmd/biometric-service/main.go и
+-- internal/webhook/storage.go используют ON CONFLICT (user_id, metric_type,
+-- timestamp, source). Без UNIQUE-индекса Postgres отвечает 42P10
+-- ("no unique or exclusion constraint matching the ON CONFLICT specification").
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_indexes
+        WHERE schemaname = 'public' AND tablename = 'biometric_data'
+          AND indexname = 'uq_biometric_data_dedup'
+    ) THEN
+        -- На всякий случай убираем возможные дубли до создания уникального индекса.
+        DELETE FROM biometric_data a
+        USING biometric_data b
+        WHERE a.ctid < b.ctid
+          AND a.user_id = b.user_id
+          AND a.metric_type = b.metric_type
+          AND a."timestamp" = b."timestamp"
+          AND a.source = b.source;
+
+        CREATE UNIQUE INDEX uq_biometric_data_dedup
+            ON biometric_data(user_id, metric_type, "timestamp", source);
+    END IF;
+END $$;
+
 -- Add check constraint for source values
 DO $$
 BEGIN
@@ -310,6 +335,14 @@ CREATE TABLE IF NOT EXISTS training_plans (
 CREATE INDEX IF NOT EXISTS idx_training_plans_user ON training_plans(user_id);
 CREATE INDEX IF NOT EXISTS idx_training_plans_status ON training_plans(user_id, status);
 CREATE INDEX IF NOT EXISTS idx_training_plans_classification ON training_plans(classification);
+
+-- Колонки, на которые рассчитан код (entity.TrainingPlan, api/proto/training.proto,
+-- internal/repository/shared/training_queries.go). Без них ListPlans/GetProgress
+-- падают с 42703 "column ... does not exist".
+ALTER TABLE training_plans
+    ADD COLUMN IF NOT EXISTS available_days INTEGER[],
+    ADD COLUMN IF NOT EXISTS plan_data       JSONB,
+    ADD COLUMN IF NOT EXISTS updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW();
 
 CREATE TABLE IF NOT EXISTS training_plan_weeks (
     id                      UUID PRIMARY KEY DEFAULT gen_random_uuid(),

@@ -484,7 +484,7 @@ func (r *PgsodiumUserRepository) profileSelectQuery() string {
 
 		getProfileQuery.WriteString(",\n               ")
 		getProfileQuery.WriteString(db.PgsodiumDecryptNullableParam("u.profile_photo_url_encrypted", "u.profile_photo_url_nonce", "profile_photo_url"))
-		getProfileQuery.WriteString(", u.role,\n               p.age, p.gender, p.height_cm, p.weight_kg, p.fitness_level,\n               p.goals, p.nutrition, p.sleep_hours,\n               u.created_at, u.updated_at\n            FROM users u\n            LEFT JOIN user_profiles_with_goals p ON u.id = p.user_id\n            WHERE u.id = $1")
+		getProfileQuery.WriteString(", u.role,\n               p.age, p.gender, p.height_cm, p.weight_kg, p.fitness_level,\n               COALESCE(p.goals, '{}'), p.nutrition, p.sleep_hours,\n               u.created_at, u.updated_at\n            FROM users u\n            LEFT JOIN user_profiles_with_goals p ON u.id = p.user_id\n            WHERE u.id = $1")
 
 		return getProfileQuery.String()
 
@@ -496,7 +496,7 @@ func (r *PgsodiumUserRepository) profileSelectQuery() string {
 
 		       p.age, p.gender, p.height_cm, p.weight_kg, p.fitness_level,
 
-		       p.goals, p.nutrition, p.sleep_hours,
+		       COALESCE(p.goals, '{}'), p.nutrition, p.sleep_hours,
 
 		       u.created_at, u.updated_at
 
@@ -608,15 +608,17 @@ func (r *PgsodiumUserRepository) UpdateUserDetails(ctx context.Context, userID, 
 
 	query := strings.Builder{}
 
-	query.WriteString("UPDATE users SET\n\t\t\t\tfull_name_encrypted = CASE WHEN $1::text IS NULL THEN full_name_encrypted ELSE ")
+	// pgsodium не может расшифровать шифротекст пустой строки ("invalid
+	// message"), поэтому пустые значения пишем как NULL, а не шифруем.
+	query.WriteString("UPDATE users SET\n\t\t\t\tfull_name_encrypted = CASE WHEN $1::text IS NULL OR $1::text = '' THEN full_name_encrypted ELSE ")
 
 	query.WriteString(db.PgsodiumRandomEncryptParam(1, 2))
 
-	query.WriteString(" END,\n\t\t\t\tfull_name_nonce = CASE WHEN $1::text IS NULL THEN full_name_nonce ELSE $2 END,\n\t\t\t\tfull_name_hash = CASE WHEN $1::text IS NULL THEN full_name_hash ELSE $3 END,\n\t\t\t\tnickname_encrypted = CASE WHEN $4::text IS NULL THEN nickname_encrypted ELSE ")
+	query.WriteString(" END,\n\t\t\t\tfull_name_nonce = CASE WHEN $1::text IS NULL OR $1::text = '' THEN full_name_nonce ELSE $2 END,\n\t\t\t\tfull_name_hash = CASE WHEN $1::text IS NULL OR $1::text = '' THEN full_name_hash ELSE $3 END,\n\t\t\t\tnickname_encrypted = CASE WHEN $4::text IS NULL OR $4::text = '' THEN NULL ELSE ")
 
 	query.WriteString(db.PgsodiumRandomEncryptParam(4, 5))
 
-	query.WriteString(" END,\n\t\t\t\tnickname_nonce = CASE WHEN $4::text IS NULL THEN nickname_nonce ELSE $5 END,\n\t\t\t\tnickname_hash = CASE WHEN $4::text IS NULL THEN nickname_hash ELSE $6 END,\n\t\t\t\tupdated_at = NOW()\n\t\t\tWHERE id = $7")
+	query.WriteString(" END,\n\t\t\t\tnickname_nonce = CASE WHEN $4::text IS NULL OR $4::text = '' THEN NULL ELSE $5 END,\n\t\t\t\tnickname_hash = CASE WHEN $4::text IS NULL OR $4::text = '' THEN NULL ELSE $6 END,\n\t\t\t\tupdated_at = NOW()\n\t\t\tWHERE id = $7")
 
 	_, execErr := r.db.ExecContext(ctx, query.String(), fullName, fullNameNonce, fullNameHash, nickname, nicknameNonce, nicknameHash, userID) // NOSONAR go:S2077
 
