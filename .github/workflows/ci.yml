@@ -1032,7 +1032,13 @@ jobs:
       images: ${{ steps.list.outputs.images }}
     steps:
       - run: git config --global init.defaultBranch main
+      # fetch-depth: 0 обязателен: `git rev-parse --short HEAD` масштабирует длину
+      # по числу объектов репозитория. В shallow-клоне он даёт 7 символов, а джоба
+      # docker (fetch-depth: 0) — 8, из-за чего скан искал тег, которого нет
+      # (MANIFEST_UNKNOWN).
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
       - name: Resolve image list
         id: list
         run: |
@@ -1067,7 +1073,21 @@ jobs:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GHCR_TOKEN }}
+      # Образ может отсутствовать (например, если docker-джоба не пересобирала его
+      # для этого коммита). Тогда скан не запускаем — иначе trivy падает с
+      # MANIFEST_UNKNOWN и краснит весь пайплайн.
+      - name: Check image availability
+        id: availability
+        run: |
+          set -euo pipefail
+          if docker manifest inspect "${{ matrix.image.ref }}" >/dev/null 2>&1; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::Образ ${{ matrix.image.ref }} не опубликован — Trivy-скан пропущен"
+          fi
       - name: Run Trivy image scan
+        if: steps.availability.outputs.available == 'true'
         id: trivy-image
         continue-on-error: true
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25

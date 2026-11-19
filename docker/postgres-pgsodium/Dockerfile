@@ -16,10 +16,11 @@ WORKDIR /tmp
 # "could not load library pgsodium.so: libsodium.so.26: No such file or
 # directory" and takes the whole stack down. The final `apk info -L` assertion
 # makes such an image impossible to build.
-# hadolint ignore=DL3003,DL3018
+#
 # apk upgrade --no-cache в начале: база запинена по digest, поэтому патчи Alpine
 # (например libssl3 3.5.9-r1 с пятью CVE из 3.5.9-r0) иначе не попадают в образ
 # до следующего обновления digest через Renovate.
+# hadolint ignore=DL3003,DL3018
 RUN apk upgrade --no-cache \
     && apk add --no-cache --virtual .build-deps \
     build-base \
