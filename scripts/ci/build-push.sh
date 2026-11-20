@@ -13,7 +13,7 @@ build_go_services() {
 	# gateway and device-aggregator keep their own Dockerfiles (web-builder stage
 	# and Debian base respectively); the rest share Dockerfile.service.
 	SHA=$(git rev-parse --short HEAD)
-	services=(user-service biometric-service training-service gateway device-aggregator)
+	services=(user-service biometric-service training-service gateway device-aggregator data-processor)
 	pids=()
 	names=()
 	for svc in "${services[@]}"; do

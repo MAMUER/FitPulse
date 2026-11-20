@@ -5,6 +5,7 @@ import (
 	_ "embed"
 	"fmt"
 	"html"
+	"net/mail"
 	"net/smtp"
 	"strings"
 )
@@ -21,6 +22,13 @@ func (s *SMTPClient) SendPasswordResetEmail(ctx context.Context, toEmail, code, 
 	}
 	// Защита от SMTP-инъекции: убираем CR/LF из адреса получателя.
 	toEmail = stripCRLF(toEmail)
+	// Валидируем адрес через net/mail — барьер для CodeQL и гарантия корректного
+	// конверта/заголовка без инъекций.
+	parsed, addrErr := mail.ParseAddress(toEmail)
+	if addrErr != nil {
+		return fmt.Errorf("invalid recipient address: %w", addrErr)
+	}
+	toEmail = parsed.Address
 
 	for _, domain := range s.cfg.SkipSendDomains {
 		if strings.HasSuffix(toEmail, "@"+domain) {

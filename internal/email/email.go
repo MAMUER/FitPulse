@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"html"
 	"net"
+	"net/mail"
 	"net/smtp"
 	"strconv"
 	"strings"
@@ -189,6 +190,13 @@ func (s *SMTPClient) SendVerificationEmail(ctx context.Context, toEmail, verifyT
 	}
 	// Защита от SMTP-инъекции: убираем CR/LF из адреса получателя.
 	toEmail = stripCRLF(toEmail)
+	// Валидируем адрес через net/mail — это распознаётся CodeQL как барьер и
+	// гарантирует корректный конверт/заголовок без инъекций.
+	parsed, addrErr := mail.ParseAddress(toEmail)
+	if addrErr != nil {
+		return fmt.Errorf("invalid recipient address: %w", addrErr)
+	}
+	toEmail = parsed.Address
 
 	for _, domain := range s.cfg.SkipSendDomains {
 

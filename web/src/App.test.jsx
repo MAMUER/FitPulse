@@ -89,7 +89,9 @@ describe('App', () => {
 
   it('renders login screen by default', () => {
     renderApp();
-    expect(screen.getByText('FitPulse')).toBeInTheDocument();
+    // На логине теперь логотип-картинка с alt="FitPulse", а не текст.
+    expect(screen.getByAltText('FitPulse')).toBeInTheDocument();
+    expect(screen.getByLabelText('Электронная почта')).toBeInTheDocument();
   });
 
   it('renders home screen when authenticated', () => {

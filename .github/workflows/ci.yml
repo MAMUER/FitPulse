@@ -273,7 +273,7 @@ jobs:
   # PHASE 2: PARALLEL LINTING & STATIC ANALYSIS
   # ============================================================================
   frontend:
-    name: Frontend (Lint + Test + Build)
+    name: Frontend (Test + Build)
     runs-on: ubuntu-latest
     timeout-minutes: 25
     permissions:
@@ -292,9 +292,8 @@ jobs:
       - name: Install dependencies
         run: bash "$GITHUB_WORKSPACE/scripts/ci/ci-helpers.sh" install_dependencies
         working-directory: web
-      - name: Lint frontend
-        run: npm run lint
-        working-directory: web
+      # Линт фронтенда (biome) убран как дублирующий: анализ JS/TS выполняет
+      # SonarCloud. Здесь оставлены только тесты (гейт + coverage) и сборка.
       - name: Run frontend tests
         run: npm run test
         working-directory: web
