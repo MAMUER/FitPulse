@@ -10,7 +10,6 @@ resources:
   - data-processor.yaml
   - device-aggregator-pdb.yaml
   - device-aggregator.yaml
-  - email-worker.yaml
   - gateway-pdb.yaml
   - gateway.yaml
   - grpc-server-cert.yaml

@@ -36,6 +36,10 @@ func (s *blockingEmailSender) SendVerificationEmail(context.Context, string, str
 	return nil
 }
 
+func (s *blockingEmailSender) SendPasswordResetEmail(context.Context, string, string, string) error {
+	return nil
+}
+
 func TestSendVerificationEmailIfNeededDoesNotBlockRegistration(t *testing.T) {
 	sender := &blockingEmailSender{
 		started: make(chan struct{}, 1),

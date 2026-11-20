@@ -3691,13 +3691,15 @@ textarea:focus {
 }
 
 .socials {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+  display: flex;
+  justify-content: center;
   gap: 8px;
   margin-top: 10px;
 }
 
 .socials button {
+  flex: 1 1 auto;
+  max-width: 320px;
   padding: 11px;
   color: var(--text);
   border: 1px solid var(--line);
@@ -4797,8 +4799,8 @@ button:focus-visible {
  * от .splash-logo квадратного формата обрезали неквадратное изображение). */
 .auth-logo {
   width: auto;
-  max-width: 180px;
-  max-height: 120px;
+  max-width: 280px;
+  max-height: 200px;
   height: auto;
   display: block;
   margin: 0 auto;

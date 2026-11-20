@@ -57,8 +57,21 @@ export function useNavigation({ state, update }) {
   );
 
   const backFromLegal = useCallback(() => {
-    const target = state.legalReturnScreen || (state.guest ? 'home' : 'login');
-    update({ legalReturnScreen: null, screen: target });
+    // Если пришли из приложения (openLegal сохранил экран возврата) — возвращаемся
+    // туда. Если зашли по прямой ссылке (legalReturnScreen пуст) — идём на
+    // предыдущую страницу браузера (navigate(-1)), а не на home/login.
+    if (state.legalReturnScreen) {
+      const target = state.legalReturnScreen;
+      update({ legalReturnScreen: null, screen: target });
+      void navigate(`/${target}`);
+      return;
+    }
+    if (typeof window !== 'undefined' && window.history.length > 1) {
+      void navigate(-1);
+      return;
+    }
+    const target = state.guest ? 'home' : 'login';
+    update({ screen: target });
     void navigate(`/${target}`);
   }, [state.legalReturnScreen, state.guest, update, navigate]);
 

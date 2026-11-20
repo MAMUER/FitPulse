@@ -112,8 +112,6 @@ FitPulse реализует комплексные меры безопаснос
 | POST | `/api/v1/health/menstrual-cycles` | Добавить цикл |
 | PUT | `/api/v1/health/menstrual-cycles/{cycle_id}` | Обновить цикл |
 | DELETE | `/api/v1/health/menstrual-cycles/{cycle_id}` | Удалить цикл |
-| POST | `/api/v1/health/sync/flo` | Синхронизация с Flo |
-| POST | `/api/v1/health/sync/okok` | Синхронизация с OKOK |
 | GET | `/api/v1/training/plans` | Список планов |
 | GET | `/api/v1/training/plans/{plan_id}` | Получить план по ID |
 | POST | `/api/v1/training/generate` | Сгенерировать план |

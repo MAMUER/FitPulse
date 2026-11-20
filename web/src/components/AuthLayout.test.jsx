@@ -24,7 +24,7 @@ describe('AuthLayout', () => {
       </AuthLayout>
     );
 
-    expect(screen.getByText('FitPulse')).toBeInTheDocument();
+    expect(screen.getByAltText('FitPulse')).toBeInTheDocument();
     expect(screen.getByText('test-child')).toBeInTheDocument();
     fireEvent.click(
       screen.getByText(/High contrast mode|Режим высокой контрастности/i)

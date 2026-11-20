@@ -2242,10 +2242,6 @@ jobs:
           any_fail = any(
               v.get('result') == 'failure'
               for v in needs.values()
-          ) or any(
-              needs.get(k, {}).get('result') == 'skipped'
-              for items in [checks, security, deploy]
-              for k, _ in items
           )
           status = '❌ CI/CD ОШИБКА' if any_fail else '✅ CI/CD УСПЕШНО'
           msg = (

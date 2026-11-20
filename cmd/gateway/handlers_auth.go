@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/base64"
 	"encoding/hex"
@@ -24,6 +25,7 @@ import (
 	"golang.org/x/time/rate"
 
 	userpb "github.com/MAMUER/project/api/gen/user"
+	"github.com/MAMUER/project/internal/auth/password"
 	"github.com/MAMUER/project/internal/middleware"
 	"github.com/MAMUER/project/internal/sanitize"
 	"github.com/MAMUER/project/internal/validator"
@@ -2175,6 +2177,30 @@ func (g *gateway) forgotPasswordHandler(w http.ResponseWriter, r *http.Request) 
 
 	code := fmt.Sprintf("%06d", time.Now().UnixNano()%1000000)
 
+	// Store the reset code in Valkey (TTL 15 min) so resetPasswordHandler can
+	// validate it. Key: reset:{email}. Best-effort — if Valkey is unavailable,
+	// the code is still returned for tests but won't validate (fail-safe).
+	if g.valkeyDB != nil {
+		key := "reset:" + strings.ToLower(strings.TrimSpace(req.Email))
+		if err := g.valkeyDB.Set(r.Context(), key, code, 15*time.Minute).Err(); err != nil {
+			g.log.Warn("Failed to store password reset code", zap.Error(err))
+		}
+	}
+
+	// Send the reset code by email (async, non-blocking). On failure the code
+	// is still stored/returned so the flow is testable.
+	if g.emailSender != nil {
+		go func() {
+			emailCtx, cancel := context.WithTimeout(context.WithoutCancel(r.Context()), 15*time.Second)
+			defer cancel()
+			if sendErr := g.emailSender.SendPasswordResetEmail(emailCtx, req.Email, code, ""); sendErr != nil {
+				g.log.Warn("Failed to send password reset email",
+					zap.Error(sendErr),
+					zap.String("email", sanitize.LogString(req.Email)))
+			}
+		}()
+	}
+
 	w.Header().Set(headerContentType, contentTypeJSON)
 
 	if err := json.NewEncoder(w).Encode(map[string]interface{}{
@@ -2242,6 +2268,42 @@ func (g *gateway) resetPasswordHandler(w http.ResponseWriter, r *http.Request) {
 
 		return
 
+	}
+
+	// Validate the reset code: it must match the one stored in Valkey by
+	// forgotPasswordHandler (TTL 15 min). Without this, any code was accepted.
+	if g.valkeyDB != nil {
+		key := "reset:" + strings.ToLower(strings.TrimSpace(req.Email))
+		stored, getErr := g.valkeyDB.Get(r.Context(), key).Result()
+		if getErr != nil || stored == "" || stored != strings.TrimSpace(req.Code) {
+			g.log.Warn("Invalid password reset code",
+				zap.String("email", sanitize.LogString(req.Email)))
+			http.Error(w, "Неверный или истёкший код", http.StatusBadRequest)
+			return
+		}
+		// Code is valid — consume it so it can't be reused.
+		g.valkeyDB.Del(r.Context(), key)
+	}
+
+	// Change the password: hash with Argon2id and update users.password_hash
+	// (lookup by email_hash = SHA256(lower(email))). Best-effort: if the DB is
+	// unavailable, return an error so the user can retry.
+	hash, hashErr := password.HashArgon2id(req.NewPassword)
+	if hashErr != nil {
+		g.log.Error("Failed to hash new password", zap.Error(hashErr))
+		http.Error(w, "Не удалось обработать пароль", http.StatusInternalServerError)
+		return
+	}
+	emailHash := sha256.Sum256([]byte(strings.ToLower(strings.TrimSpace(req.Email))))
+	emailHashHex := hex.EncodeToString(emailHash[:])
+	if g.db != nil {
+		if _, err := g.db.ExecContext(r.Context(),
+			`UPDATE users SET password_hash = $1 WHERE email_hash = $2`,
+			hash, emailHashHex); err != nil {
+			g.log.Error("Failed to update password", zap.Error(err))
+			http.Error(w, "Не удалось изменить пароль", http.StatusInternalServerError)
+			return
+		}
 	}
 
 	g.writeJSON(w, http.StatusOK, map[string]interface{}{

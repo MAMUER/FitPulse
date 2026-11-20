@@ -34,6 +34,7 @@ import (
 	"github.com/MAMUER/project/internal/cache"
 	"github.com/MAMUER/project/internal/config"
 	"github.com/MAMUER/project/internal/db"
+	emailpkg "github.com/MAMUER/project/internal/email"
 	grpctls "github.com/MAMUER/project/internal/grpc"
 	"github.com/MAMUER/project/internal/logger"
 	"github.com/MAMUER/project/internal/middleware"
@@ -79,6 +80,8 @@ type gateway struct {
 	yandexOAuthConfig *oauth2.Config
 
 	withingsClient *withings.WithingsClient
+
+	emailSender emailpkg.EmailSender
 
 	deviceClient *gatewayDeviceClient
 
@@ -350,6 +353,8 @@ func loadGatewayConfig(log *logger.Logger) gatewayConfig {
 
 		withingsAPIBaseURL: config.GetEnv("WITHINGS_API_BASE_URL", "https://wbsapi.withings.net"),
 
+		emailSender: emailpkg.NewSMTPClient(emailpkg.LoadConfig()),
+
 		corsOrigins: strings.Split(config.GetEnv("CORS_ALLOWED_ORIGINS", "*"), ","),
 
 		dbHost: config.GetEnv("DB_HOST", "postgres-service.fitness-platform-production.svc.cluster.local"),
@@ -526,6 +531,8 @@ type gatewayConfig struct {
 	withingsRedirectURL string
 
 	withingsAPIBaseURL string
+
+	emailSender emailpkg.EmailSender
 
 	mlAsync bool
 
@@ -891,6 +898,8 @@ func buildGateway(opts gatewayBuildOptions) *gateway {
 		yandexOAuthConfig: opts.cfg.yandexOAuthConfig,
 
 		withingsClient: opts.cfg.withingsClient,
+
+		emailSender: opts.cfg.emailSender,
 
 		captchaProvider: opts.captchaProvider,
 

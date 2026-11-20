@@ -130,10 +130,51 @@ export default function Integrations() {
               style={{ marginTop: 6, fontSize: 11, lineHeight: 1.5 }}
             >
               {t(
-                'FitPulse использует Open Wearables — агрегатор данных с фитнес-устройств и приложений (Apple Health, Google Fit, Withings и др.). Чтобы подключить устройство: откройте Open Wearables, привяжите там источник (по OAuth), и FitPulse начнёт получать пульс, шаги, сон, SpO2 автоматически. Кнопка «Подключить» у источника ниже подскажет, что делать.',
-                'FitPulse uses Open Wearables — an aggregator for fitness devices and apps (Apple Health, Google Fit, Withings, etc.). To connect a device: open Open Wearables, link the source there (via OAuth), and FitPulse will start receiving heart rate, steps, sleep and SpO2 automatically. The "Connect" button on a source below explains what to do.'
+                'FitPulse использует Open Wearables — агрегатор данных с фитнес-устройств и приложений. Чтобы подключить: откройте Open Wearables, привяжите источник (по OAuth), и FitPulse начнёт получать пульс, шаги, сон, SpO2 автоматически.',
+                'FitPulse uses Open Wearables — an aggregator for fitness devices and apps. To connect: open Open Wearables, link the source (via OAuth), and FitPulse will start receiving heart rate, steps, sleep and SpO2 automatically.'
               )}
             </p>
+            <div className='fp-provider-chips' style={{ marginTop: 8 }}>
+              <div className='eyebrow' style={{ marginBottom: 4 }}>
+                {t('Облачные (OAuth)', 'Cloud (OAuth)')}
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                {[
+                  'Garmin',
+                  'Oura',
+                  'Whoop',
+                  'Polar',
+                  'Suunto',
+                  'Strava',
+                  'Withings',
+                  'Ultrahuman',
+                  'SensorBio',
+                  'Google Health',
+                  'Fitbit (deprecated)',
+                ].map((name) => (
+                  <span className='chip' key={name}>
+                    {name}
+                  </span>
+                ))}
+              </div>
+              <div
+                className='eyebrow'
+                style={{ marginBottom: 4, marginTop: 10 }}
+              >
+                {t('На устройстве (мобильный SDK)', 'On-device (mobile SDK)')}
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                {[
+                  'Apple Health',
+                  'Google Health Connect',
+                  'Samsung Health',
+                ].map((name) => (
+                  <span className='chip' key={name}>
+                    {name}
+                  </span>
+                ))}
+              </div>
+            </div>
           </div>
           {renderIntegrations()}
         </div>

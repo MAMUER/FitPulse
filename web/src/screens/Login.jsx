@@ -38,13 +38,13 @@ export default function Login() {
       <button type='button' className='primary full' onClick={doLogin}>
         {t('Войти', 'Sign in')}
       </button>
-      <div className='auth-link'>
+      <div className='auth-link' style={{ marginBottom: 24 }}>
         {t('Нет аккаунта?', "Don't have an account?")}{' '}
         <button type='button' onClick={() => go('register')}>
           {t('Зарегистрироваться', 'Register')}
         </button>
       </div>
-      <div className='auth-link'>
+      <div className='auth-link' style={{ marginTop: 24, marginBottom: 24 }}>
         <button type='button' onClick={forgotPassword}>
           {t('Забыли пароль?', 'Forgot password?')}
         </button>

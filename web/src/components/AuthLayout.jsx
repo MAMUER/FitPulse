@@ -7,7 +7,6 @@ export default function AuthLayout({ children }) {
     <section className='auth'>
       <div className='auth-brand'>
         <img className='auth-logo' src='/images/logo.jpg' alt='FitPulse' />
-        <h1>FitPulse</h1>
       </div>
       {children}
       <div className='auth-link auth-link--compact'>

@@ -68,6 +68,30 @@ spec:
                 path: RABBITMQ_URL
               - key: VALKEY_PASSWORD
                 path: VALKEY_PASSWORD
+              - key: SMTP_HOST
+                path: SMTP_HOST
+                optional: true
+              - key: SMTP_PORT
+                path: SMTP_PORT
+                optional: true
+              - key: SMTP_USER
+                path: SMTP_USER
+                optional: true
+              - key: SMTP_PASSWORD
+                path: SMTP_PASSWORD
+                optional: true
+              - key: SMTP_FROM
+                path: SMTP_FROM
+                optional: true
+              - key: YANDEX_CLIENT_ID
+                path: YANDEX_CLIENT_ID
+                optional: true
+              - key: YANDEX_CLIENT_SECRET
+                path: YANDEX_CLIENT_SECRET
+                optional: true
+              - key: YANDEX_REDIRECT_URL
+                path: YANDEX_REDIRECT_URL
+                optional: true
         - name: grpc-tls
           secret:
             secretName: grpc-server-tls
@@ -113,10 +137,26 @@ spec:
               value: "false"
             - name: RABBITMQ_URL_FILE
               value: "/etc/secrets/RABBITMQ_URL"
+            - name: SMTP_HOST_FILE
+              value: "/etc/secrets/SMTP_HOST"
+            - name: SMTP_PORT_FILE
+              value: "/etc/secrets/SMTP_PORT"
+            - name: SMTP_USER_FILE
+              value: "/etc/secrets/SMTP_USER"
+            - name: SMTP_PASSWORD_FILE
+              value: "/etc/secrets/SMTP_PASSWORD"
+            - name: SMTP_FROM_FILE
+              value: "/etc/secrets/SMTP_FROM"
             - name: JWT_PRIVATE_KEY_PEM_FILE
               value: "/etc/secrets/JWT_PRIVATE_KEY_PEM"
             - name: JWT_PUBLIC_KEY_PEM_FILE
               value: "/etc/secrets/JWT_PUBLIC_KEY_PEM"
+            - name: YANDEX_CLIENT_ID_FILE
+              value: "/etc/secrets/YANDEX_CLIENT_ID"
+            - name: YANDEX_CLIENT_SECRET_FILE
+              value: "/etc/secrets/YANDEX_CLIENT_SECRET"
+            - name: YANDEX_REDIRECT_URL_FILE
+              value: "/etc/secrets/YANDEX_REDIRECT_URL"
             - name: OTEL_EXPORTER_OTLP_ENDPOINT
               value: "opentelemetry-collector.monitoring.svc.cluster.local:4317"
             - name: OTEL_SERVICE_NAME

@@ -295,7 +295,7 @@ BEGIN
             ADD CONSTRAINT biometric_data_source_check
             CHECK (source IN (
                 'apple_health', 'garmin', 'health_connect', 'open_wearables',
-                'fitbit', 'withings', 'okok', 'flo', 'manual', 'unknown'  -- NOSONAR: S1192
+                'fitbit', 'withings', 'manual', 'unknown'  -- NOSONAR: S1192
             ));
     END IF;
 END $$;
@@ -453,7 +453,7 @@ CREATE TABLE IF NOT EXISTS user_body_composition (
     water_percentage        NUMERIC(4,2) CHECK (water_percentage IS NULL OR (water_percentage >= 1 AND water_percentage <= 100)),
     visceral_fat_rating     INT CHECK (visceral_fat_rating IS NULL OR (visceral_fat_rating >= 1 AND visceral_fat_rating <= 59)),
     metabolic_age           INT CHECK (metabolic_age IS NULL OR (metabolic_age >= 10 AND metabolic_age <= 100)),
-    source                  VARCHAR(50) NOT NULL DEFAULT 'manual' CHECK (source IN ('apple_health', 'garmin', 'health_connect', 'open_wearables', 'fitbit', 'withings', 'okok', 'flo', 'manual', 'unknown')),  -- NOSONAR: S1192
+    source                  VARCHAR(50) NOT NULL DEFAULT 'manual' CHECK (source IN ('apple_health', 'garmin', 'health_connect', 'open_wearables', 'fitbit', 'withings', 'manual', 'unknown')),  -- NOSONAR: S1192
     created_at              TIMESTAMPTZ DEFAULT NOW()
 );
 

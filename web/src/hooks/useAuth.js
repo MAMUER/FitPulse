@@ -95,25 +95,36 @@ export function useAuth({ state, update, notify }) {
 
   const submitResetEmail = useCallback(async () => {
     const email = document.getElementById('resetEmail')?.value.trim();
-    if (!email?.includes('@')) {
-      notify('Введите корректный email');
+    // Линейная проверка формата email (без супер-линейного regex).
+    const emailLooksValid =
+      !!email &&
+      email.indexOf('@') > 0 &&
+      email.includes('.') &&
+      !/\s/.test(email);
+    if (!emailLooksValid) {
+      notify(t('Введите корректный email', 'Enter a valid email'));
       return;
     }
     try {
       await api.submitResetEmail(email);
       update({ resetEmail: email, resetStep: 1 });
-      notify('Код отправлен на email');
+      notify(t('Код отправлен на email', 'Code sent to email'));
     } catch {
-      notify('Ошибка отправки кода');
+      notify(
+        t(
+          'Не удалось отправить код. Проверьте, что email зарегистрирован.',
+          'Failed to send code. Make sure the email is registered.'
+        )
+      );
     }
   }, [update, notify]);
 
   const submitResetCode = useCallback(() => {
     const code = document.getElementById('resetCode')?.value.trim();
-    try {
-      api.submitResetCode(code);
-    } catch (e) {
-      notify(e.message);
+    // Код должен быть 6 цифр. Реальная проверка кода — на бэкенде
+    // (submitNewPassword → /api/v1/auth/reset/confirm), здесь только формат.
+    if (!/^\d{6}$/.test(code || '')) {
+      notify(t('Код должен состоять из 6 цифр', 'Code must be 6 digits'));
       return;
     }
     update({ resetStep: 2 });
@@ -159,20 +170,10 @@ export function useAuth({ state, update, notify }) {
 
   const socialLogin = useCallback(
     (provider) => {
-      // OAuth-провайдеры (Yandex) требуют настроенного на бэкенде приложения и
-      // публичного HTTPS-домена. На локальном стенде без конфигурации переход
-      // привёл бы к ошибке «Yandex OAuth not configured», поэтому показываем
-      // понятное сообщение вместо сломанного редиректа.
-      try {
-        const result = api.socialLogin(provider);
-        if (result.redirect) {
-          window.location.href = result.redirect;
-          return;
-        }
-      } catch (e) {
-        notify(e.message);
-        return;
-      }
+      // OAuth-провайдеры (Yandex) требуют настроенного на бэкенде приложения
+      // (YANDEX_CLIENT_ID/SECRET) и публичного HTTPS-домена. Пока не настроено —
+      // показываем понятное сообщение вместо перехода на страницу с ошибкой
+      // «Yandex OAuth not configured».
       notify(
         provider === 'yandex'
           ? 'Вход через Яндекс пока не настроен на этом сервере.'

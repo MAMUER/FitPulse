@@ -153,6 +153,7 @@ func splitCSV(s string) []string {
 
 type EmailSender interface {
 	SendVerificationEmail(ctx context.Context, toEmail, verifyToken, baseURL string) error
+	SendPasswordResetEmail(ctx context.Context, toEmail, code, baseURL string) error
 }
 
 // SMTPClient is an SMTP implementation of EmailSender.

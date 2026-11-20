@@ -286,22 +286,21 @@ describe('useAuth', () => {
     await act(async () => {
       await result.current.submitResetEmail();
     });
-    expect(notify).toHaveBeenCalledWith('Ошибка отправки кода');
+    expect(notify).toHaveBeenCalledWith(
+      'Не удалось отправить код. Проверьте, что email зарегистрирован.'
+    );
   });
 
-  it('submitResetCode surfaces api validation errors', () => {
-    api.submitResetCode.mockImplementation(() => {
-      throw new Error('Введите код');
-    });
+  it('submitResetCode rejects a non-6-digit code', () => {
+    setValue('resetCode', '123');
     result.current.submitResetCode();
     expect(update).not.toHaveBeenCalled();
-    expect(notify).toHaveBeenCalledWith('Введите код');
+    expect(notify).toHaveBeenCalledWith('Код должен состоять из 6 цифр');
   });
 
   it('submitResetCode advances to password step', () => {
     setValue('resetCode', '123456');
     result.current.submitResetCode();
-    expect(api.submitResetCode).toHaveBeenCalledWith('123456');
     expect(update).toHaveBeenCalledWith({ resetStep: 2 });
   });
 
@@ -383,25 +382,17 @@ describe('useAuth', () => {
     expect(result.current.location.pathname).toBe('/home');
   });
 
-  it('socialLogin redirects for supported provider', () => {
-    api.socialLogin.mockReturnValue({ redirect: '/api/v1/auth/yandex' });
+  it('socialLogin notifies for yandex (not configured)', () => {
     result.current.socialLogin('yandex');
-    expect(api.socialLogin).toHaveBeenCalledWith('yandex');
-    expect(window.location.href).toBe('/api/v1/auth/yandex');
-  });
-
-  it('socialLogin notifies for unsupported provider', () => {
-    api.socialLogin.mockImplementation(() => {
-      throw new Error('Интеграция google не поддерживается');
-    });
-    result.current.socialLogin('google');
-    expect(notify).toHaveBeenCalledWith('Интеграция google не поддерживается');
-  });
-
-  it('socialLogin does nothing without redirect', () => {
-    api.socialLogin.mockReturnValue({});
-    result.current.socialLogin('yandex');
+    expect(notify).toHaveBeenCalledWith(
+      'Вход через Яндекс пока не настроен на этом сервере.'
+    );
     expect(window.location.href).toBe('');
+  });
+
+  it('socialLogin notifies for other providers', () => {
+    result.current.socialLogin('google');
+    expect(notify).toHaveBeenCalledWith('Этот способ входа пока не настроен.');
   });
 
   it('confirmEmail notifies on success', async () => {

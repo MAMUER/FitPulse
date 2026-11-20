@@ -98,6 +98,12 @@ export default function Reset({ initialResetting = false }) {
           value={newPass}
           onChange={(e) => setNewPass(e.target.value)}
         />
+        <p className='muted' style={{ fontSize: 10, marginTop: 4 }}>
+          {t(
+            'Минимум 6 символов. Желательно буквы + цифры.',
+            'At least 6 characters. Letters and digits recommended.'
+          )}
+        </p>
       </div>
       <div className='field'>
         <label htmlFor='newPasswordConfirm'>
@@ -109,6 +115,14 @@ export default function Reset({ initialResetting = false }) {
           value={confirmPass}
           onChange={(e) => setConfirmPass(e.target.value)}
         />
+        {confirmPass && confirmPass !== newPass ? (
+          <p
+            className='muted'
+            style={{ fontSize: 10, marginTop: 4, color: 'var(--red, #ff6375)' }}
+          >
+            {t('Пароли не совпадают', 'Passwords do not match')}
+          </p>
+        ) : null}
       </div>
       <button
         type='button'

@@ -6,8 +6,6 @@
 
 - **Open Wearables** — production-ready, webhook `POST /api/v1/integrations/open-wearables/webhook`
 - **Device Aggregator** — production-ready, легковесный forwarder
-- **Withings** — production-ready, прямой OAuth `/api/v1/integrations/withings/auth` + `/api/v1/integrations/withings/callback` + `/api/v1/integrations/withings/sync`
-- **Прямые OAuth-интеграции** — удалены из кодовой базы, кроме Withings (Fitbit, Flo, OKOK)
 
 ### 24.2 Поддерживаемые источники (whitelist)
 
@@ -78,8 +76,6 @@
 
 - Biometric-service остаётся универсальным: принимает webhook от Open Wearables, валидирует, сохраняет в `biometric_data`
 - Device-aggregator используется как легковесный webhook-forwarder для Open Wearables
-- Прямые OAuth-интеграции (Fitbit, Flo, OKOK) удалены из кодовой базы и swagger
-- Withings — единственная прямая OAuth-интеграция, сохранённая в Phase 1
 
 ### 24.7 Менструальные данные
 
@@ -94,7 +90,6 @@
 
 #### Источники, из которых менструальные данные доступны
 
-- **Withings** — прямой OAuth реализован; метрика `menstrual_cycle` доступна через `/api/v1/integrations/withings/sync`
 - **Garmin / Oura / Samsung Health** — через Open Wearables webhook, метрика `menstrual_cycle`
 
 #### Fallback: менструальный календарь FitPulse
