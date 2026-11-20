@@ -22,8 +22,6 @@ const FALLBACK_MEAL = {
   image: '',
 };
 
-const EMPTY_GOALS_FORM = { calories: '', protein: '', fat: '', carbs: '' };
-
 const EMPTY_DISH_FORM = {
   name: '',
   kcal: '',
@@ -59,7 +57,6 @@ export default function Nutrition() {
     removeMeal,
     updateMeal,
     addDishToCatalog,
-    saveNutritionGoals,
   } = useApp();
 
   const [query, setQuery] = useState('');
@@ -68,8 +65,6 @@ export default function Nutrition() {
   const [mealTime, setMealTime] = useState('');
   const [editingMealId, setEditingMealId] = useState(null);
   const [dishForm, setDishForm] = useState(EMPTY_DISH_FORM);
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  const [goalsForm, setGoalsForm] = useState(EMPTY_GOALS_FORM);
 
   useEffect(() => {
     loadMeals();
@@ -141,26 +136,6 @@ export default function Nutrition() {
   const askAIMenu = () => {
     go('ai');
     quickAI(t('Составь меню на сегодня', 'Make a menu for today'));
-  };
-
-  const openSettings = () => {
-    setGoalsForm({
-      calories: goalCalories ? String(goalCalories) : '',
-      protein: goals.protein ? String(goals.protein) : '',
-      fat: goals.fats ? String(goals.fats) : '',
-      carbs: goals.carbs ? String(goals.carbs) : '',
-    });
-    setSettingsOpen(true);
-  };
-
-  const submitSettings = () => {
-    saveNutritionGoals({
-      calories: Number(goalsForm.calories) || 0,
-      protein: Number(goalsForm.protein) || 0,
-      fats: Number(goalsForm.fat) || 0,
-      carbs: Number(goalsForm.carbs) || 0,
-    });
-    setSettingsOpen(false);
   };
 
   const updateDishField = (field) => (event) => {
@@ -258,9 +233,6 @@ export default function Nutrition() {
           onClick={() => go('survey')}
         >
           {t('Цель', 'Goal')}: {goalLabel}
-        </button>
-        <button type='button' className='chip' onClick={openSettings}>
-          {t('Персональные настройки', 'Personal settings')}
         </button>
         <span className='chip'>
           {goalCalories || '—'} {t('ккал', 'kcal')}
@@ -613,109 +585,6 @@ export default function Nutrition() {
           </button>
         )}
       </section>
-
-      {settingsOpen && (
-        <Modal
-          className='fp-profile-modal'
-          label={t('Настройки питания', 'Nutrition settings')}
-          onClose={() => setSettingsOpen(false)}
-        >
-          <section className='fp-profile-box'>
-            <div className='between'>
-              <div>
-                <div className='eyebrow'>{t('ЦЕЛИ', 'GOALS')}</div>
-                <h3>{t('Настройки питания', 'Nutrition settings')}</h3>
-              </div>
-              <button
-                type='button'
-                className='icon'
-                aria-label={t('Закрыть', 'Close')}
-                onClick={() => setSettingsOpen(false)}
-              >
-                ×
-              </button>
-            </div>
-            <label htmlFor='goalCalories'>
-              {t('Калории в день, ккал', 'Daily calories, kcal')}
-            </label>
-            <input
-              id='goalCalories'
-              type='number'
-              inputMode='numeric'
-              value={goalsForm.calories}
-              onChange={(event) =>
-                setGoalsForm((prev) => ({
-                  ...prev,
-                  calories: event.target.value,
-                }))
-              }
-              placeholder='2350'
-            />
-            <div className='form-row'>
-              <div className='field'>
-                <label htmlFor='goalProtein'>
-                  {t('Белки, г', 'Protein, g')}
-                </label>
-                <input
-                  id='goalProtein'
-                  type='number'
-                  inputMode='numeric'
-                  value={goalsForm.protein}
-                  onChange={(event) =>
-                    setGoalsForm((prev) => ({
-                      ...prev,
-                      protein: event.target.value,
-                    }))
-                  }
-                  placeholder='130'
-                />
-              </div>
-              <div className='field'>
-                <label htmlFor='goalFat'>{t('Жиры, г', 'Fat, g')}</label>
-                <input
-                  id='goalFat'
-                  type='number'
-                  inputMode='numeric'
-                  value={goalsForm.fat}
-                  onChange={(event) =>
-                    setGoalsForm((prev) => ({
-                      ...prev,
-                      fat: event.target.value,
-                    }))
-                  }
-                  placeholder='70'
-                />
-              </div>
-              <div className='field'>
-                <label htmlFor='goalCarbs'>
-                  {t('Углеводы, г', 'Carbs, g')}
-                </label>
-                <input
-                  id='goalCarbs'
-                  type='number'
-                  inputMode='numeric'
-                  value={goalsForm.carbs}
-                  onChange={(event) =>
-                    setGoalsForm((prev) => ({
-                      ...prev,
-                      carbs: event.target.value,
-                    }))
-                  }
-                  placeholder='250'
-                />
-              </div>
-            </div>
-            <button
-              type='button'
-              className='primary full'
-              style={{ marginTop: 13 }}
-              onClick={submitSettings}
-            >
-              {t('Сохранить', 'Save')}
-            </button>
-          </section>
-        </Modal>
-      )}
 
       {selectedMealSlot && selectedMealData && (
         <Modal

@@ -39,12 +39,11 @@ export function useNavigation({ state, update }) {
 
   const openLegal = useCallback(
     (screen) => {
-      const defaultReturn = state.guest ? 'home' : 'login';
+      const fallback = state.guest ? 'home' : 'login';
       update({
-        legalReturnScreen:
-          screen === 'privacy' || screen === 'terms'
-            ? state.legalReturnScreen || defaultReturn
-            : state.screen,
+        // Запоминаем экран, с которого открыли юридическую страницу, чтобы
+        // «Назад» возвращал туда, а не на home/login.
+        legalReturnScreen: state.legalReturnScreen || state.screen || fallback,
         screen,
       });
       const path =

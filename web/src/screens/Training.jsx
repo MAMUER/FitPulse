@@ -4,54 +4,6 @@ import VideoModal from '../components/VideoModal';
 import WorkoutSession from '../components/WorkoutSession';
 import { useApp } from '../contexts/AppContext';
 
-const WORKOUTS = [
-  {
-    id: 1,
-    offset: 0,
-    time: '18:30',
-    calories: '420',
-    duration: '42 мин',
-    title: ['Силовая база', 'Strength base'],
-    level: ['Средний уровень', 'Intermediate level'],
-    exercises: [
-      ['Приседания', '4 × 12'],
-      ['Отжимания', '4 × 10'],
-      ['Выпады', '3 × 12'],
-      ['Планка', '3 × 45 сек'],
-      ['Разминка и заминка', '8 мин'],
-    ],
-  },
-  {
-    id: 2,
-    offset: 1,
-    time: '21:30',
-    calories: '160',
-    duration: '20 мин',
-    title: ['Мобильность и восстановление', 'Mobility and recovery'],
-    level: ['Лёгкий уровень', 'Light level'],
-    exercises: [
-      ['Дыхание', '3 мин'],
-      ['Кошка-корова', '3 × 40 сек'],
-      ['Раскрытие таза', '3 × 40 сек'],
-      ['Растяжка спины', '5 мин'],
-    ],
-  },
-  {
-    id: 3,
-    offset: 3,
-    time: '10:00',
-    calories: '510',
-    duration: '35 мин',
-    title: ['Кардио в бассейне', 'Pool cardio'],
-    level: ['Средний уровень', 'Intermediate level'],
-    exercises: [
-      ['Разминка в воде', '5 мин'],
-      ['Свободный стиль', '6 × 2 мин'],
-      ['Спокойное плавание', '8 мин'],
-    ],
-  },
-];
-
 export default function Training() {
   const {
     state,
@@ -203,7 +155,7 @@ export default function Training() {
       <div className='section'>
         <h3>{t('Мой план', 'My plan')}</h3>
       </div>
-      {WORKOUTS.map((workout) => {
+      {plans.map((workout) => {
         const title = t(...workout.title);
         const completed = completedWorkouts.includes(title);
         const open = state.selectedWorkout === workout.id;

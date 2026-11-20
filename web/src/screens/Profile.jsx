@@ -26,6 +26,7 @@ export default function Profile() {
     changePassword,
     deleteAccount,
     uploadPhoto,
+    removePhoto,
     editProfile,
     showDevices,
     showRestrictions,
@@ -133,17 +134,39 @@ export default function Profile() {
               {state.activeDays || 0} {t('активных дней', 'active days')}
             </div>
             {canEdit && (
-              <label className='upload-btn'>
-                <i className='fas fa-camera' />{' '}
-                {t('Изменить фото', 'Change photo')}
-                <input type='file' accept='image/*' onChange={uploadPhoto} />
-              </label>
+              <div className='profile-photo-actions'>
+                <label className='upload-btn'>
+                  <i className='fas fa-camera' />{' '}
+                  {state.profileImage
+                    ? t('Изменить фото', 'Change photo')
+                    : t('Добавить фото', 'Add photo')}
+                  <input type='file' accept='image/*' onChange={uploadPhoto} />
+                </label>
+                {state.profileImage && (
+                  <button
+                    type='button'
+                    className='upload-btn danger'
+                    onClick={removePhoto}
+                  >
+                    <i className='fas fa-trash' />{' '}
+                    {t('Удалить фото', 'Remove photo')}
+                  </button>
+                )}
+              </div>
             )}
           </div>
         </div>
         <div className='profile-stats'>
-          <button type='button' className='stat' onClick={() => go('home')}>
-            <b>{state.activeDays || 0}</b>
+          <button
+            type='button'
+            className='stat'
+            onClick={() =>
+              document
+                .getElementById('achievements')
+                ?.scrollIntoView({ behavior: 'smooth' })
+            }
+          >
+            <b>{streak}</b>
             <small>{t('Серия', 'Streak')}</small>
           </button>
           <button type='button' className='stat' onClick={() => go('calendar')}>
@@ -231,7 +254,7 @@ export default function Profile() {
         </div>
       </div>
 
-      <div className='section'>
+      <div className='section' id='achievements'>
         <h3>
           {t('Достижения', 'Achievements')}{' '}
           <span style={{ color: 'var(--gold)', fontSize: 12 }}>

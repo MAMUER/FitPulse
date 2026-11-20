@@ -280,22 +280,6 @@ describe('Nutrition', () => {
     );
   });
 
-  it('opens nutrition settings from the chips and saves goals', () => {
-    const context = makeContext();
-    useApp.mockReturnValue(context);
-
-    render(<Nutrition />);
-    fireEvent.click(screen.getByText('Персональные настройки'));
-
-    const dialog = screen.getByRole('dialog');
-    expect(within(dialog).getByText('Настройки питания')).toBeInTheDocument();
-    fireEvent.click(within(dialog).getByText('Сохранить'));
-
-    expect(context.saveNutritionGoals).toHaveBeenCalledWith(
-      expect.objectContaining({ calories: 2350 })
-    );
-  });
-
   it('updates the dish search query', () => {
     const context = makeContext();
     useApp.mockReturnValue(context);

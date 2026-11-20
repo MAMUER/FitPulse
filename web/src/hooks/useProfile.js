@@ -335,6 +335,11 @@ export function useProfile({ state, update, notify }) {
     [update, notify]
   );
 
+  const removePhoto = useCallback(() => {
+    update({ profileImage: '' });
+    notify(t('Фото удалено', 'Photo removed'));
+  }, [update, notify]);
+
   const toggleFriendAdded = useCallback(
     (value) => {
       const index =
@@ -406,6 +411,7 @@ export function useProfile({ state, update, notify }) {
     reportUser,
     saveProfile,
     uploadPhoto,
+    removePhoto,
     toggleFriendAdded,
     openFriendProfile,
     showAchievement,

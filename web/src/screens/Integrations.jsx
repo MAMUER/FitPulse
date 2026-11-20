@@ -167,9 +167,20 @@ export default function Integrations() {
                   'Google Health',
                   'Fitbit (deprecated)',
                 ].map((name) => (
-                  <span className='chip' key={name}>
+                  <button
+                    type='button'
+                    className='chip'
+                    key={name}
+                    onClick={() =>
+                      toggle({
+                        source: name.toLowerCase().replace(/\s+/g, '-'),
+                        source_name: name,
+                        connected: false,
+                      })
+                    }
+                  >
                     {name}
-                  </span>
+                  </button>
                 ))}
               </div>
               <div

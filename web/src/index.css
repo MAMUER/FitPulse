@@ -2677,6 +2677,20 @@ h3,
   display: none;
 }
 
+.profile-photo-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.profile-info .upload-btn.danger {
+  color: var(--red);
+  border: 1px solid var(--red);
+  border-radius: 8px;
+  padding: 3px 8px;
+}
+
 .profile-stats {
   display: flex;
   gap: 12px;
@@ -3463,6 +3477,49 @@ h3,
 /* ═══════════════════════════════════════════
    HACK / TIPS SECTION
    ═══════════════════════════════════════════ */
+.fp-guest-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--orange);
+  border-radius: 14px;
+  background: var(--card-2);
+  font-size: 10px;
+  line-height: 1.45;
+  color: var(--text);
+}
+
+.fp-guest-banner > i {
+  margin-top: 1px;
+  color: var(--orange);
+}
+
+.fp-guest-banner > span {
+  flex: 1;
+  min-width: 0;
+}
+
+.fp-guest-banner-close {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: var(--card);
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.fp-guest-banner-close:hover {
+  color: var(--text);
+}
+
 .fp-hack {
   position: relative;
   min-height: 92px;

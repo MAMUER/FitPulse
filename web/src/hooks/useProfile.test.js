@@ -453,6 +453,15 @@ describe('useProfile', () => {
     });
   });
 
+  it('removePhoto clears the profile image', () => {
+    setup();
+    act(() => {
+      result.current.removePhoto();
+    });
+    expect(update).toHaveBeenCalledWith({ profileImage: '' });
+    expect(notify).toHaveBeenCalled();
+  });
+
   it('toggleFriendAdded toggles by name', () => {
     setup({
       friends: [

@@ -282,4 +282,14 @@ describe('Home', () => {
     );
     expect(modal).toBeInTheDocument();
   });
+
+  it('shows the guest-mode banner and lets the user dismiss it', () => {
+    const { container } = renderHome({ state: { guest: true } });
+
+    const banner = container.querySelector('.fp-guest-banner');
+    expect(banner).toBeInTheDocument();
+
+    fireEvent.click(container.querySelector('.fp-guest-banner-close'));
+    expect(container.querySelector('.fp-guest-banner')).not.toBeInTheDocument();
+  });
 });

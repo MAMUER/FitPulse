@@ -104,21 +104,21 @@ describe('useNavigation', () => {
     );
   });
 
-  it('openLegal remembers login as return for privacy', () => {
+  it('openLegal returns to the origin screen for privacy', () => {
     setup({ screen: 'ai', guest: false });
     act(() => result.current.openLegal('privacy'));
     expect(update).toHaveBeenCalledWith({
-      legalReturnScreen: 'login',
+      legalReturnScreen: 'ai',
       screen: 'privacy',
     });
     expect(result.current.location.pathname).toBe('/privacy');
   });
 
-  it('openLegal remembers home as return for guest terms', () => {
+  it('openLegal returns to the origin screen for guest terms', () => {
     setup({ screen: 'login', guest: true });
     act(() => result.current.openLegal('terms'));
     expect(update).toHaveBeenCalledWith({
-      legalReturnScreen: 'home',
+      legalReturnScreen: 'login',
       screen: 'terms',
     });
   });
