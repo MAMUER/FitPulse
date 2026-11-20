@@ -54,6 +54,13 @@ export default function Training() {
   const videos = state.trainingVideos || [];
   const plans = state.trainingPlans || [];
   const instructions = state.instructions || {};
+  // «Мой план» показывает карточки только для планов, которые реально несут
+  // данные карточки (title/level массивами). Бэкенд /training/plans отдаёт
+  // плановые объекты (training_goal/duration_weeks) — они идут в «Планы FitPulse»,
+  // а не в карточки, поэтому прод не падает на пустых полях.
+  const cardPlans = plans.filter(
+    (plan) => Array.isArray(plan.title) || Array.isArray(plan.level)
+  );
 
   const addExercise = () => {
     const name = exerciseName.trim();
@@ -155,8 +162,18 @@ export default function Training() {
       <div className='section'>
         <h3>{t('Мой план', 'My plan')}</h3>
       </div>
-      {plans.map((workout) => {
-        const title = t(...workout.title);
+      {cardPlans.map((workout) => {
+        const title = Array.isArray(workout.title)
+          ? t(...workout.title)
+          : String(
+              workout.title ?? workout.name ?? workout.training_goal ?? ''
+            );
+        const level = Array.isArray(workout.level)
+          ? t(...workout.level)
+          : String(workout.level ?? '');
+        const exercises = Array.isArray(workout.exercises)
+          ? workout.exercises
+          : [];
         const completed = completedWorkouts.includes(title);
         const open = state.selectedWorkout === workout.id;
         return (
@@ -185,7 +202,7 @@ export default function Training() {
                 {t('ккал', 'kcal')}
               </span>
               <span>
-                <i className='fas fa-signal' /> {t(...workout.level)}
+                <i className='fas fa-signal' /> {level}
               </span>
             </div>
             <div className='interval'>
@@ -198,12 +215,12 @@ export default function Training() {
                 <small>{t('сек отдых', 'sec rest')}</small>
               </div>
               <div>
-                <b>{workout.exercises.length}</b>
+                <b>{exercises.length}</b>
                 <small>{t('упражнений', 'exercises')}</small>
               </div>
             </div>
             <div className='exercise-list'>
-              {workout.exercises.map((exercise) => (
+              {exercises.map((exercise) => (
                 <div className='exercise' key={exercise[0]}>
                   <strong>{exercise[0]}</strong>
                   <span>{exercise[1]}</span>
@@ -230,7 +247,7 @@ export default function Training() {
                     onClick={() =>
                       setActiveWorkout({
                         title,
-                        exercises: workout.exercises,
+                        exercises,
                       })
                     }
                   >
@@ -260,7 +277,11 @@ export default function Training() {
           <section className='card'>
             {plans.map((plan, index) => (
               <div className='body-row' key={plan.id || index}>
-                <span>{plan.title || plan.name || `#${index + 1}`}</span>
+                <span>
+                  {Array.isArray(plan.title)
+                    ? (plan.title[0] ?? `#${index + 1}`)
+                    : plan.title || plan.name || `#${index + 1}`}
+                </span>
                 <b>
                   {plan.duration_weeks || plan.durationWeeks || ''}{' '}
                   {t('нед.', 'wk')}

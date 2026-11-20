@@ -29,8 +29,51 @@ const videos = [
 ];
 
 const trainingPlans = [
-  { id: 1, title: 'План на месяц', duration_weeks: 4 },
-  { id: 2, name: 'План на неделю', durationWeeks: 1 },
+  {
+    id: 1,
+    title: ['Силовая база', 'Strength base'],
+    level: ['Средний уровень', 'Medium level'],
+    duration: '42 мин',
+    calories: 420,
+    time: '18:30',
+    offset: 0,
+    exercises: [
+      ['Приседания', '3×12'],
+      ['Жим лёжа', '3×10'],
+      ['Тяга', '3×12'],
+      ['Планка', '3×45 с'],
+      ['Гиперэкстензия', '3×15'],
+    ],
+  },
+  {
+    id: 2,
+    title: ['Мобильность и восстановление', 'Mobility and recovery'],
+    level: ['Лёгкий уровень', 'Light level'],
+    duration: '20 мин',
+    calories: 160,
+    time: '21:30',
+    offset: 1,
+    exercises: [
+      ['Растяжка', '5 мин'],
+      ['Мяч', '5 мин'],
+      ['Дыхание', '5 мин'],
+      ['Поза', '5 мин'],
+    ],
+  },
+  {
+    id: 3,
+    title: ['Кардио в бассейне', 'Pool cardio'],
+    level: ['Средний уровень', 'Medium level'],
+    duration: '35 мин',
+    calories: 510,
+    time: '10:00',
+    offset: 3,
+    exercises: [
+      ['Плавание', '10 мин'],
+      ['Аквааэробика', '15 мин'],
+      ['Отдых', '10 мин'],
+    ],
+  },
 ];
 
 function makeContext(overrides = {}) {
@@ -106,9 +149,9 @@ describe('Training', () => {
     // "Силовая база" is rendered both in the plan summary and in the workout card.
     expect(screen.getAllByText('Силовая база').length).toBeGreaterThan(0);
     expect(
-      screen.getByText('Мобильность и восстановление')
-    ).toBeInTheDocument();
-    expect(screen.getByText('Кардио в бассейне')).toBeInTheDocument();
+      screen.getAllByText('Мобильность и восстановление').length
+    ).toBeGreaterThan(0);
+    expect(screen.getAllByText('Кардио в бассейне').length).toBeGreaterThan(0);
     expect(screen.getByText('Правила в зале')).toBeInTheDocument();
   });
 
@@ -238,7 +281,8 @@ describe('Training', () => {
     render(<Training />);
 
     expect(screen.getByText('Планы FitPulse')).toBeInTheDocument();
-    expect(screen.getByText('План на месяц')).toBeInTheDocument();
+    // План виден и в карточке «Мой план», и в списке «Планы FitPulse».
+    expect(screen.getAllByText('Силовая база').length).toBeGreaterThan(1);
     fireEvent.click(screen.getByText('Сгенерировать'));
 
     expect(context.generatePlan).toHaveBeenCalledWith({ durationWeeks: 4 });
