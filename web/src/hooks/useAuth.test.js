@@ -154,6 +154,7 @@ describe('useAuth', () => {
       },
       registered: true,
       guest: false,
+      authenticated: true,
       screen: 'home',
     });
     expect(result.current.location.pathname).toBe('/home');
@@ -188,6 +189,7 @@ describe('useAuth', () => {
     expect(update).toHaveBeenCalledWith({
       registered: false,
       guest: false,
+      authenticated: false,
       screen: 'login',
     });
     expect(result.current.location.pathname).toBe('/login');
@@ -375,6 +377,7 @@ describe('useAuth', () => {
     expect(update).toHaveBeenCalledWith({
       guest: true,
       registered: false,
+      authenticated: false,
       screen: 'home',
     });
     expect(result.current.location.pathname).toBe('/home');

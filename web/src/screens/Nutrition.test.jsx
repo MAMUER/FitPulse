@@ -97,6 +97,7 @@ function makeContext(overrides = {}) {
     t: tOverride || ((ru, _en) => ru),
     go: vi.fn(),
     loadMeals: vi.fn(),
+    loadDishes: vi.fn(),
     openMeal: vi.fn(),
     closeMeal: vi.fn(),
     selectMeal: vi.fn(),

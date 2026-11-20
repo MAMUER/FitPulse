@@ -58,11 +58,14 @@ describe('useProfile', () => {
   it('returns all profile callbacks', () => {
     setup();
     expect(Object.keys(result.current).sort()).toEqual([
+      'addFriend',
       'changePassword',
       'deleteAccount',
       'editProfile',
+      'loadFriends',
       'loadProfile',
       'openFriendProfile',
+      'removeFriendById',
       'saveProfile',
       'searchFriends',
       'showAchievement',
@@ -358,6 +361,7 @@ describe('useProfile', () => {
         devices: ['d'],
       },
       profileLoaded: true,
+      authenticated: true,
     });
   });
 
@@ -373,6 +377,7 @@ describe('useProfile', () => {
         email: 'mih@example.com',
       }),
       profileLoaded: true,
+      authenticated: true,
     });
   });
 
@@ -382,7 +387,10 @@ describe('useProfile', () => {
     await act(async () => {
       await result.current.loadProfile();
     });
-    expect(update).toHaveBeenCalledWith({ profileLoaded: true });
+    expect(update).toHaveBeenCalledWith({
+      profileLoaded: true,
+      authenticated: true,
+    });
   });
 
   it('loadProfile marks loaded on error', async () => {
@@ -391,7 +399,10 @@ describe('useProfile', () => {
     await act(async () => {
       await result.current.loadProfile();
     });
-    expect(update).toHaveBeenCalledWith({ profileLoaded: true });
+    expect(update).toHaveBeenCalledWith({
+      profileLoaded: true,
+      authenticated: false,
+    });
   });
 
   it('saveProfile notifies on success', async () => {
@@ -611,7 +622,10 @@ describe('useProfile', () => {
     await act(async () => {
       await result.current.loadProfile();
     });
-    expect(update).toHaveBeenCalledWith({ profileLoaded: true });
+    expect(update).toHaveBeenCalledWith({
+      profileLoaded: true,
+      authenticated: true,
+    });
   });
 
   it('loadProfile handles error', async () => {
@@ -620,7 +634,10 @@ describe('useProfile', () => {
     await act(async () => {
       await result.current.loadProfile();
     });
-    expect(update).toHaveBeenCalledWith({ profileLoaded: true });
+    expect(update).toHaveBeenCalledWith({
+      profileLoaded: true,
+      authenticated: false,
+    });
   });
 
   it('editProfile evaluates status fallback when status missing', async () => {

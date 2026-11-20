@@ -72,6 +72,7 @@ describe('useNutrition', () => {
     setup();
     expect(Object.keys(result.current).sort()).toEqual([
       'createMeal',
+      'loadDishes',
       'loadMeals',
       'openMeal',
       'removeMeal',
