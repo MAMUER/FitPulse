@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import * as api from '../services/api';
+import { containsProfanity } from '../utils/profanity';
 
 export function useAuth({ state, update, notify }) {
   const navigate = useNavigate();
@@ -27,7 +28,9 @@ export function useAuth({ state, update, notify }) {
       });
       void navigate('/home');
     } catch {
-      notify('Ошибка входа');
+      // 401 (неверные креды) и прочие ошибки входа — показываем единое
+      // понятное сообщение, а не «Ошибка входа».
+      notify('Неверный email или пароль');
     }
   }, [state.profile, update, notify, navigate]);
 
@@ -54,6 +57,16 @@ export function useAuth({ state, update, notify }) {
       notify('Заполните все поля');
       return;
     }
+    // Формат email (линейная проверка, без супер-линейного regex).
+    const emailLooksValid =
+      !!email &&
+      email.indexOf('@') > 0 &&
+      email.includes('.') &&
+      !/\s/.test(email);
+    if (!emailLooksValid) {
+      notify('Введите корректный email');
+      return;
+    }
     if (pass !== confirm) {
       notify('Пароли не совпадают');
       return;
@@ -62,8 +75,18 @@ export function useAuth({ state, update, notify }) {
       notify('Пароль должен содержать минимум 6 символов');
       return;
     }
+    // Имя не должно содержать нецензурные/оскорбительные слова
+    // (RU + EN, с нормализацией обфускации типа «х*й»/«f.u.c.k»).
+    if (containsProfanity(fullName)) {
+      notify('Имя содержит недопустимые слова');
+      return;
+    }
     if (!document.getElementById('regConsent')?.checked) {
       notify('Подтвердите согласие с документами.');
+      return;
+    }
+    if (!document.getElementById('regConsentSpecial')?.checked) {
+      notify('Подтвердите согласие на обработку специальных категорий данных.');
       return;
     }
     try {

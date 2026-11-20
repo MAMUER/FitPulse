@@ -77,6 +77,7 @@ function makeContext(overrides = {}) {
     // value, not inside state — Training.jsx reads it from useApp().
     customExercises: [{ name: 'Становая тяга', sets: '3 × 5' }],
     t: (ru, _en) => ru,
+    canEdit: true,
     formatRelativeDate: vi.fn((offset) => `date-${offset}`),
     startWorkout: vi.fn(),
     toggleWorkout: vi.fn(),
@@ -86,6 +87,7 @@ function makeContext(overrides = {}) {
     addCustomExercise: vi.fn(),
     removeCustomExercise: vi.fn(),
     quickAI: vi.fn(),
+    go: vi.fn(),
     notify: vi.fn(),
     ...rest,
   };
@@ -130,12 +132,17 @@ describe('Training', () => {
     expect(context.toggleWorkout).toHaveBeenCalledWith(1);
   });
 
-  it('starts a workout', () => {
+  it('starts a workout session and finishes it', () => {
     const context = makeContext();
     useApp.mockReturnValue(context);
 
     render(<Training />);
     fireEvent.click(screen.getAllByText('Начать')[0]);
+
+    // Открывается сессия с таймером и кнопкой завершения.
+    const finish = screen.getByText('Завершить тренировку');
+    expect(finish).toBeInTheDocument();
+    fireEvent.click(finish);
 
     expect(context.startWorkout).toHaveBeenCalledWith('Силовая база');
   });
@@ -270,7 +277,8 @@ describe('Training', () => {
 
     render(<Training />);
 
-    expect(screen.getByText('Видео-уроки')).toBeInTheDocument();
+    // Без видео раздел «Видео-уроки» не показываем.
+    expect(screen.queryByText('Видео-уроки')).not.toBeInTheDocument();
     expect(screen.queryByText('Планы FitPulse')).not.toBeInTheDocument();
   });
 });

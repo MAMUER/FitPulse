@@ -1,7 +1,22 @@
 import { useCallback } from 'react';
+import * as api from '../services/api';
 import { t } from '../utils/i18n';
 
 export function useMedia({ state, update, notify }) {
+  // loadVideos подгружает библиотеку видео с бэкенда. Раньше этой функции не
+  // было, и экран /videos падал с «loadVideos is not a function».
+  const loadVideos = useCallback(async () => {
+    try {
+      const data = await api.loadVideos();
+      const list = Array.isArray(data) ? data : data?.videos;
+      if (Array.isArray(list)) {
+        update({ videos: list });
+      }
+    } catch {
+      // ignore — видео остаются как есть, если бэкенд недоступен
+    }
+  }, [update]);
+
   const addCustomExercise = useCallback(
     (exercise) => {
       const name = (
@@ -77,6 +92,7 @@ export function useMedia({ state, update, notify }) {
   }, [state.trainingVideos, state.selectedVideoId, notify]);
 
   return {
+    loadVideos,
     addCustomExercise,
     removeCustomExercise,
     openVideoModal,

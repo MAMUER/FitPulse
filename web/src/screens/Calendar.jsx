@@ -4,28 +4,6 @@ import MonthSwitcher from '../components/MonthSwitcher';
 import { useApp } from '../contexts/AppContext';
 import { getDateKey, getEventsForMonth, getWeekDays } from '../utils/helpers';
 
-const QUICK_ENTRIES = [
-  [
-    ['gym', 'fa-dumbbell'],
-    ['pool', 'fa-swimmer'],
-    ['recovery', 'fa-heart'],
-  ],
-  [
-    ['work', 'fa-briefcase'],
-    ['study', 'fa-graduation-cap'],
-    ['note', 'fa-pen'],
-  ],
-];
-
-const QUICK_LABELS = {
-  gym: ['Зал', 'Gym'],
-  pool: ['Бассейн', 'Pool'],
-  recovery: ['Восстановление', 'Recovery'],
-  work: ['Работа', 'Work'],
-  study: ['Учёба', 'Study'],
-  note: ['Заметка', 'Note'],
-};
-
 export default function Calendar() {
   const {
     state,
@@ -33,7 +11,6 @@ export default function Calendar() {
     getMonthName,
     loadCalendarEvents,
     changeCalendar,
-    quickAddEvent,
     openCalendarPage,
     closeCalendarPage,
     selectCalendarDay,
@@ -83,34 +60,7 @@ export default function Calendar() {
             'Tasks, meetings, meals, workouts and recovery.'
           )}
         </p>
-        <button
-          type='button'
-          className='primary'
-          style={{ marginTop: 10 }}
-          onClick={() => openCalendarPage(true)}
-        >
-          <i className='fas fa-calendar-alt' />{' '}
-          {t('Открыть календарь', 'Open calendar')}
-        </button>
       </div>
-
-      <div className='section'>
-        <h3>{t('Быстрые записи', 'Quick entries')}</h3>
-      </div>
-      {QUICK_ENTRIES.map((row) => (
-        <div className='form-row' key={row[0][0]}>
-          {row.map(([type, icon]) => (
-            <button
-              type='button'
-              className='secondary'
-              key={type}
-              onClick={() => quickAddEvent(type)}
-            >
-              <i className={`fas ${icon}`} /> {t(...QUICK_LABELS[type])}
-            </button>
-          ))}
-        </div>
-      ))}
 
       {!state.calendarOpen && (
         <section className='card'>

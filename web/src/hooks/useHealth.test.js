@@ -66,6 +66,7 @@ describe('useHealth', () => {
       'loadConditions',
       'loadMenstrualCycles',
       'logWeight',
+      'removeWater',
       'saveBodyComposition',
       'updateMenstrualCycle',
     ]);
@@ -440,6 +441,20 @@ describe('useHealth', () => {
     expect(update).toHaveBeenCalledWith(
       expect.objectContaining({ points: 0, level: 2 })
     );
+  });
+
+  it('removeWater decreases intake', () => {
+    setup({ waterIntake: 3 });
+    result.current.removeWater();
+    expect(update).toHaveBeenCalledWith(
+      expect.objectContaining({ waterIntake: 2 })
+    );
+  });
+
+  it('removeWater does not go below zero', () => {
+    setup({ waterIntake: 0 });
+    result.current.removeWater();
+    expect(update).not.toHaveBeenCalled();
   });
 
   it('addWeight appends default entry to history', () => {

@@ -2,7 +2,7 @@
 # Тег указан явно вместе с digest: без тега Renovate (dockerfile-менеджер) не может
 # понять, какой тег искать, и никогда не предлагает обновление digest.
 # Sonar docker:S8431 (тег+digest одновременно) погашен в sonar-project.properties (e37).
-FROM postgres:18-alpine@sha256:d3e1620b530c944afa6e887d22eb899824da68e19c52024bf98f5220c88a65b2
+FROM postgres:18-alpine@sha256:ff64c9e3bdf8e2120107d3559de8db314e8305f7e38c5105903c6295876738ff
 
 LABEL maintainer="FitPulse <dev@fitpulse.app>"
 LABEL description="PostgreSQL with pgsodium extension for FitPulse"

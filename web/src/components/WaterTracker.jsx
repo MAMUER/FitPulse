@@ -1,7 +1,7 @@
 import { useApp } from '../contexts/AppContext';
 
 export default function WaterTracker() {
-  const { state, t, drinkWater } = useApp();
+  const { state, t, drinkWater, removeWater } = useApp();
   const intake = state.waterIntake || 0;
   const goal = state.waterGoal || 8;
   const progress = goal > 0 ? Math.min(100, (intake / goal) * 100) : 0;
@@ -20,6 +20,15 @@ export default function WaterTracker() {
       <div className='water-progress'>
         <div style={{ width: `${progress}%` }} />
       </div>
+      <button
+        type='button'
+        className='water-btn'
+        aria-label={t('Убрать стакан воды', 'Remove a glass of water')}
+        onClick={removeWater}
+        disabled={intake <= 0}
+      >
+        <i className='fas fa-minus' />
+      </button>
       <button
         type='button'
         className='water-btn'

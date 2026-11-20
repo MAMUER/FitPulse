@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"go.uber.org/zap"
 
 	"github.com/MAMUER/project/internal/middleware"
 )
@@ -156,8 +157,53 @@ func (g *gateway) listMealsHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, msgUnauthorized, http.StatusUnauthorized)
 		return
 	}
-	meals := globalStore.getMeals(userID)
 	w.Header().Set(headerContentType, contentTypeJSON)
+	if g.db != nil {
+		rows, err := g.db.Query(
+			`SELECT id, name, calories, meal_time, created_at
+			 FROM nutrition_meals
+			 WHERE user_id = $1
+			 ORDER BY created_at DESC, id DESC`,
+			userID,
+		)
+		if err != nil {
+			g.log.Error("Failed to list meals", zap.Error(err))
+			http.Error(w, "failed to list meals", http.StatusInternalServerError)
+			return
+		}
+		defer func() { _ = rows.Close() }()
+		meals := []meal{}
+		for rows.Next() {
+			var (
+				id        int64
+				name      string
+				calories  int
+				mealTime  string
+				createdAt time.Time
+			)
+			if rows.Scan(&id, &name, &calories, &mealTime, &createdAt) != nil {
+				continue
+			}
+			meals = append(meals, meal{
+				ID:        strconv.FormatInt(id, 10),
+				Name:      name,
+				Calories:  calories,
+				Time:      mealTime,
+				CreatedAt: createdAt,
+			})
+		}
+		if err := rows.Err(); err != nil {
+			g.log.Error("Failed to read meals", zap.Error(err))
+			http.Error(w, "failed to read meals", http.StatusInternalServerError)
+			return
+		}
+		g.writeJSON(w, http.StatusOK, map[string]interface{}{
+			"status": "success",
+			"meals":  meals,
+		})
+		return
+	}
+	meals := globalStore.getMeals(userID)
 	g.writeJSON(w, http.StatusOK, map[string]interface{}{
 		"status": "success",
 		"meals":  meals,
@@ -182,17 +228,49 @@ func (g *gateway) createMealHandler(w http.ResponseWriter, r *http.Request) {
 	if req.Name == "" {
 		req.Name = "Блюдо"
 	}
-	if req.Calories <= 0 {
+	if req.Calories < 0 {
 		req.Calories = 0
 	}
 	if req.Time == "" {
 		req.Time = time.Now().Format("15:04")
 	}
-	meal := globalStore.addMeal(userID, req.Name, req.Calories)
-	meal.Time = req.Time
+	w.Header().Set(headerContentType, contentTypeJSON)
+	if g.db != nil {
+		var (
+			id        int64
+			name      string
+			calories  int
+			mealTime  string
+			createdAt time.Time
+		)
+		err := g.db.QueryRow(
+			`INSERT INTO nutrition_meals (user_id, name, calories, meal_time)
+			 VALUES ($1, $2, $3, $4)
+			 RETURNING id, name, calories, meal_time, created_at`,
+			userID, req.Name, req.Calories, req.Time,
+		).Scan(&id, &name, &calories, &mealTime, &createdAt)
+		if err != nil {
+			g.log.Error("Failed to create meal", zap.Error(err))
+			http.Error(w, "failed to create meal", http.StatusInternalServerError)
+			return
+		}
+		g.writeJSON(w, http.StatusCreated, map[string]interface{}{
+			"status": "success",
+			"meal": meal{
+				ID:        strconv.FormatInt(id, 10),
+				Name:      name,
+				Calories:  calories,
+				Time:      mealTime,
+				CreatedAt: createdAt,
+			},
+		})
+		return
+	}
+	created := globalStore.addMeal(userID, req.Name, req.Calories)
+	created.Time = req.Time
 	g.writeJSON(w, http.StatusCreated, map[string]interface{}{
 		"status": "success",
-		"meal":   meal,
+		"meal":   created,
 	})
 }
 
@@ -207,11 +285,36 @@ func (g *gateway) deleteMealHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "meal_id обязателен", http.StatusBadRequest)
 		return
 	}
+	w.Header().Set(headerContentType, contentTypeJSON)
+	if g.db != nil {
+		id, err := strconv.ParseInt(mealID, 10, 64)
+		if err != nil {
+			http.Error(w, "неверный meal_id", http.StatusBadRequest)
+			return
+		}
+		res, err := g.db.Exec(
+			`DELETE FROM nutrition_meals WHERE id = $1 AND user_id = $2`,
+			id, userID,
+		)
+		if err != nil {
+			g.log.Error("Failed to delete meal", zap.Error(err))
+			http.Error(w, "failed to delete meal", http.StatusInternalServerError)
+			return
+		}
+		affected, _ := res.RowsAffected()
+		if affected == 0 {
+			http.Error(w, "Блюдо не найдено", http.StatusNotFound)
+			return
+		}
+		g.writeJSON(w, http.StatusOK, map[string]interface{}{
+			"status": "success",
+		})
+		return
+	}
 	if !globalStore.deleteMeal(userID, mealID) {
 		http.Error(w, "Блюдо не найдено", http.StatusNotFound)
 		return
 	}
-	w.Header().Set(headerContentType, contentTypeJSON)
 	g.writeJSON(w, http.StatusOK, map[string]interface{}{
 		"status": "success",
 	})

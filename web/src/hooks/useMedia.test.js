@@ -52,6 +52,7 @@ describe('useMedia', () => {
       'changeVideoModal',
       'closeVideoModal',
       'connectVideo',
+      'loadVideos',
       'openVideoModal',
       'removeCustomExercise',
     ]);

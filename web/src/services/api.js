@@ -246,6 +246,7 @@ export async function addDish(dish) {
       protein_g: dish.protein_g || 0,
       fat_g: dish.fat_g || 0,
       carbs_g: dish.carbs_g || 0,
+      image_url: dish.image_url || '',
     }),
   });
 }
@@ -267,6 +268,42 @@ export async function addFriend(
 
 export async function removeFriend(id) {
   return backendRequest(`/api/v1/friends/${id}`, { method: 'DELETE' });
+}
+
+// ---- Leaderboard & friend requests ----
+
+export async function loadLeaderboard() {
+  return backendRequest('/api/v1/leaderboard');
+}
+
+export async function syncLeaderboard({ display_name, points, xp, workouts }) {
+  return backendRequest('/api/v1/leaderboard/me', {
+    method: 'PUT',
+    body: JSON.stringify({ display_name, points, xp, workouts }),
+  });
+}
+
+export async function searchUsers(q) {
+  return backendRequest(
+    `/api/v1/users/search?q=${encodeURIComponent(q || '')}`
+  );
+}
+
+export async function sendFriendRequest(toUserId) {
+  return backendRequest('/api/v1/friends/request', {
+    method: 'POST',
+    body: JSON.stringify({ to_user_id: toUserId }),
+  });
+}
+
+export async function loadFriendRequests() {
+  return backendRequest('/api/v1/friends/requests');
+}
+
+export async function respondFriendRequest(id, action) {
+  return backendRequest(`/api/v1/friends/requests/${id}/${action}`, {
+    method: 'POST',
+  });
 }
 
 export async function loadMeals() {

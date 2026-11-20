@@ -17,8 +17,15 @@ export function useNutrition({
     }
 
     try {
-      const meals = await api.loadMeals();
-      if (Array.isArray(meals)) update({ mealsList: meals });
+      const payload = await api.loadMeals();
+      // Бэкенд отдаёт { status, meals: [...] }; старые версии — просто массив.
+      let list = null;
+      if (Array.isArray(payload)) {
+        list = payload;
+      } else if (Array.isArray(payload?.meals)) {
+        list = payload.meals;
+      }
+      if (list) update({ mealsList: list });
     } catch {
       notify('Ошибка загрузки блюд');
     }
@@ -61,6 +68,10 @@ export function useNutrition({
 
   const loadDishes = useCallback(
     async (slot = '', q = '') => {
+      if (state.guest) {
+        update({ dishes: [] });
+        return;
+      }
       try {
         const data = await api.loadDishes(slot, q);
         if (data?.dishes) update({ dishes: data.dishes });
@@ -68,7 +79,37 @@ export function useNutrition({
         // ignore — dish catalog stays as-is when backend is unavailable
       }
     },
-    [update]
+    [state.guest, update]
+  );
+
+  // addDishToCatalog добавляет блюдо в каталог пользователя (виден только ему)
+  // и обновляет список. Возвращает true при успехе.
+  const addDishToCatalog = useCallback(
+    async (dish) => {
+      if (state.guest) {
+        notify('Войдите, чтобы добавлять свои блюда');
+        return false;
+      }
+      try {
+        await api.addDish(dish);
+        await loadDishes();
+        notify('Блюдо добавлено в ваш каталог');
+        return true;
+      } catch {
+        notify('Ошибка добавления блюда');
+        return false;
+      }
+    },
+    [state.guest, loadDishes, notify]
+  );
+
+  // saveNutritionGoals сохраняет цели по калориям и БЖУ (локально, для сводки).
+  const saveNutritionGoals = useCallback(
+    (goals) => {
+      update({ nutritionGoals: goals });
+      notify('Цели питания сохранены');
+    },
+    [update, notify]
   );
 
   const setTrainingPeriod = useCallback(
@@ -151,6 +192,8 @@ export function useNutrition({
   return {
     loadMeals,
     loadDishes,
+    addDishToCatalog,
+    saveNutritionGoals,
     createMeal,
     removeMeal,
     setNutritionPeriod,

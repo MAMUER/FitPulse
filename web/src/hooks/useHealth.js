@@ -217,6 +217,17 @@ export function useHealth({ state, update, notify, t }) {
     }
   }, [state, update, notify]);
 
+  // removeWater — уменьшает счётчик стаканов (на случай случайного нажатия).
+  const removeWater = useCallback(() => {
+    if (state.waterIntake > 0) {
+      update({
+        ...state,
+        waterIntake: state.waterIntake - 1,
+        lastWaterUpdate: Date.now(),
+      });
+    }
+  }, [state, update]);
+
   const addWeight = useCallback(() => {
     const newHistory = [
       ...state.weightHistory,
@@ -239,6 +250,7 @@ export function useHealth({ state, update, notify, t }) {
     deleteMenstrualCycle,
     logWeight,
     drinkWater,
+    removeWater,
     addWeight,
   };
 }

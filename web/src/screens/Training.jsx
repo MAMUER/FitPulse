@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
-import PlaceMap from '../components/PlaceMap';
 import VideoCard from '../components/VideoCard';
 import VideoModal from '../components/VideoModal';
+import WorkoutSession from '../components/WorkoutSession';
 import { useApp } from '../contexts/AppContext';
 
 const WORKOUTS = [
@@ -56,6 +56,7 @@ export default function Training() {
   const {
     state,
     t,
+    canEdit,
     formatRelativeDate,
     startWorkout,
     toggleWorkout,
@@ -66,11 +67,13 @@ export default function Training() {
     addCustomExercise,
     removeCustomExercise,
     quickAI,
+    go,
   } = useApp();
 
   const [videoIndex, setVideoIndex] = useState(null);
   const [exerciseName, setExerciseName] = useState('');
   const [exerciseSets, setExerciseSets] = useState('');
+  const [activeWorkout, setActiveWorkout] = useState(null);
 
   useEffect(() => {
     loadTrainingPlans();
@@ -268,13 +271,20 @@ export default function Training() {
                   <i className='fas fa-check' /> {t('Выполнено', 'Completed')}
                 </button>
               ) : (
-                <button
-                  type='button'
-                  className='primary'
-                  onClick={() => startWorkout(title)}
-                >
-                  <i className='fas fa-play' /> {t('Начать', 'Start')}
-                </button>
+                canEdit && (
+                  <button
+                    type='button'
+                    className='primary'
+                    onClick={() =>
+                      setActiveWorkout({
+                        title,
+                        exercises: workout.exercises,
+                      })
+                    }
+                  >
+                    <i className='fas fa-play' /> {t('Начать', 'Start')}
+                  </button>
+                )
               )}
             </div>
           </article>
@@ -310,11 +320,6 @@ export default function Training() {
       )}
 
       <div className='section'>
-        <h3>{t('Место тренировки', 'Training place')}</h3>
-      </div>
-      <PlaceMap />
-
-      <div className='section'>
         <h3>{t('Правила и гигиена', 'Rules and hygiene')}</h3>
       </div>
       <div className='grid-2'>
@@ -347,17 +352,21 @@ export default function Training() {
         <p style={instructionTextStyle}>{instructions.hygiene}</p>
       </div>
 
-      <div className='section'>
-        <h3>{t('Видео-уроки', 'Video lessons')}</h3>
-      </div>
-      {videos.map((video, index) => (
-        <VideoCard
-          key={video.id || index}
-          video={video}
-          index={index}
-          onSelect={setVideoIndex}
-        />
-      ))}
+      {videos.length > 0 && (
+        <>
+          <div className='section'>
+            <h3>{t('Видео-уроки', 'Video lessons')}</h3>
+          </div>
+          {videos.map((video, index) => (
+            <VideoCard
+              key={video.id || index}
+              video={video}
+              index={index}
+              onSelect={setVideoIndex}
+            />
+          ))}
+        </>
+      )}
 
       <div className='section'>
         <h3>{t('Добавить своё упражнение', 'Add your own exercise')}</h3>
@@ -404,9 +413,11 @@ export default function Training() {
           placeholder='4 × 12'
         />
         <div className='form-row'>
-          <button type='button' className='secondary' onClick={addExercise}>
-            {t('Добавить', 'Add')}
-          </button>
+          {canEdit && (
+            <button type='button' className='secondary' onClick={addExercise}>
+              {t('Добавить', 'Add')}
+            </button>
+          )}
           <button
             type='button'
             className='primary'
@@ -414,12 +425,22 @@ export default function Training() {
               quickAI(
                 t('Предложи упражнение для дома', 'Suggest a home exercise')
               );
+              go('ai');
             }}
           >
             <i className='fas fa-robot' /> {t('Спросить AI', 'Ask AI')}
           </button>
         </div>
       </section>
+
+      {activeWorkout && (
+        <WorkoutSession
+          workout={activeWorkout}
+          t={t}
+          onClose={() => setActiveWorkout(null)}
+          onFinish={() => startWorkout(activeWorkout.title)}
+        />
+      )}
 
       {videoIndex !== null && (
         <VideoModal

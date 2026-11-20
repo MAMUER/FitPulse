@@ -2,6 +2,14 @@ import { useCallback } from 'react';
 import * as api from '../services/api';
 import { t } from '../utils/i18n';
 
+// Exclusive options: selecting one clears all others in the same question.
+const EXCLUSIVE = new Set([
+  'Нет аллергий',
+  'Нет ограничений',
+  'No allergies',
+  'No restrictions',
+]);
+
 export function useSurvey({ state, update, notify }) {
   const surveySelect = useCallback(
     (key, value, isMulti) => {
@@ -9,8 +17,18 @@ export function useSurvey({ state, update, notify }) {
       if (isMulti) {
         const arr = [...(survey[key] || [])];
         const idx = arr.indexOf(value);
-        if (idx > -1) arr.splice(idx, 1);
-        else arr.push(value);
+        if (idx > -1) {
+          arr.splice(idx, 1); // deselect
+        } else if (EXCLUSIVE.has(value)) {
+          // "Нет X" — эксклюзивный: сбрасывает остальные.
+          arr.length = 0;
+          arr.push(value);
+        } else {
+          // Обычный вариант — убираем эксклюзивный «Нет X».
+          const exIdx = arr.findIndex((v) => EXCLUSIVE.has(v));
+          if (exIdx > -1) arr.splice(exIdx, 1);
+          arr.push(value);
+        }
         survey[key] = arr;
       } else {
         survey[key] = value;

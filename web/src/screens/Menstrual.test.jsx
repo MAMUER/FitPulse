@@ -41,6 +41,7 @@ function createContext(overrides = {}) {
       menstrualCycles: cycles,
     },
     t: (ru, _en) => ru,
+    canEdit: true,
     notify: vi.fn(),
     loadMenstrualCycles: vi.fn().mockResolvedValue({ cycles }),
     createMenstrualCycle: vi.fn().mockResolvedValue({}),
@@ -95,7 +96,9 @@ describe('Menstrual', () => {
     const context = createContext();
     renderMenstrual(context);
     expect(screen.getByText('Менструальный календарь')).toBeInTheDocument();
-    expect(screen.getByText('Ручной ввод и прогнозы')).toBeInTheDocument();
+    expect(
+      screen.getByText('Календарь, прогнозы и дневник')
+    ).toBeInTheDocument();
     expect(
       screen.getByText(
         'Это не медицинский совет. Данные носят ознакомительный характер.'
@@ -113,11 +116,10 @@ describe('Menstrual', () => {
     expect(screen.getAllByText('Удалить')).toHaveLength(2);
   });
 
-  it('shows next period estimate block for two cycles', async () => {
+  it('shows prediction stats for two cycles', async () => {
     renderMenstrual(createContext());
-    expect(
-      await screen.findByText('Следующий период примерно')
-    ).toBeInTheDocument();
+    expect(await screen.findByText('Средний цикл')).toBeInTheDocument();
+    expect(screen.getByText('Следующие')).toBeInTheDocument();
     expect(document.querySelector('.metric-value')).toBeInTheDocument();
   });
 
@@ -162,7 +164,7 @@ describe('Menstrual', () => {
       },
     });
     renderMenstrual(context);
-    expect(await screen.findByText('—')).toBeInTheDocument();
+    expect((await screen.findAllByText('—')).length).toBeGreaterThan(0);
     expect(
       screen.queryByText('Следующий период примерно')
     ).not.toBeInTheDocument();

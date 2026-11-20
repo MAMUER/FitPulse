@@ -1,6 +1,5 @@
 import { useEffect, useRef } from 'react';
 import MonthSwitcher from '../components/MonthSwitcher';
-import PlaceMap from '../components/PlaceMap';
 import WaterTracker from '../components/WaterTracker';
 import { useApp } from '../contexts/AppContext';
 
@@ -144,6 +143,10 @@ export default function Home() {
   const sleepVal = fmt(latestOf('sleep', 'sleep_hours'), 1);
   const workoutMinVal =
     state.trainingMinutes != null ? fmt(state.trainingMinutes) : '—';
+  // Готовность (readiness): если есть пульс/стресс — 100−стресс, иначе «—».
+  const stressVal = latestOf('stress');
+  const readinessScore =
+    stressVal != null ? Math.max(0, 100 - Number(stressVal)) : '—';
 
   const scrollStories = (direction) => {
     storyStrip.current?.scrollBy({
@@ -246,7 +249,7 @@ export default function Home() {
           <i className='fas fa-arrow-right' />
         </button>
         <div className='readiness'>
-          <span>87</span>
+          <span>{readinessScore}</span>
         </div>
       </section>
 
@@ -392,11 +395,6 @@ export default function Home() {
       </section>
 
       <WaterTracker />
-
-      <div className='section'>
-        <h3>{t('Место тренировки', 'Training place')}</h3>
-      </div>
-      <PlaceMap />
 
       <div className='section'>
         <h3>{t('Лайфхак', 'Life hack')}</h3>

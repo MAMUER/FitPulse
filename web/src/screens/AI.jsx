@@ -1,10 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { useApp } from '../contexts/AppContext';
 
-const AI_LOGO_URL = '/images/ai.jpg';
-
 export default function Ai() {
-  const { state, t, sendAI, quickAI } = useApp();
+  const { state, t, sendAI, quickAI, clearChat } = useApp();
   const [input, setInput] = useState('');
   const messagesRef = useRef(null);
   const messages = state.messages || [];
@@ -29,11 +27,15 @@ export default function Ai() {
 
   const quickQuestions = [
     ['Меню', 'Составь меню на сегодня', 'Make a menu for today'],
-    ['Ужин', 'Замени ужин на лёгкий', 'Replace dinner with something light'],
     [
-      'Календарь',
-      'Добавь тренировку в календарь',
-      'Add a workout to the calendar',
+      'Тренировки · неделя',
+      'Составь план тренировок на неделю',
+      'Make a workout plan for the week',
+    ],
+    [
+      'Тренировки · месяц',
+      'Составь план тренировок на месяц',
+      'Make a workout plan for the month',
     ],
     [
       'Тело',
@@ -56,7 +58,7 @@ export default function Ai() {
     <section className='ai'>
       <div className='ai-head'>
         <div className='ai-avatar'>
-          <img src={AI_LOGO_URL} alt='AI' />
+          <i className='fas fa-robot' />
         </div>
         <div>
           <h2>FitPulse AI</h2>
@@ -67,6 +69,16 @@ export default function Ai() {
             )}
           </span>
         </div>
+        {messages.length > 0 && (
+          <button
+            type='button'
+            className='secondary'
+            style={{ marginLeft: 'auto' }}
+            onClick={clearChat}
+          >
+            <i className='fas fa-trash' /> {t('Очистить чат', 'Clear chat')}
+          </button>
+        )}
       </div>
 
       <section className='card' style={{ marginTop: 17 }}>

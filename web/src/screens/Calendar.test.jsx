@@ -203,40 +203,6 @@ describe('Calendar', () => {
     );
   });
 
-  it('opens the full calendar page', () => {
-    const context = makeContext();
-    useApp.mockReturnValue(context);
-
-    render(<Calendar />);
-    fireEvent.click(screen.getByText('Открыть календарь'));
-
-    expect(context.openCalendarPage).toHaveBeenCalledWith(true);
-  });
-
-  it('adds a quick entry for every event type', () => {
-    const context = makeContext();
-    useApp.mockReturnValue(context);
-
-    render(<Calendar />);
-    for (const label of [
-      'Зал',
-      'Бассейн',
-      'Восстановление',
-      'Работа',
-      'Учёба',
-      'Заметка',
-    ]) {
-      fireEvent.click(screen.getByText(label));
-    }
-
-    expect(context.quickAddEvent).toHaveBeenCalledWith('gym');
-    expect(context.quickAddEvent).toHaveBeenCalledWith('pool');
-    expect(context.quickAddEvent).toHaveBeenCalledWith('recovery');
-    expect(context.quickAddEvent).toHaveBeenCalledWith('work');
-    expect(context.quickAddEvent).toHaveBeenCalledWith('study');
-    expect(context.quickAddEvent).toHaveBeenCalledWith('note');
-  });
-
   it('selects a day and navigates months in the card view', () => {
     const context = makeContext();
     useApp.mockReturnValue(context);

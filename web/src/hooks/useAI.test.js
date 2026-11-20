@@ -48,6 +48,7 @@ describe('useAI', () => {
     expect(Object.keys(result.current).sort()).toEqual([
       'askAI',
       'askAIForDay',
+      'clearChat',
       'quickAI',
       'sendAI',
     ]);
@@ -57,6 +58,17 @@ describe('useAI', () => {
     setup();
     result.current.askAI('привет');
     expect(update).toHaveBeenCalledWith({ screen: 'ai' });
+  });
+
+  it('clearChat clears messages and drafts', () => {
+    setup();
+    result.current.clearChat();
+    expect(update).toHaveBeenCalledWith({
+      messages: [],
+      aiClassification: null,
+      aiPlan: null,
+      aiDiet: null,
+    });
   });
 
   it('askAIForDay opens ai screen with day', () => {

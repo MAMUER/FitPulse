@@ -161,6 +161,100 @@ export function useProfile({ state, update, notify }) {
     [notify, loadFriends]
   );
 
+  const loadLeaderboard = useCallback(async () => {
+    try {
+      const data = await api.loadLeaderboard();
+      if (Array.isArray(data?.leaderboard)) {
+        update({ leaderboard: data.leaderboard });
+      }
+    } catch {
+      // ignore — leaderboard stays as-is when backend is unavailable
+    }
+  }, [update]);
+
+  // syncLeaderboard отправляет на сервер текущий ник и очки пользователя.
+  const syncLeaderboard = useCallback(async () => {
+    try {
+      await api.syncLeaderboard({
+        display_name: state.profile?.name || '',
+        points: state.points || 0,
+        xp: state.xp || 0,
+        workouts: state.dailyCompleted || 0,
+      });
+      await loadLeaderboard();
+    } catch {
+      // ignore
+    }
+  }, [
+    state.profile,
+    state.points,
+    state.xp,
+    state.dailyCompleted,
+    loadLeaderboard,
+  ]);
+
+  const searchUsers = useCallback(
+    async (q) => {
+      const query = String(q || '').trim();
+      if (query.length < 2) {
+        update({ userSearchResults: [] });
+        return;
+      }
+      try {
+        const data = await api.searchUsers(query);
+        update({
+          userSearchResults: Array.isArray(data?.users) ? data.users : [],
+        });
+      } catch {
+        update({ userSearchResults: [] });
+      }
+    },
+    [update]
+  );
+
+  const sendFriendRequest = useCallback(
+    async (userId) => {
+      try {
+        await api.sendFriendRequest(userId);
+        notify(t('Заявка отправлена', 'Friend request sent'));
+        return true;
+      } catch {
+        notify(t('Не удалось отправить заявку', 'Failed to send request'));
+        return false;
+      }
+    },
+    [notify]
+  );
+
+  const loadFriendRequests = useCallback(async () => {
+    try {
+      const data = await api.loadFriendRequests();
+      if (Array.isArray(data?.requests)) {
+        update({ friendRequests: data.requests });
+      }
+    } catch {
+      // ignore
+    }
+  }, [update]);
+
+  const respondFriendRequest = useCallback(
+    async (id, action) => {
+      try {
+        await api.respondFriendRequest(id, action);
+        notify(
+          action === 'accept'
+            ? t('Заявка принята', 'Request accepted')
+            : t('Заявка отклонена', 'Request declined')
+        );
+        await loadFriendRequests();
+        await loadFriends();
+      } catch {
+        notify(t('Не удалось обработать заявку', 'Failed to handle request'));
+      }
+    },
+    [notify, loadFriendRequests, loadFriends]
+  );
+
   const loadProfile = useCallback(async () => {
     try {
       const data = await api.loadProfile();
@@ -278,6 +372,12 @@ export function useProfile({ state, update, notify }) {
     loadFriends,
     addFriend,
     removeFriendById,
+    loadLeaderboard,
+    syncLeaderboard,
+    searchUsers,
+    sendFriendRequest,
+    loadFriendRequests,
+    respondFriendRequest,
     saveProfile,
     uploadPhoto,
     toggleFriendAdded,

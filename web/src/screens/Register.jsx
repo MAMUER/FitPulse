@@ -89,8 +89,8 @@ export default function Register() {
       </label>
       <p className='medical-disclaimer'>
         {t(
-          'Это не медицинский совет. При заболеваниях или травмах проконсультируйтесь с врачом.',
-          'This is not medical advice. Consult a doctor if you have medical conditions or injuries.'
+          'FitPulse не является медицинским сервисом и не ставит диагнозов. При заболеваниях или травмах проконсультируйтесь с врачом.',
+          'FitPulse is not a medical service and does not provide diagnoses. Consult a doctor for medical conditions or injuries.'
         )}
       </p>
       <Captcha onToken={setCaptchaToken} />

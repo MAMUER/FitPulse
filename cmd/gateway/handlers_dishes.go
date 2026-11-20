@@ -9,13 +9,17 @@ import (
 	"go.uber.org/zap"
 )
 
+// maxDishesPerUser ограничивает число собственных блюд на аккаунт, чтобы
+// пользователь случайно не «засрал» БД.
+const maxDishesPerUser = 100
+
 // listDishesFromDB returns global + user dishes, optionally filtered by slot
 // and/or a case-insensitive name substring.
 func (g *gateway) listDishesFromDB(
 	userID, slot, query string,
 ) ([]map[string]interface{}, error) {
 	rows, err := g.db.Query(
-		`SELECT id, name, meal_slot, kcal, protein_g, fat_g, carbs_g
+		`SELECT id, name, meal_slot, kcal, protein_g, fat_g, carbs_g, image_url
 		 FROM dishes
 		 WHERE (owner_user_id IS NULL OR owner_user_id = $1)
 		   AND ($2 = '' OR meal_slot = $2 OR meal_slot = 'any')
@@ -34,13 +38,15 @@ func (g *gateway) listDishesFromDB(
 			id            int64
 			name, slot    string
 			kcal, p, f, c int
+			imageURL      string
 		)
-		if rows.Scan(&id, &name, &slot, &kcal, &p, &f, &c) != nil {
+		if rows.Scan(&id, &name, &slot, &kcal, &p, &f, &c, &imageURL) != nil {
 			continue
 		}
 		dishes = append(dishes, map[string]interface{}{
 			"id": id, "name": name, "meal_slot": slot,
 			"kcal": kcal, "protein_g": p, "fat_g": f, "carbs_g": c,
+			"image_url": imageURL,
 		})
 	}
 	return dishes, rows.Err()
@@ -97,6 +103,7 @@ func (g *gateway) addDishHandler(w http.ResponseWriter, r *http.Request) {
 		ProteinG int    `json:"protein_g"`
 		FatG     int    `json:"fat_g"`
 		CarbsG   int    `json:"carbs_g"`
+		ImageURL string `json:"image_url"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, msgInvalidRequest, http.StatusBadRequest)
@@ -111,12 +118,33 @@ func (g *gateway) addDishHandler(w http.ResponseWriter, r *http.Request) {
 	if slot == "" {
 		slot = "any"
 	}
+	// Ограничиваем размер data URL, чтобы не складывать в БД мегабайты base64.
+	imageURL := strings.TrimSpace(req.ImageURL)
+	if len(imageURL) > 400_000 {
+		http.Error(w, "слишком большое фото", http.StatusRequestEntityTooLarge)
+		return
+	}
+
+	// Не даём пользователю завалить БД случайными записями: максимум 100
+	// собственных блюд на аккаунт.
+	var count int
+	if err := g.db.QueryRow(
+		`SELECT COUNT(*) FROM dishes WHERE owner_user_id = $1`, userID,
+	).Scan(&count); err != nil {
+		g.log.Error("Failed to count dishes", zap.Error(err))
+		http.Error(w, "failed to add dish", http.StatusInternalServerError)
+		return
+	}
+	if count >= maxDishesPerUser {
+		http.Error(w, "достигнут лимит собственных блюд", http.StatusConflict)
+		return
+	}
 
 	var id int64
 	err := g.db.QueryRow(
-		`INSERT INTO dishes (owner_user_id, name, meal_slot, kcal, protein_g, fat_g, carbs_g)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
-		userID, name, slot, req.Kcal, req.ProteinG, req.FatG, req.CarbsG,
+		`INSERT INTO dishes (owner_user_id, name, meal_slot, kcal, protein_g, fat_g, carbs_g, image_url)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id`,
+		userID, name, slot, req.Kcal, req.ProteinG, req.FatG, req.CarbsG, imageURL,
 	).Scan(&id)
 	if err != nil {
 		g.log.Error("Failed to add dish", zap.Error(err))

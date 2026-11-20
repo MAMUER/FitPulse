@@ -33,7 +33,7 @@ const QUESTIONS = [
   {
     title: ['Цели занятий', 'Fitness goals'],
     key: 'goals',
-    multi: true,
+    multi: false,
     options: [
       ['Похудеть', 'Lose weight'],
       ['Набрать мышечную массу', 'Build muscle'],

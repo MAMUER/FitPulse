@@ -48,14 +48,38 @@ const meals = {
   },
 };
 
-const alternatives = {
-  breakfast: [
-    ['Омлет', 350, 'Б 24 г · Ж 22 г · У 6 г', '/omelet.jpg'],
-    ['Сырники', 410, 'Б 26 г · Ж 14 г · У 40 г', '/syrniki.jpg'],
-  ],
-  lunch: [['Индейка', 590, 'Б 48 г · Ж 12 г · У 55 г', '/turkey.jpg']],
-  dinner: [['Треска', 430, 'Б 34 г · Ж 9 г · У 26 г', '/cod.jpg']],
-};
+const dishes = [
+  {
+    id: 1,
+    name: 'Омлет',
+    meal_slot: 'breakfast',
+    kcal: 350,
+    protein_g: 24,
+    fat_g: 22,
+    carbs_g: 6,
+    image_url: '',
+  },
+  {
+    id: 2,
+    name: 'Индейка',
+    meal_slot: 'lunch',
+    kcal: 590,
+    protein_g: 48,
+    fat_g: 12,
+    carbs_g: 55,
+    image_url: '',
+  },
+  {
+    id: 3,
+    name: 'Треска',
+    meal_slot: 'dinner',
+    kcal: 430,
+    protein_g: 34,
+    fat_g: 9,
+    carbs_g: 26,
+    image_url: '',
+  },
+];
 
 function makeContext(overrides = {}) {
   const { state: stateOverrides, t: tOverride, ...rest } = overrides;
@@ -63,7 +87,9 @@ function makeContext(overrides = {}) {
     state: {
       language: 'ru',
       meals,
-      alternatives,
+      dishes,
+      nutritionGoals: {},
+      survey: { goals: ['Поддерживать форму'] },
       nutritionPeriod: 'day',
       nutritionData: {
         day: {
@@ -95,18 +121,20 @@ function makeContext(overrides = {}) {
       ...stateOverrides,
     },
     t: tOverride || ((ru, _en) => ru),
+    canEdit: true,
     go: vi.fn(),
+    notify: vi.fn(),
     loadMeals: vi.fn(),
     loadDishes: vi.fn(),
     openMeal: vi.fn(),
     closeMeal: vi.fn(),
     selectMeal: vi.fn(),
-    saveCustomMeal: vi.fn(),
     setNutritionPeriod: vi.fn(),
-    nutritionSettings: vi.fn(),
     quickAI: vi.fn(),
-    createMeal: vi.fn().mockResolvedValue({}),
-    removeMeal: vi.fn().mockResolvedValue({}),
+    createMeal: vi.fn().mockResolvedValue(true),
+    removeMeal: vi.fn().mockResolvedValue(true),
+    addDishToCatalog: vi.fn().mockResolvedValue(true),
+    saveNutritionGoals: vi.fn(),
     drinkWater: vi.fn(),
     ...rest,
   };
@@ -148,7 +176,7 @@ describe('Nutrition', () => {
     expect(context.openMeal).toHaveBeenCalledWith('breakfast');
   });
 
-  it('selects an AI suggestion', () => {
+  it('selects a dish from the catalog', () => {
     const context = makeContext();
     useApp.mockReturnValue(context);
 
@@ -160,7 +188,7 @@ describe('Nutrition', () => {
       'Омлет',
       350,
       'Б 24 г · Ж 22 г · У 6 г',
-      '/omelet.jpg'
+      ''
     );
   });
 
@@ -169,7 +197,7 @@ describe('Nutrition', () => {
     useApp.mockReturnValue(context);
 
     render(<Nutrition />);
-    // "Название"/"Калории" exist twice: once in the custom-meal card and once
+    // "Название"/"Калории" exist twice: once in the custom-dish card and once
     // in the diary form. Scope the queries to the diary card.
     const diary = screen.getByText('Добавить в дневник').closest('section');
     fireEvent.change(within(diary).getByLabelText('Название'), {
@@ -183,25 +211,20 @@ describe('Nutrition', () => {
     });
     fireEvent.click(screen.getByText('Добавить в дневник'));
 
-    // handleAddToDiary awaits createMeal() and then resets the form fields, so
-    // the state updates land after the click — wait for them inside act().
     await waitFor(() =>
       expect(context.createMeal).toHaveBeenCalledWith('Рис', 300, '12:00')
     );
   });
 
-  it('adds a meal with defaults when the form is empty', () => {
+  it('asks for a name instead of adding an empty diary entry', () => {
     const context = makeContext({ state: { mealsList: [] } });
     useApp.mockReturnValue(context);
 
     render(<Nutrition />);
     fireEvent.click(screen.getByText('Добавить в дневник'));
 
-    expect(context.createMeal).toHaveBeenCalledWith(
-      'Блюдо',
-      0,
-      expect.any(String)
-    );
+    expect(context.createMeal).not.toHaveBeenCalled();
+    expect(context.notify).toHaveBeenCalledWith('Введите название блюда');
   });
 
   it('removes a meal from the diary', () => {
@@ -233,7 +256,6 @@ describe('Nutrition', () => {
 
     const dialog = screen.getByRole('dialog');
     expect(within(dialog).getByText('Выбери блюдо')).toBeInTheDocument();
-    expect(within(dialog).getByText('Курица с рисом')).toBeInTheDocument();
     expect(within(dialog).getByText('Индейка')).toBeInTheDocument();
     fireEvent.click(within(dialog).getByLabelText('Закрыть'));
 
@@ -253,18 +275,24 @@ describe('Nutrition', () => {
       'Индейка',
       590,
       'Б 48 г · Ж 12 г · У 55 г',
-      '/turkey.jpg'
+      ''
     );
   });
 
-  it('opens personal nutrition settings', () => {
+  it('opens nutrition settings from the chips and saves goals', () => {
     const context = makeContext();
     useApp.mockReturnValue(context);
 
     render(<Nutrition />);
     fireEvent.click(screen.getByText('Персональные настройки'));
 
-    expect(context.nutritionSettings).toHaveBeenCalled();
+    const dialog = screen.getByRole('dialog');
+    expect(within(dialog).getByText('Настройки питания')).toBeInTheDocument();
+    fireEvent.click(within(dialog).getByText('Сохранить'));
+
+    expect(context.saveNutritionGoals).toHaveBeenCalledWith(
+      expect.objectContaining({ calories: 2350 })
+    );
   });
 
   it('updates the dish search query', () => {
@@ -272,21 +300,46 @@ describe('Nutrition', () => {
     useApp.mockReturnValue(context);
 
     render(<Nutrition />);
-    const search = screen.getByLabelText('Поиск блюда');
+    const search = screen.getByLabelText('Поиск блюда в каталоге');
     fireEvent.change(search, { target: { value: 'омлет' } });
 
     expect(search.value).toBe('омлет');
     expect(screen.getByText('Омлет')).toBeInTheDocument();
+    expect(screen.queryByText('Индейка')).not.toBeInTheDocument();
   });
 
-  it('saves a custom meal', () => {
+  it('adds a custom dish to the personal catalog', () => {
     const context = makeContext();
     useApp.mockReturnValue(context);
 
     render(<Nutrition />);
-    fireEvent.click(screen.getByText('Сохранить в меню и календарь'));
+    const form = screen.getByText('Добавить своё блюдо').closest('section');
+    fireEvent.change(within(form).getByLabelText('Название'), {
+      target: { value: 'Сырники' },
+    });
+    fireEvent.change(within(form).getByLabelText('Калории, ккал'), {
+      target: { value: '410' },
+    });
+    fireEvent.change(within(form).getByLabelText('Белки, г'), {
+      target: { value: '26' },
+    });
+    fireEvent.change(within(form).getByLabelText('Жиры, г'), {
+      target: { value: '14' },
+    });
+    fireEvent.change(within(form).getByLabelText('Углеводы, г'), {
+      target: { value: '40' },
+    });
+    fireEvent.click(within(form).getByText('Добавить в каталог'));
 
-    expect(context.saveCustomMeal).toHaveBeenCalled();
+    expect(context.addDishToCatalog).toHaveBeenCalledWith({
+      name: 'Сырники',
+      kcal: 410,
+      protein_g: 26,
+      fat_g: 14,
+      carbs_g: 40,
+      meal_slot: 'breakfast',
+      image_url: '',
+    });
   });
 
   it('renders an empty diary when there are no entries', () => {

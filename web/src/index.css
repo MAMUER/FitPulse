@@ -2027,6 +2027,99 @@ h3,
   color: var(--muted);
 }
 
+/* Leaderboard */
+.lb-rank {
+  display: inline-grid;
+  place-items: center;
+  min-width: 22px;
+  height: 22px;
+  margin-right: 8px;
+  border-radius: 7px;
+  background: #19d8da22;
+  color: var(--blue);
+  font-weight: 700;
+  font-size: 11px;
+}
+
+.body-row.me {
+  background: #6fae2022;
+  border-radius: 8px;
+  padding-inline: 6px;
+}
+
+/* Menstrual calendar (fitness-scoped) */
+.menstrual-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+
+.menstrual-grid.weekdays {
+  margin-bottom: 4px;
+}
+
+.mweekday {
+  text-align: center;
+  color: var(--muted);
+  font-size: 9px;
+}
+
+.mday {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1;
+  border-radius: 8px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.mday.empty {
+  visibility: hidden;
+}
+
+.mday.today {
+  border: 1px solid var(--blue);
+  color: var(--blue);
+  font-weight: 700;
+}
+
+.mday.period {
+  background: #c81e3c;
+  color: #fff;
+  font-weight: 700;
+}
+
+.mday.predicted {
+  border: 1px dashed #ff5d7a;
+  color: #ff5d7a;
+}
+
+.menstrual-legend {
+  display: flex;
+  gap: 14px;
+  margin-top: 8px;
+  font-size: 10px;
+  color: var(--muted);
+}
+
+.menstrual-legend .mdot {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  margin-right: 4px;
+  vertical-align: middle;
+}
+
+.menstrual-legend .mdot.period {
+  background: #ff5d7a;
+}
+
+.menstrual-legend .mdot.predicted {
+  border: 1px dashed #ff5d7a;
+  background: transparent;
+}
+
 .history-list {
   max-height: 180px;
   overflow-y: auto;
@@ -4845,4 +4938,42 @@ button:focus-visible {
 .auth .medical-disclaimer,
 .auth .auth-link {
   overflow-wrap: anywhere;
+}
+
+/* ═══════════════════════════════════════════
+   SURVEY
+   ═══════════════════════════════════════════ */
+
+/* Заголовок опроса — длинный, поэтому меньше, чем «FitPulse» на auth. */
+.survey .auth-brand h1 {
+  font-size: 30px;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+/* Кнопки «Назад» / «Далее» / «Заполнить позже» — одинаковой ширины. */
+.survey .form-row button {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.survey .survey-options label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--card);
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.survey .survey-options label:hover {
+  background: var(--card-2);
+}
+
+.survey .survey-options input {
+  accent-color: var(--green);
 }

@@ -27,6 +27,7 @@ import (
 	userpb "github.com/MAMUER/project/api/gen/user"
 	"github.com/MAMUER/project/internal/auth/password"
 	"github.com/MAMUER/project/internal/middleware"
+	"github.com/MAMUER/project/internal/profanity"
 	"github.com/MAMUER/project/internal/sanitize"
 	"github.com/MAMUER/project/internal/validator"
 )
@@ -607,6 +608,12 @@ func (g *gateway) registerHandler(w http.ResponseWriter, r *http.Request) {
 	}); err != nil {
 		httpCode, errMsg := grpcToHTTPStatus(err)
 		http.Error(w, errMsg, httpCode)
+		return
+	}
+
+	// Reject profanity in full_name (RU/EN, obfuscation-tolerant).
+	if profanity.Contains(req.FullName) {
+		http.Error(w, "Имя содержит недопустимые слова", http.StatusBadRequest)
 		return
 	}
 

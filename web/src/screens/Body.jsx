@@ -1,39 +1,24 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useApp } from '../contexts/AppContext';
 
-const METRICS = [
+const METRIC_DEFS = [
   {
     key: 'pulse',
     icon: 'fa-heart-pulse',
-    value: '72',
     unit: 'bpm',
     label: ['Пульс', 'Pulse'],
   },
   {
     key: 'sleep',
     icon: 'fa-moon',
-    value: '7.2',
     unit: ['часа', 'hours'],
     label: ['Сон', 'Sleep'],
   },
-  {
-    key: 'oxygen',
-    icon: 'fa-lungs',
-    value: '98',
-    unit: '%',
-    label: ['Кислород', 'Oxygen'],
-  },
-  {
-    key: 'hrv',
-    icon: 'fa-wave-square',
-    value: '64',
-    unit: 'мс',
-    label: ['ВСР', 'HRV'],
-  },
+  { key: 'oxygen', icon: 'fa-lungs', unit: '%', label: ['Кислород', 'Oxygen'] },
+  { key: 'hrv', icon: 'fa-wave-square', unit: 'мс', label: ['ВСР', 'HRV'] },
   {
     key: 'stress',
     icon: 'fa-brain',
-    value: '32',
     unit: ['уровень', 'level'],
     label: ['Стресс', 'Stress'],
   },
@@ -43,6 +28,7 @@ export default function Body() {
   const {
     state,
     t,
+    canEdit,
     openMetric,
     loadBodyComposition,
     saveBodyComposition,
@@ -71,12 +57,66 @@ export default function Body() {
     )[0];
   }, [records]);
 
-  const weight = latest?.weight_kg ?? latest?.weightKg ?? 74.2;
-  const heightCm = latest?.height_cm ?? latest?.heightCm ?? 178;
-  const fat = latest?.body_fat_percent ?? latest?.bodyFatPercent ?? 18.4;
-  const muscle = latest?.muscle_mass_kg ?? latest?.muscleMassKg ?? 34.8;
-  const water = latest?.water_percent ?? latest?.waterPercent ?? 57.2;
-  const bmi = heightCm > 0 ? +(weight / (heightCm / 100) ** 2).toFixed(1) : 0;
+  // Реальные значения из подключённого устройства, а не заглушки.
+  const bioRecords = state.biometrics || [];
+  const recordType = (r) =>
+    String(r.metric_type ?? r.metricType ?? r.type ?? '').toLowerCase();
+  const recordValue = (r) => {
+    const v = r.value ?? r.Value;
+    return typeof v === 'number' ? v : Number.parseFloat(v);
+  };
+  const recordTime = (r) => {
+    const raw = r.timestamp ?? r.measured_at ?? r.date ?? r.Timestamp;
+    const ms = raw ? new Date(raw).getTime() : 0;
+    return Number.isFinite(ms) ? ms : 0;
+  };
+  const latestOf = (...types) => {
+    let best = null;
+    let bestTime = -1;
+    for (const r of bioRecords) {
+      const rt = recordType(r);
+      if (!types.some((tt) => rt === tt || rt.includes(tt))) continue;
+      const tm = recordTime(r);
+      if (tm >= bestTime) {
+        bestTime = tm;
+        best = recordValue(r);
+      }
+    }
+    return best;
+  };
+  const fmt = (v, digits = 0) => {
+    if (v == null || Number.isNaN(v)) return '—';
+    const s = Number(v).toFixed(digits);
+    return s.replace(/\.0+$/, '');
+  };
+  const metricValue = (key) => {
+    switch (key) {
+      case 'pulse':
+        return fmt(latestOf('heart_rate', 'heart', 'pulse'));
+      case 'sleep':
+        return fmt(latestOf('sleep', 'sleep_hours'), 1);
+      case 'oxygen':
+        return fmt(latestOf('spo2', 'oxygen'));
+      case 'hrv':
+        return fmt(latestOf('hrv'));
+      case 'stress':
+        return fmt(latestOf('stress'));
+      default:
+        return '—';
+    }
+  };
+
+  // Composition метрики — только реальные, без выдуманных чисел.
+  const weight = latest?.weight_kg ?? latest?.weightKg ?? null;
+  const heightCm = latest?.height_cm ?? latest?.heightCm ?? null;
+  const fat = latest?.body_fat_percent ?? latest?.bodyFatPercent ?? null;
+  const muscle = latest?.muscle_mass_kg ?? latest?.muscleMassKg ?? null;
+  const water = latest?.water_percent ?? latest?.waterPercent ?? null;
+  const bmi =
+    weight && heightCm ? +(weight / (heightCm / 100) ** 2).toFixed(1) : null;
+  const goalWeight =
+    state.profile?.goalWeight ?? state.profile?.goal_weight ?? null;
+  const hasComposition = latest != null;
   const history = state.weightHistory || [];
 
   const handleChange = (field) => (event) =>
@@ -85,17 +125,18 @@ export default function Body() {
   const handleSave = async () => {
     const heightValue = Number.parseFloat(form.height) || heightCm;
     const weightValue = Number.parseFloat(form.weight) || weight;
+    if (!heightValue || !weightValue) {
+      // Не сохраняем пустую запись без веса/роста.
+      return;
+    }
     setSaving(true);
     const ok = await saveBodyComposition({
       height_cm: heightValue,
       weight_kg: weightValue,
-      body_fat_percent: Number.parseFloat(form.fat) || fat,
-      muscle_mass_kg: Number.parseFloat(form.muscle) || muscle,
-      water_percent: Number.parseFloat(form.water) || water,
-      bmi:
-        heightValue > 0
-          ? +(weightValue / (heightValue / 100) ** 2).toFixed(1)
-          : 0,
+      body_fat_percent: Number.parseFloat(form.fat) || fat || 0,
+      muscle_mass_kg: Number.parseFloat(form.muscle) || muscle || 0,
+      water_percent: Number.parseFloat(form.water) || water || 0,
+      bmi: +(weightValue / (heightValue / 100) ** 2).toFixed(1),
       recorded_at: new Date().toISOString(),
     });
     if (ok) setForm({ height: '', weight: '', fat: '', muscle: '', water: '' });
@@ -109,8 +150,8 @@ export default function Body() {
         <h2>{t('Аналитика тела', 'Body analytics')}</h2>
         <p>
           {t(
-            'Вес, жир, мышцы, белок, вода, минералы и восстановление.',
-            'Weight, fat, muscle, protein, water, minerals and recovery.'
+            'Вес, жир, мышцы, вода и восстановление — из ваших измерений и устройства.',
+            'Weight, fat, muscle, water and recovery — from your measurements and device.'
           )}
         </p>
       </div>
@@ -122,7 +163,7 @@ export default function Body() {
           onClick={() => openMetric('weight')}
         >
           <i className='fas fa-weight-scale' />
-          <strong>{weight}</strong>
+          <strong>{fmt(weight, 1)}</strong>
           <small>{t('кг', 'kg')}</small>
           <p>{t('Вес', 'Weight')}</p>
         </button>
@@ -132,11 +173,9 @@ export default function Body() {
           onClick={() => openMetric('fat')}
         >
           <i className='fas fa-fire' style={{ color: 'var(--orange)' }} />
-          <strong style={{ color: 'var(--orange)' }}>{fat}</strong>
+          <strong style={{ color: 'var(--orange)' }}>{fmt(fat, 1)}</strong>
           <small>%</small>
-          <p>
-            {t('Жир', 'Fat')} · {t('ниже нормы', 'below normal')}
-          </p>
+          <p>{t('Жир', 'Fat')}</p>
         </button>
         <button
           type='button'
@@ -144,49 +183,35 @@ export default function Body() {
           onClick={() => openMetric('muscle')}
         >
           <i className='fas fa-person' style={{ color: 'var(--green)' }} />
-          <strong style={{ color: 'var(--green)' }}>{muscle}</strong>
+          <strong style={{ color: 'var(--green)' }}>{fmt(muscle, 1)}</strong>
           <small>{t('кг', 'kg')}</small>
-          <p>
-            {t('Мышцы', 'Muscles')} · {t('выше нормы', 'above normal')}
-          </p>
-        </button>
-        <button
-          type='button'
-          className='card metric'
-          onClick={() => openMetric('protein')}
-        >
-          <i className='fas fa-dumbbell' style={{ color: 'var(--purple)' }} />
-          <strong style={{ color: 'var(--purple)' }}>16.2</strong>
-          <small>%</small>
-          <p>
-            {t('Белок', 'Protein')} · {t('норма', 'normal')}
-          </p>
+          <p>{t('Мышцы', 'Muscles')}</p>
         </button>
       </section>
 
       <div className='section'>
-        <h3>{t('Вода и минералы', 'Water and minerals')}</h3>
+        <h3>{t('Вода и состав', 'Water and composition')}</h3>
       </div>
       <section className='grid-4'>
         <div className='circle-stat' style={{ '--stat': 'var(--blue)' }}>
           <i className='fas fa-droplet' />
-          <b>{water}%</b>
+          <b>{fmt(water, 1)}%</b>
           <small>{t('Вода', 'Water')}</small>
-        </div>
-        <div className='circle-stat' style={{ '--stat': 'var(--yellow)' }}>
-          <i className='fas fa-cubes' />
-          <b>4.1%</b>
-          <small>{t('Минералы', 'Minerals')}</small>
         </div>
         <div className='circle-stat' style={{ '--stat': 'var(--green)' }}>
           <i className='fas fa-person' />
-          <b>{muscle}</b>
+          <b>{fmt(muscle, 1)}</b>
           <small>{t('Мышцы', 'Muscles')}</small>
         </div>
         <div className='circle-stat' style={{ '--stat': 'var(--orange)' }}>
           <i className='fas fa-fire' />
-          <b>{fat}%</b>
+          <b>{fmt(fat, 1)}%</b>
           <small>{t('Жир', 'Fat')}</small>
+        </div>
+        <div className='circle-stat' style={{ '--stat': 'var(--purple)' }}>
+          <i className='fas fa-weight-scale' />
+          <b>{fmt(bmi, 1)}</b>
+          <small>{t('ИМТ', 'BMI')}</small>
         </div>
       </section>
 
@@ -195,11 +220,13 @@ export default function Body() {
       </div>
       <section className='body-visual'>
         <div className='weight-layer current'>
-          {t('Сейчас', 'Current')} · {weight} {t('кг', 'kg')}
+          {t('Сейчас', 'Current')} · {fmt(weight, 1)} {t('кг', 'kg')}
         </div>
-        <div className='weight-layer goal'>
-          {t('Цель', 'Goal')} · 72 {t('кг', 'kg')}
-        </div>
+        {goalWeight ? (
+          <div className='weight-layer goal'>
+            {t('Цель', 'Goal')} · {fmt(goalWeight, 1)} {t('кг', 'kg')}
+          </div>
+        ) : null}
         <div className='body-wave' />
         <div className='body-wave' />
         <div className='body-wave' />
@@ -291,7 +318,7 @@ export default function Body() {
               fontSize='8'
               fontWeight='700'
             >
-              {t('Мышцы', 'Muscles')} {muscle} {t('кг', 'kg')}
+              {t('Мышцы', 'Muscles')} {fmt(muscle, 1)} {t('кг', 'kg')}
             </text>
             <text
               x='100'
@@ -301,7 +328,7 @@ export default function Body() {
               fontSize='8'
               fontWeight='700'
             >
-              {t('Жир', 'Fat')} {fat}%
+              {t('Жир', 'Fat')} {fmt(fat, 1)}%
             </text>
           </svg>
         </div>
@@ -311,27 +338,36 @@ export default function Body() {
         <h3>{t('История взвешиваний', 'Weight history')}</h3>
       </div>
       <section className='card history-list'>
-        {history.map((item, index) => (
-          <div className='history-row' key={`${item[0]}-${index}`}>
-            <span>{item[0]}</span>
-            <b>{item[1]}</b>
-          </div>
-        ))}
+        {history.length === 0 ? (
+          <p className='muted' style={{ fontSize: 11 }}>
+            {t('Пока нет записей', 'No entries yet')}
+          </p>
+        ) : (
+          history.map((item, index) => (
+            <div className='history-row' key={`${item[0]}-${index}`}>
+              <span>{item[0]}</span>
+              <b>{item[1]}</b>
+            </div>
+          ))
+        )}
       </section>
-      <button
-        type='button'
-        className='primary full'
-        style={{ marginTop: 10 }}
-        onClick={addWeight}
-      >
-        <i className='fas fa-plus' /> {t('Добавить взвешивание', 'Add weight')}
-      </button>
+      {canEdit && (
+        <button
+          type='button'
+          className='primary full'
+          style={{ marginTop: 10 }}
+          onClick={addWeight}
+        >
+          <i className='fas fa-plus' />{' '}
+          {t('Добавить взвешивание', 'Add weight')}
+        </button>
+      )}
 
       <div className='section'>
         <h3>{t('Показатели организма', 'Body metrics')}</h3>
       </div>
       <section className='metrics'>
-        {METRICS.map((metric) => (
+        {METRIC_DEFS.map((metric) => (
           <button
             type='button'
             key={metric.key}
@@ -339,7 +375,7 @@ export default function Body() {
             onClick={() => openMetric(metric.key)}
           >
             <i className={`fas ${metric.icon}`} />
-            <strong>{metric.value}</strong>
+            <strong>{metricValue(metric.key)}</strong>
             <small>
               {Array.isArray(metric.unit) ? t(...metric.unit) : metric.unit}
             </small>
@@ -354,7 +390,7 @@ export default function Body() {
       <section className='card'>
         <div className='fp-bmi-circle'>
           <div className='fp-bmi-circle-content'>
-            <strong>{bmi}</strong>
+            <strong>{fmt(bmi, 1)}</strong>
             <small>{t('текущий ИМТ', 'current BMI')}</small>
           </div>
         </div>
@@ -378,99 +414,37 @@ export default function Body() {
         </div>
       </section>
 
-      <div className='section'>
-        <h3>{t('Другие параметры', 'Other parameters')}</h3>
-      </div>
-      <section className='card'>
-        <div className='body-row'>
-          <span>{t('Висцеральный жир', 'Visceral fat')}</span>
-          <b>
-            6 <em className='status good'>{t('норма', 'normal')}</em>
-          </b>
-        </div>
-        <div className='body-row'>
-          <span>{t('ИМТ', 'BMI')}</span>
-          <button
-            type='button'
-            className='secondary'
-            onClick={() => openMetric('bmi')}
-          >
-            {bmi} · {t('график', 'chart')}
-          </button>
-        </div>
-        <div className='body-row'>
-          <span>{t('Безжировая масса', 'Lean mass')}</span>
-          <b>{Math.max(0, +(weight - muscle).toFixed(1))} кг</b>
-        </div>
-        <div className='body-row'>
-          <span>{t('Основной обмен', 'Basal metabolism')}</span>
-          <b>1 720 {t('ккал', 'kcal')}</b>
-        </div>
-      </section>
-
-      <div className='section'>
-        <h3>{t('Анализ по сегментам', 'Segment analysis')}</h3>
-      </div>
-      <section className='card segments'>
-        <div className='segment'>
-          <i className='fas fa-hand' />
-          <b>92%</b>
-          <small>{t('Левая рука', 'Left arm')}</small>
-        </div>
-        <div className='segment'>
-          <i className='fas fa-hand' />
-          <b>94%</b>
-          <small>{t('Правая рука', 'Right arm')}</small>
-        </div>
-        <div className='segment'>
-          <i className='fas fa-person' />
-          <b>88%</b>
-          <small>{t('Торс', 'Torso')}</small>
-        </div>
-        <div className='segment'>
-          <i className='fas fa-shoe-prints' />
-          <b>91%</b>
-          <small>{t('Левая нога', 'Left leg')}</small>
-        </div>
-        <div className='segment'>
-          <i className='fas fa-shoe-prints' />
-          <b>93%</b>
-          <small>{t('Правая нога', 'Right leg')}</small>
-        </div>
-      </section>
-
-      <div className='section'>
-        <h3>{t('Рекомендация', 'Recommendation')}</h3>
-      </div>
-      <section className='card'>
-        <div className='body-row'>
-          <span>{t('Оптимальный вес', 'Optimal weight')}</span>
-          <b style={{ color: 'var(--green)' }}>72–76 кг</b>
-        </div>
-        <div className='body-row'>
-          <span>{t('Ежедневный приём', 'Daily intake')}</span>
-          <b style={{ color: 'var(--blue)' }}>
-            2 350–2 450 {t('ккал', 'kcal')}
-          </b>
-        </div>
-        <div className='body-row'>
-          <span>{t('Белок', 'Protein')}</span>
-          <b>120–145 г</b>
-        </div>
-        <p
-          style={{
-            marginTop: 12,
-            color: 'var(--muted)',
-            fontSize: 10,
-            lineHeight: 1.5,
-          }}
-        >
-          {t(
-            'Сохраняй силовые тренировки 3 раза в неделю, добавь белок после занятия и держи стабильный сон.',
-            'Keep strength training 3 times a week, add protein after workouts and maintain stable sleep.'
-          )}
-        </p>
-      </section>
+      {hasComposition && (
+        <>
+          <div className='section'>
+            <h3>{t('Другие параметры', 'Other parameters')}</h3>
+          </div>
+          <section className='card'>
+            <div className='body-row'>
+              <span>{t('ИМТ', 'BMI')}</span>
+              <button
+                type='button'
+                className='secondary'
+                onClick={() => openMetric('bmi')}
+              >
+                {fmt(bmi, 1)} · {t('график', 'chart')}
+              </button>
+            </div>
+            <div className='body-row'>
+              <span>{t('Безжировая масса', 'Lean mass')}</span>
+              <b>
+                {fmt(
+                  weight != null && muscle != null
+                    ? Math.max(0, weight - muscle)
+                    : null,
+                  1
+                )}{' '}
+                {t('кг', 'kg')}
+              </b>
+            </div>
+          </section>
+        </>
+      )}
 
       <section className='card' style={{ marginTop: 10 }}>
         <strong>
@@ -497,7 +471,7 @@ export default function Body() {
               type='number'
               value={form.height}
               onChange={handleChange('height')}
-              placeholder={String(heightCm)}
+              placeholder={heightCm != null ? String(heightCm) : '178'}
             />
           </div>
           <div className='field'>
@@ -507,7 +481,7 @@ export default function Body() {
               type='number'
               value={form.weight}
               onChange={handleChange('weight')}
-              placeholder={String(weight)}
+              placeholder={weight != null ? String(weight) : '74.0'}
             />
           </div>
         </div>
@@ -519,7 +493,7 @@ export default function Body() {
               type='number'
               value={form.fat}
               onChange={handleChange('fat')}
-              placeholder={String(fat)}
+              placeholder={fat != null ? String(fat) : '18.0'}
             />
           </div>
           <div className='field'>
@@ -529,7 +503,7 @@ export default function Body() {
               type='number'
               value={form.muscle}
               onChange={handleChange('muscle')}
-              placeholder={String(muscle)}
+              placeholder={muscle != null ? String(muscle) : '34.0'}
             />
           </div>
         </div>
@@ -540,18 +514,20 @@ export default function Body() {
             type='number'
             value={form.water}
             onChange={handleChange('water')}
-            placeholder={String(water)}
+            placeholder={water != null ? String(water) : '57.0'}
           />
         </div>
-        <button
-          type='button'
-          className='primary full'
-          style={{ marginTop: 10 }}
-          disabled={saving}
-          onClick={handleSave}
-        >
-          {saving ? t('Сохраняем…', 'Saving…') : t('Сохранить', 'Save')}
-        </button>
+        {canEdit && (
+          <button
+            type='button'
+            className='primary full'
+            style={{ marginTop: 10 }}
+            disabled={saving}
+            onClick={handleSave}
+          >
+            {saving ? t('Сохраняем…', 'Saving…') : t('Сохранить', 'Save')}
+          </button>
+        )}
       </section>
     </section>
   );

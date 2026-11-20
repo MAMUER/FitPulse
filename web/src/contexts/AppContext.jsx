@@ -193,6 +193,9 @@ export function AppProvider({ children }) {
       safeText,
       formatRelativeDate,
       notify,
+      update,
+      // Гость (не авторизован) не может менять данные — жёсткая блокировка.
+      canEdit: state.authenticated !== false && !state.guest,
       ...auth,
       ...navigation,
       ...ui,
@@ -211,6 +214,7 @@ export function AppProvider({ children }) {
     [
       state,
       notify,
+      update,
       auth,
       navigation,
       ui,

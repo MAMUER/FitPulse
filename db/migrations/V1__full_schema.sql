@@ -740,3 +740,67 @@ FROM (VALUES
     ('Протеиновый смузи', 'snack', 240, 24, 5, 25)
 ) AS v(name, meal_slot, kcal, protein_g, fat_g, carbs_g)
 WHERE NOT EXISTS (SELECT 1 FROM dishes WHERE owner_user_id IS NULL);
+
+-- ----------------------------------------------------------------------------
+-- Nutrition diary — meals the user actually ate (persisted per user)
+-- ----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS nutrition_meals (
+    id         SERIAL PRIMARY KEY,
+    user_id    TEXT NOT NULL,
+    name       TEXT NOT NULL,
+    calories   INTEGER NOT NULL DEFAULT 0,
+    meal_time  TEXT NOT NULL DEFAULT '',
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_nutrition_meals_user
+    ON nutrition_meals(user_id, created_at DESC);
+
+-- Optional photo/illustration for a dish: a data URL from upload or an external URL.
+ALTER TABLE dishes ADD COLUMN IF NOT EXISTS image_url TEXT NOT NULL DEFAULT '';
+
+-- Give the global seed catalog real photos (idempotent; only fills empty values).
+UPDATE dishes AS d
+SET image_url = v.image_url
+FROM (VALUES
+    ('Овсянка с ягодами',   '/images/meal-1517964603305-11c0f6f66012.jpg'),
+    ('Омлет со шпинатом',   '/images/meal-1490645935967-10de6ba17061.jpg'),
+    ('Курица с гречкой',    '/images/meal-1547592180-85f173990554.jpg'),
+    ('Индейка с киноа',     '/images/meal-1512621776951-a57141f2eefd.jpg'),
+    ('Боул с лососем',      '/images/meal-1490474418585-ba9bad8fd0ea.jpg'),
+    ('Треска с овощами',    '/images/meal-1519708227418-c8fd9a32b7a2.jpg'),
+    ('Йогурт и ягоды',      '/images/meal-1488477181946-6428a0291777.jpg'),
+    ('Протеиновый смузи',   '/images/meal-1553530666-ba11a7da3888.jpg')
+) AS v(name, image_url)
+WHERE d.owner_user_id IS NULL
+  AND d.name = v.name
+  AND d.image_url = '';
+
+-- ----------------------------------------------------------------------------
+-- Social: leaderboard + friend requests
+-- ----------------------------------------------------------------------------
+-- Public scoreboard row per user (client upserts its own name/points).
+CREATE TABLE IF NOT EXISTS leaderboard (
+    user_id      TEXT PRIMARY KEY,
+    display_name TEXT NOT NULL DEFAULT '',
+    points       INTEGER NOT NULL DEFAULT 0,
+    xp           INTEGER NOT NULL DEFAULT 0,
+    workouts     INTEGER NOT NULL DEFAULT 0,
+    updated_at   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_leaderboard_points ON leaderboard(points DESC, xp DESC);
+
+-- Pending/accepted friend requests between users.
+CREATE TABLE IF NOT EXISTS friend_requests (
+    id           SERIAL PRIMARY KEY,
+    from_user_id TEXT NOT NULL,
+    to_user_id   TEXT NOT NULL,
+    status       TEXT NOT NULL DEFAULT 'pending'
+                 CHECK (status IN ('pending', 'accepted', 'declined')),
+    created_at   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (from_user_id, to_user_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_friend_requests_to
+    ON friend_requests(to_user_id, status);

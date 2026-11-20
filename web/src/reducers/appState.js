@@ -207,6 +207,9 @@ export const defaultState = {
       '1. Всегда принимай душ до и после тренировки.\n2. Используй индивидуальное полотенце и тапочки в бассейне.\n3. Дезинфицируй инвентарь после использования.\n4. Следи за чистотой спортивной одежды.\n5. Не занимайся при плохом самочувствии.',
   },
   friends: [],
+  leaderboard: [],
+  friendRequests: [],
+  userSearchResults: [],
   stickers: [
     '💪',
     '🔥',
@@ -275,6 +278,12 @@ export const defaultState = {
   ],
   stories: [],
   dishes: [],
+  nutritionGoals: {
+    calories: 0,
+    protein: 0,
+    fats: 0,
+    carbs: 0,
+  },
   nutritionData: {
     day: {
       labelRu: 'Сегодня',
@@ -400,6 +409,7 @@ export function getInitialState() {
       trainingPlans: saved.trainingPlans || [],
       selectedPlanId: saved.selectedPlanId || null,
       mealsList: saved.mealsList || [],
+      nutritionGoals: saved.nutritionGoals || defaultState.nutritionGoals,
       calendarEventsList: saved.calendarEventsList || [],
       achievementsBackend: saved.achievementsBackend || [],
       videos: saved.videos || [],

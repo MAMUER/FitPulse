@@ -38,6 +38,7 @@ const INPUT_IDS = [
   'regPassword',
   'regConfirm',
   'regConsent',
+  'regConsentSpecial',
   'resetEmail',
   'resetCode',
   'newPassword',
@@ -178,7 +179,7 @@ describe('useAuth', () => {
     await act(async () => {
       await result.current.doLogin();
     });
-    expect(notify).toHaveBeenCalledWith('Ошибка входа');
+    expect(notify).toHaveBeenCalledWith('Неверный email или пароль');
   });
 
   it('logout resets state and navigates to login', async () => {
@@ -213,6 +214,7 @@ describe('useAuth', () => {
     setValue('regConfirm', 'secret123');
     setValue('regName', 'Alice');
     setChecked('regConsent', true);
+    setChecked('regConsentSpecial', true);
     api.register.mockResolvedValue({ status: 'ok' });
     await act(async () => {
       await result.current.doRegister();
@@ -241,6 +243,7 @@ describe('useAuth', () => {
     setValue('regPassword', 'secret123');
     setValue('regConfirm', 'secret123');
     setChecked('regConsent', true);
+    setChecked('regConsentSpecial', true);
     api.register.mockRejectedValue(new Error('Пароли не совпадают'));
     await act(async () => {
       await result.current.doRegister();

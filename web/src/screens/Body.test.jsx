@@ -7,27 +7,33 @@ vi.mock('../contexts/AppContext', () => ({
   useApp: vi.fn(),
 }));
 
+function ctx(overrides = {}) {
+  return {
+    state: { bodyComposition: [], ...overrides.state },
+    t: (ru, _en) => ru,
+    canEdit: true,
+    go: vi.fn(),
+    loadBodyComposition: vi.fn(),
+    saveBodyComposition: vi.fn().mockResolvedValue({}),
+    openMetric: vi.fn(),
+    addWeight: vi.fn(),
+    ...overrides,
+  };
+}
+
 describe('Body', () => {
   it('loads and saves body composition', async () => {
-    const loadBodyComposition = vi.fn();
-    const saveBodyComposition = vi.fn().mockResolvedValue({});
-    const go = vi.fn();
-    useApp.mockReturnValue({
+    const context = ctx({
       state: {
-        height: 175,
-        weight: 75,
         bodyComposition: [
           { recorded_at: '2026-01-01T00:00:00Z', weight_kg: 75, bmi: 24.5 },
         ],
       },
-      t: (ru, _en) => ru,
-      go,
-      loadBodyComposition,
-      saveBodyComposition,
     });
+    useApp.mockReturnValue(context);
 
     render(<Body />);
-    expect(loadBodyComposition).toHaveBeenCalled();
+    expect(context.loadBodyComposition).toHaveBeenCalled();
     fireEvent.change(screen.getByLabelText('Рост, см'), {
       target: { value: '180' },
     });
@@ -37,7 +43,6 @@ describe('Body', () => {
     fireEvent.change(screen.getByLabelText('Жир, %'), {
       target: { value: '18' },
     });
-    // Muscle mass is tracked in kilograms, not percent.
     fireEvent.change(screen.getByLabelText('Мышцы, кг'), {
       target: { value: '35' },
     });
@@ -45,10 +50,9 @@ describe('Body', () => {
       target: { value: '50' },
     });
     fireEvent.click(screen.getByText('Сохранить'));
-    await waitFor(() => expect(saveBodyComposition).toHaveBeenCalled());
+    await waitFor(() => expect(context.saveBodyComposition).toHaveBeenCalled());
 
-    const payload = saveBodyComposition.mock.calls[0][0];
-    expect(payload).toMatchObject({
+    expect(context.saveBodyComposition.mock.calls[0][0]).toMatchObject({
       height_cm: 180,
       weight_kg: 80,
       body_fat_percent: 18,
@@ -58,163 +62,104 @@ describe('Body', () => {
   });
 
   it('renders history records provided by weightHistory', () => {
-    const loadBodyComposition = vi.fn();
-    const saveBodyComposition = vi.fn();
-    const go = vi.fn();
-    useApp.mockReturnValue({
+    const context = ctx({
       state: {
-        height: 170,
-        weight: 70,
         bodyComposition: [{ weight_kg: 70, bmi: 24.2 }],
         weightHistory: [['01.02.2026', '70 кг · ИМТ 24.2']],
       },
-      t: (ru, _en) => ru,
-      go,
-      loadBodyComposition,
-      saveBodyComposition,
     });
+    useApp.mockReturnValue(context);
+
     render(<Body />);
     expect(screen.getByText('70 кг · ИМТ 24.2')).toBeInTheDocument();
   });
 
-  it('renders with default height and weight when missing', () => {
-    const loadBodyComposition = vi.fn();
-    const saveBodyComposition = vi.fn();
-    const go = vi.fn();
-    useApp.mockReturnValue({
-      state: { bodyComposition: null },
-      t: (ru, _en) => ru,
-      go,
-      loadBodyComposition,
-      saveBodyComposition,
-    });
+  it('renders the page when there is no composition data', () => {
+    const context = ctx({ state: { bodyComposition: null } });
+    useApp.mockReturnValue(context);
+
     render(<Body />);
-    expect(loadBodyComposition).toHaveBeenCalled();
+    expect(context.loadBodyComposition).toHaveBeenCalled();
     expect(screen.getByText('Аналитика тела')).toBeInTheDocument();
   });
 
-  it('falls back to the latest values when optional fields are empty', async () => {
-    const loadBodyComposition = vi.fn();
-    const saveBodyComposition = vi.fn().mockResolvedValue({});
-    const go = vi.fn();
-    useApp.mockReturnValue({
-      state: { height: 175, weight: 75, bodyComposition: [] },
-      t: (ru, _en) => ru,
-      go,
-      loadBodyComposition,
-      saveBodyComposition,
-    });
+  it('does not save an empty entry without weight and height', async () => {
+    const context = ctx({ state: { bodyComposition: [] } });
+    useApp.mockReturnValue(context);
+
     render(<Body />);
     fireEvent.click(screen.getByText('Сохранить'));
-    await waitFor(() => expect(saveBodyComposition).toHaveBeenCalled());
 
-    const arg = saveBodyComposition.mock.calls[0][0];
-    // Empty inputs fall back to the latest record, or to the built-in defaults
-    // when there is no history at all.
-    expect(arg.height_cm).toBe(178);
-    expect(arg.weight_kg).toBe(74.2);
-    expect(arg.body_fat_percent).toBe(18.4);
-    expect(arg.muscle_mass_kg).toBe(34.8);
-    expect(arg.water_percent).toBe(57.2);
+    // Нет веса/роста — запись не сохраняем.
+    expect(context.saveBodyComposition).not.toHaveBeenCalled();
   });
 
-  it('sorts history by recorded_at and opens each metric detail', () => {
-    const openMetric = vi.fn();
-    useApp.mockReturnValue({
+  it('sorts history by recorded_at and opens metric details', () => {
+    const context = ctx({
       state: {
-        height: 180,
-        weight: 80,
         bodyComposition: [
           { recorded_at: '2026-01-01T00:00:00Z', weight_kg: 78 },
           { recorded_at: '2026-03-01T00:00:00Z', weight_kg: 81 },
         ],
       },
-      t: (ru, _en) => ru,
-      go: vi.fn(),
-      openMetric,
-      loadBodyComposition: vi.fn(),
-      saveBodyComposition: vi.fn(),
     });
+    useApp.mockReturnValue(context);
 
     render(<Body />);
 
-    // Each metric card opens its detail view.
     fireEvent.click(screen.getByRole('button', { name: /Вес/ }));
-    expect(openMetric).toHaveBeenLastCalledWith('weight');
+    expect(context.openMetric).toHaveBeenLastCalledWith('weight');
     fireEvent.click(screen.getByRole('button', { name: /Жир/ }));
-    expect(openMetric).toHaveBeenLastCalledWith('fat');
+    expect(context.openMetric).toHaveBeenLastCalledWith('fat');
     fireEvent.click(screen.getByRole('button', { name: /Мышцы/ }));
-    expect(openMetric).toHaveBeenLastCalledWith('muscle');
-    fireEvent.click(screen.getByRole('button', { name: /Белок/ }));
-    expect(openMetric).toHaveBeenLastCalledWith('protein');
+    expect(context.openMetric).toHaveBeenLastCalledWith('muscle');
     fireEvent.click(screen.getByRole('button', { name: /график/ }));
-    expect(openMetric).toHaveBeenLastCalledWith('bmi');
+    expect(context.openMetric).toHaveBeenLastCalledWith('bmi');
   });
 
   it('opens the body-metrics detail for a vital sign', () => {
-    const openMetric = vi.fn();
-    useApp.mockReturnValue({
-      state: { height: 180, weight: 80, bodyComposition: [] },
-      t: (ru, _en) => ru,
-      go: vi.fn(),
-      openMetric,
-      loadBodyComposition: vi.fn(),
-      saveBodyComposition: vi.fn(),
-    });
+    const context = ctx({ state: { bodyComposition: [] } });
+    useApp.mockReturnValue(context);
 
     render(<Body />);
     fireEvent.click(screen.getByRole('button', { name: /Пульс/ }));
 
-    expect(openMetric).toHaveBeenCalledWith('pulse');
+    expect(context.openMetric).toHaveBeenCalledWith('pulse');
   });
 
-  it('falls back to defaults when the latest record is incomplete', async () => {
-    const saveBodyComposition = vi.fn().mockResolvedValue({});
-    useApp.mockReturnValue({
+  it('uses the latest heightCm when the height field is left empty', async () => {
+    const context = ctx({
       state: {
-        height: 180,
-        weight: 80,
-        // camelCase heightCm, no weight_kg / body_fat_percent
         bodyComposition: [
           { recorded_at: '2026-01-01T00:00:00Z', heightCm: 175 },
         ],
       },
-      t: (ru, _en) => ru,
-      go: vi.fn(),
-      openMetric: vi.fn(),
-      loadBodyComposition: vi.fn(),
-      saveBodyComposition,
     });
+    useApp.mockReturnValue(context);
 
     render(<Body />);
+    fireEvent.change(screen.getByLabelText('Вес, кг'), {
+      target: { value: '80' },
+    });
     fireEvent.click(screen.getByText('Сохранить'));
-    await waitFor(() => expect(saveBodyComposition).toHaveBeenCalled());
+    await waitFor(() => expect(context.saveBodyComposition).toHaveBeenCalled());
 
-    const payload = saveBodyComposition.mock.calls[0][0];
-    expect(payload.height_cm).toBe(175); // picked up from latest.heightCm
-    expect(payload.weight_kg).toBe(74.2); // built-in default
-    expect(payload.body_fat_percent).toBe(18.4); // built-in default
+    expect(context.saveBodyComposition.mock.calls[0][0]).toMatchObject({
+      height_cm: 175,
+      weight_kg: 80,
+    });
   });
 
-  it('saves bmi 0 when the stored height is zero', async () => {
-    const saveBodyComposition = vi.fn().mockResolvedValue({});
-    useApp.mockReturnValue({
-      state: {
-        height: 180,
-        weight: 80,
-        bodyComposition: [{ height_cm: 0, weight_kg: 80 }],
-      },
-      t: (ru, _en) => ru,
-      go: vi.fn(),
-      openMetric: vi.fn(),
-      loadBodyComposition: vi.fn(),
-      saveBodyComposition,
+  it('does not save when the stored height is zero', async () => {
+    const context = ctx({
+      state: { bodyComposition: [{ height_cm: 0, weight_kg: 80 }] },
     });
+    useApp.mockReturnValue(context);
 
     render(<Body />);
     fireEvent.click(screen.getByText('Сохранить'));
-    await waitFor(() => expect(saveBodyComposition).toHaveBeenCalled());
 
-    expect(saveBodyComposition.mock.calls[0][0].bmi).toBe(0);
+    // Без роста ИМТ не считаем — запись пропускаем.
+    expect(context.saveBodyComposition).not.toHaveBeenCalled();
   });
 });

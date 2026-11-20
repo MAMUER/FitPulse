@@ -13,6 +13,7 @@ export default function Profile() {
     state,
     t,
     go,
+    canEdit,
     openLegal,
     toggleLanguage,
     toggleTheme,
@@ -31,7 +32,10 @@ export default function Profile() {
     showRestrictions,
     nutritionSettings,
     saveChatSettings: persistChatSettings,
-    addFriend,
+    searchUsers,
+    sendFriendRequest,
+    loadFriendRequests,
+    respondFriendRequest,
     openFriendProfile,
     showAchievement,
   } = useApp();
@@ -39,7 +43,7 @@ export default function Profile() {
   const [loading, setLoading] = useState(false);
   const [passwordOpen, setPasswordOpen] = useState(false);
   const [friendModalOpen, setFriendModalOpen] = useState(false);
-  const [friendName, setFriendName] = useState('');
+  const [friendSearch, setFriendSearch] = useState('');
   const [chatSettingsOpen, setChatSettingsOpen] = useState(false);
 
   useEffect(() => {
@@ -47,7 +51,14 @@ export default function Profile() {
     loadFriends();
     load2FAStatus();
     void loadAchievements();
-  }, [loadProfile, loadFriends, load2FAStatus, loadAchievements]);
+    void loadFriendRequests();
+  }, [
+    loadProfile,
+    loadFriends,
+    load2FAStatus,
+    loadAchievements,
+    loadFriendRequests,
+  ]);
 
   const name = state.profile?.name || state.profile?.email?.split('@')[0] || '';
   const friends = state.friends || [];
@@ -129,11 +140,13 @@ export default function Profile() {
               {state.profile?.status || t('Активен', 'Active')} ·{' '}
               {state.activeDays || 0} {t('активных дней', 'active days')}
             </div>
-            <label className='upload-btn'>
-              <i className='fas fa-camera' />{' '}
-              {t('Изменить фото', 'Change photo')}
-              <input type='file' accept='image/*' onChange={uploadPhoto} />
-            </label>
+            {canEdit && (
+              <label className='upload-btn'>
+                <i className='fas fa-camera' />{' '}
+                {t('Изменить фото', 'Change photo')}
+                <input type='file' accept='image/*' onChange={uploadPhoto} />
+              </label>
+            )}
           </div>
         </div>
         <div className='profile-stats'>
@@ -151,30 +164,13 @@ export default function Profile() {
             </b>
             <small>{t('Достижений', 'Achievements')}</small>
           </div>
-          <button
-            type='button'
-            className='profile-stat'
-            onClick={() => go('chat')}
-            aria-label={t('Друзья', 'Friends')}
-          >
+          <div>
             <b>
               {state.profile?.friends ||
                 friends.filter((friend) => friend.added).length}
             </b>
             <small>{t('Друзей', 'Friends')}</small>
-          </button>
-        </div>
-        <div className='profile-actions'>
-          <button type='button' className='secondary' onClick={editProfile}>
-            <i className='fas fa-edit' /> {t('Редактировать', 'Edit')}
-          </button>
-          <button
-            type='button'
-            className='secondary'
-            onClick={() => go('chat')}
-          >
-            <i className='fas fa-comments' /> {t('Чат', 'Chat')}
-          </button>
+          </div>
         </div>
       </div>
 
@@ -261,13 +257,15 @@ export default function Profile() {
       <div className='section'>
         <div className='between'>
           <h3>{t('Друзья', 'Friends')}</h3>
-          <button
-            type='button'
-            className='secondary'
-            onClick={() => setFriendModalOpen(true)}
-          >
-            <i className='fas fa-user-plus' /> {t('Добавить', 'Add')}
-          </button>
+          {canEdit && (
+            <button
+              type='button'
+              className='secondary'
+              onClick={() => setFriendModalOpen(true)}
+            >
+              <i className='fas fa-user-plus' /> {t('Добавить', 'Add')}
+            </button>
+          )}
         </div>
         <p className='muted fs-10' style={{ marginTop: 4 }}>
           {t('Онлайн:', 'Online:')} {state.onlineUsers || 0}
@@ -415,15 +413,10 @@ export default function Profile() {
         )}
         <button
           type='button'
-          className='setting'
+          className='secondary full'
           onClick={() => setPasswordOpen(true)}
         >
-          <i className='fas fa-key' />
-          <span>
-            {t('Сменить пароль', 'Change password')}
-            <small>{t('Обновить пароль', 'Update password')}</small>
-          </span>
-          <i className='fas fa-chevron-right' />
+          <i className='fas fa-key' /> {t('Изменить пароль', 'Change password')}
         </button>
         <button type='button' className='setting' onClick={showDevices}>
           <i className='fas fa-plug' />
@@ -442,24 +435,6 @@ export default function Profile() {
           <i className='fas fa-chevron-right' />
         </button>
       </div>
-
-      <button
-        type='button'
-        className='setting'
-        onClick={() => setChatSettingsOpen(true)}
-      >
-        <i className='fas fa-comments' />
-        <span>
-          {t('Настройки чата', 'Chat settings')}
-          <small>
-            {t(
-              'Приватность, статус, уведомления',
-              'Privacy, status, notifications'
-            )}
-          </small>
-        </span>
-        <i className='fas fa-chevron-right' />
-      </button>
 
       <div className='danger-zone'>
         <strong style={{ color: 'var(--red)' }}>
@@ -572,36 +547,98 @@ export default function Profile() {
       {friendModalOpen && (
         <Modal
           className='fp-profile-modal'
-          label={t('Добавить друга', 'Add friend')}
+          label={t('Друзья', 'Friends')}
           onClose={() => setFriendModalOpen(false)}
         >
           <section className='fp-profile-box'>
-            <div className='field'>
-              <label htmlFor='friendName'>
-                {t('Имя друга', 'Friend name')}
-              </label>
-              <input
-                id='friendName'
-                type='text'
-                value={friendName}
-                placeholder={t('Например, Анна', 'e.g. Anna')}
-                onChange={(e) => setFriendName(e.target.value)}
-              />
+            <div className='between'>
+              <div>
+                <div className='eyebrow'>{t('ДРУЗЬЯ', 'FRIENDS')}</div>
+                <h3>{t('Найти друга', 'Find a friend')}</h3>
+              </div>
+              <button
+                type='button'
+                className='icon'
+                aria-label={t('Закрыть', 'Close')}
+                onClick={() => setFriendModalOpen(false)}
+              >
+                ×
+              </button>
             </div>
-            <button
-              type='button'
-              className='primary full'
-              style={{ marginTop: 12 }}
-              onClick={async () => {
-                const ok = await addFriend(friendName);
-                if (ok) {
-                  setFriendName('');
-                  setFriendModalOpen(false);
-                }
+            <label htmlFor='friendSearch'>
+              {t('Поиск по имени', 'Search by name')}
+            </label>
+            <input
+              id='friendSearch'
+              type='text'
+              value={friendSearch}
+              placeholder={t('Например, Анна', 'e.g. Anna')}
+              onChange={(e) => {
+                setFriendSearch(e.target.value);
+                void searchUsers(e.target.value);
               }}
-            >
-              <i className='fas fa-user-plus' /> {t('Добавить', 'Add')}
-            </button>
+            />
+
+            {(state.friendRequests || []).length > 0 && (
+              <>
+                <div className='section'>
+                  <h3>{t('Заявки в друзья', 'Friend requests')}</h3>
+                </div>
+                {state.friendRequests.map((req) => (
+                  <div className='body-row' key={req.id}>
+                    <span>
+                      <b>{req.display_name || t('Участник', 'Member')}</b>
+                    </span>
+                    <div className='row-buttons'>
+                      <button
+                        type='button'
+                        className='secondary'
+                        onClick={() => respondFriendRequest(req.id, 'accept')}
+                      >
+                        {t('Принять', 'Accept')}
+                      </button>
+                      <button
+                        type='button'
+                        className='danger'
+                        onClick={() => respondFriendRequest(req.id, 'decline')}
+                      >
+                        {t('Отклонить', 'Decline')}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </>
+            )}
+
+            <div className='section'>
+              <h3>{t('Результаты поиска', 'Search results')}</h3>
+            </div>
+            {(state.userSearchResults || []).length === 0 ? (
+              <p className='muted' style={{ fontSize: 11 }}>
+                {friendSearch.trim().length >= 2
+                  ? t('Никого не найдено', 'No one found')
+                  : t(
+                      'Введите минимум 2 символа',
+                      'Type at least 2 characters'
+                    )}
+              </p>
+            ) : (
+              state.userSearchResults.map((u) => (
+                <div className='body-row' key={u.user_id}>
+                  <span>
+                    <b>{u.display_name || t('Участник', 'Member')}</b> ·{' '}
+                    {u.points} {t('очков', 'pts')}
+                  </span>
+                  <button
+                    type='button'
+                    className='secondary'
+                    onClick={() => sendFriendRequest(u.user_id)}
+                  >
+                    {t('Добавить', 'Add')}
+                  </button>
+                </div>
+              ))
+            )}
           </section>
         </Modal>
       )}

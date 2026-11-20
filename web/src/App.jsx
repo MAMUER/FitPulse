@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import Modal from './components/Modal';
 import { useApp } from './contexts/AppContext';
@@ -9,6 +9,7 @@ import Chat from './screens/Chat';
 import Confirm from './screens/Confirm';
 import Home from './screens/Home';
 import Integrations from './screens/Integrations';
+import Leaderboard from './screens/Leaderboard';
 import Legal from './screens/Legal';
 import Login from './screens/Login';
 import Menstrual from './screens/Menstrual';
@@ -23,7 +24,9 @@ import TwoFAVerify from './screens/TwoFAVerify';
 import Videos from './screens/Videos';
 
 function TabBar() {
-  const { state, t, go } = useApp();
+  const { t, go } = useApp();
+  const { pathname } = useLocation();
+  const activeKey = pathname.replace(/^\//, '').split('/')[0] || 'home';
   const [moreOpen, setMoreOpen] = useState(false);
   const navItem = (key, ru, en, icon) => ({ key, label: t(ru, en), icon });
   const tabs = [
@@ -37,14 +40,14 @@ function TabBar() {
   // через меню «Ещё». Раньше их не было в навигации вообще — до менструации и
   // интеграций (OpenWearables) нельзя было дойти.
   const moreItems = [
+    navItem('leaderboard', 'Лидеры', 'Leaders', 'fas fa-trophy'),
     navItem('body', 'Тело', 'Body', 'fas fa-heart-pulse'),
     navItem('menstrual', 'Цикл', 'Cycle', 'fas fa-droplet'),
     navItem('integrations', 'Устройства', 'Devices', 'fas fa-watch'),
-    navItem('videos', 'Видео', 'Videos', 'fas fa-video'),
     navItem('profile', 'Профиль', 'Profile', 'fas fa-user'),
     navItem('chat', 'Чат', 'Chat', 'fas fa-comments'),
   ];
-  const isMoreActive = moreItems.some((item) => state.screen === item.key);
+  const isMoreActive = moreItems.some((item) => activeKey === item.key);
 
   const goTo = (key) => {
     setMoreOpen(false);
@@ -57,7 +60,7 @@ function TabBar() {
         <button
           type='button'
           key={tab.key}
-          className={`nav${state.screen === tab.key ? ' active' : ''}`}
+          className={`nav${activeKey === tab.key ? ' active' : ''}`}
           onClick={() => goTo(tab.key)}
         >
           <i className={tab.icon}></i>
@@ -87,7 +90,7 @@ function TabBar() {
               <button
                 type='button'
                 key={item.key}
-                className={state.screen === item.key ? 'active' : ''}
+                className={activeKey === item.key ? 'active' : ''}
                 onClick={() => goTo(item.key)}
               >
                 <i className={item.icon}></i>
@@ -102,8 +105,19 @@ function TabBar() {
 }
 
 export default function App() {
-  const { state, t, closeMetric, closeAchievement } = useApp();
+  const { state, t, closeMetric, closeAchievement, update, go } = useApp();
   const { pathname } = useLocation();
+
+  // Держим state.screen в синхроне с реальным маршрутом. Иначе при переходе
+  // кнопкой «назад» в браузере нижняя панель подсвечивала старую вкладку, а
+  // go() мог не срабатывать из-за устаревшего state.screen.
+  useEffect(() => {
+    const screen = pathname.replace(/^\//, '').split('/')[0] || 'home';
+    if (state.screen !== screen) {
+      update({ screen });
+    }
+  }, [pathname, state.screen, update]);
+
   const authScreens = new Set(['login', 'register', 'reset']);
   const chromeScreens = new Set([
     '/home',
@@ -111,6 +125,7 @@ export default function App() {
     '/calendar',
     '/training',
     '/integrations',
+    '/leaderboard',
     '/videos',
     '/ai',
     '/body',
@@ -142,6 +157,7 @@ export default function App() {
         <Route path='/calendar' element={<Calendar />} />
         <Route path='/training' element={<Training />} />
         <Route path='/integrations' element={<Integrations />} />
+        <Route path='/leaderboard' element={<Leaderboard />} />
         <Route path='/videos' element={<Videos />} />
         <Route path='/ai' element={<Ai />} />
         <Route path='/body' element={<Body />} />
@@ -165,6 +181,24 @@ export default function App() {
           }
         />
       </Routes>
+      {state.authenticated === false && showAppChrome && (
+        <div className='guest-banner'>
+          <strong>{t('Гостевой режим', 'Guest mode')}</strong>
+          <span className='muted'>
+            {t(
+              'Войдите, чтобы сохранять тренировки, питание и данные.',
+              'Sign in to save workouts, nutrition and data.'
+            )}
+          </span>
+          <button
+            type='button'
+            className='primary full'
+            onClick={() => go('login')}
+          >
+            {t('Войти', 'Sign in')}
+          </button>
+        </div>
+      )}
       {showAppChrome && <TabBar />}
       {state.selectedMetric && state.metricInfo?.[state.selectedMetric] && (
         <Modal

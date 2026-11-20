@@ -113,10 +113,21 @@ export function useAI({ state, update }) {
     [askAIRequest]
   );
 
+  // clearChat очищает историю чата и черновики планов/диеты.
+  const clearChat = useCallback(() => {
+    update({
+      messages: [],
+      aiClassification: null,
+      aiPlan: null,
+      aiDiet: null,
+    });
+  }, [update]);
+
   return {
     askAI,
     sendAI,
     quickAI,
+    clearChat,
     askAIForDay,
   };
 }

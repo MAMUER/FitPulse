@@ -31,7 +31,7 @@ export default function Videos() {
   const [videoIndex, setVideoIndex] = useState(null);
 
   useEffect(() => {
-    loadVideos();
+    loadVideos?.();
   }, [loadVideos]);
 
   const videos = state.trainingVideos || [];
