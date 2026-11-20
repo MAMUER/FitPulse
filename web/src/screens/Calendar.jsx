@@ -21,7 +21,9 @@ export default function Calendar() {
 
   useEffect(() => {
     loadCalendarEvents();
-  }, [loadCalendarEvents]);
+    // /calendar — единый планировщик: открываем его сразу, без сброса месяца.
+    openCalendarPage(false);
+  }, [loadCalendarEvents, openCalendarPage]);
 
   const year = state.calendarYear ?? new Date().getFullYear();
   const monthIndex = state.calendarMonthIndex ?? new Date().getMonth();

@@ -265,7 +265,26 @@ export const defaultState = {
       'Стабильный график сна улучшает восстановление и продуктивность.',
     ],
   ],
-  stories: [],
+  stories: [
+    {
+      id: 1,
+      title: 'Неделя силы',
+      description: 'Новый план тренировок',
+      image: '/images/meal-1517964603305-11c0f6f66012.jpg',
+    },
+    {
+      id: 2,
+      title: 'Питание',
+      description: 'Рецепты на неделю',
+      image: '/images/meal-1490645935967-10de6ba17061.jpg',
+    },
+    {
+      id: 3,
+      title: 'Восстановление',
+      description: 'Советы по сну',
+      image: '/images/meal-1547592180-85f173990554.jpg',
+    },
+  ],
   dishes: [],
   nutritionGoals: {
     calories: 0,

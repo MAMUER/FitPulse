@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { useApp } from '../contexts/AppContext';
 
 export default function Leaderboard() {
-  const { state, t, loadLeaderboard, syncLeaderboard } = useApp();
+  const { state, t, loadLeaderboard, syncLeaderboard, reportUser } = useApp();
 
   useEffect(() => {
     // Отправляем свои очки и подтягиваем общий рейтинг.
@@ -46,6 +46,16 @@ export default function Leaderboard() {
               <b>
                 {entry.points} {t('очков', 'pts')}
               </b>
+              {!entry.me && (
+                <button
+                  type='button'
+                  className='icon'
+                  aria-label={t('Пожаловаться', 'Report')}
+                  onClick={() => reportUser(entry.user_id)}
+                >
+                  <i className='fas fa-flag' />
+                </button>
+              )}
             </div>
           ))}
         </section>

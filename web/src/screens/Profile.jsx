@@ -142,27 +142,39 @@ export default function Profile() {
           </div>
         </div>
         <div className='profile-stats'>
-          <div>
+          <button type='button' className='stat' onClick={() => go('home')}>
             <b>{state.activeDays || 0}</b>
             <small>{t('Серия', 'Streak')}</small>
-          </div>
-          <div>
+          </button>
+          <button type='button' className='stat' onClick={() => go('calendar')}>
             <b>{eventCount}</b>
             <small>{t('Событий', 'Events')}</small>
-          </div>
-          <div>
+          </button>
+          <button
+            type='button'
+            className='stat'
+            onClick={() =>
+              document
+                .getElementById('achievements')
+                ?.scrollIntoView({ behavior: 'smooth' })
+            }
+          >
             <b>
               {completedAchievements}/{achievements.length}
             </b>
             <small>{t('Достижений', 'Achievements')}</small>
-          </div>
-          <div>
+          </button>
+          <button
+            type='button'
+            className='stat'
+            onClick={() => setFriendModalOpen(true)}
+          >
             <b>
               {state.profile?.friends ||
                 friends.filter((friend) => friend.added).length}
             </b>
             <small>{t('Друзей', 'Friends')}</small>
-          </div>
+          </button>
         </div>
       </div>
 
@@ -403,13 +415,6 @@ export default function Profile() {
             />
           </label>
         )}
-        <button
-          type='button'
-          className='secondary full'
-          onClick={() => setPasswordOpen(true)}
-        >
-          <i className='fas fa-key' /> {t('Изменить пароль', 'Change password')}
-        </button>
         <button type='button' className='setting' onClick={showDevices}>
           <i className='fas fa-plug' />
           <span>

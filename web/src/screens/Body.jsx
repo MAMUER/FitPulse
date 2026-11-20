@@ -462,6 +462,12 @@ export default function Body() {
       <div className='section'>
         <h3>{t('Внести показатели', 'Log measurements')}</h3>
       </div>
+      <p className='muted' style={{ fontSize: 10, marginTop: -6 }}>
+        {t(
+          'Рост — в см, вес — в кг, жир/вода — в %, мышцы — в кг. Можно оставить только нужные поля.',
+          'Height in cm, weight in kg, fat/water in %, muscle in kg. Fill only the fields you need.'
+        )}
+      </p>
       <section className='card form-card'>
         <div className='form-row'>
           <div className='field'>

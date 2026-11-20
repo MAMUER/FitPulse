@@ -255,6 +255,21 @@ export function useProfile({ state, update, notify }) {
     [notify, loadFriendRequests, loadFriends]
   );
 
+  // reportUser отправляет жалобу на пользователя (напр. на фото) в oncall-bot.
+  const reportUser = useCallback(
+    async (userId) => {
+      try {
+        await api.reportUser(userId, 'Жалоба на фото');
+        notify(t('Жалоба отправлена', 'Report sent'));
+        return true;
+      } catch {
+        notify(t('Не удалось отправить жалобу', 'Failed to send report'));
+        return false;
+      }
+    },
+    [notify]
+  );
+
   const loadProfile = useCallback(async () => {
     try {
       const data = await api.loadProfile();
@@ -301,13 +316,23 @@ export function useProfile({ state, update, notify }) {
     (event) => {
       const file = event.target.files?.[0];
       if (!file) return;
+      if (file.size > 300_000) {
+        notify(
+          t(
+            'Фото слишком большое (макс. 300 КБ)',
+            'Photo too large (max 300 KB)'
+          )
+        );
+        return;
+      }
       const reader = new FileReader();
       reader.onload = () => {
-        update({ profileImage: reader.result });
+        const result = reader.result;
+        update({ profileImage: typeof result === 'string' ? result : '' });
       };
       reader.readAsDataURL(file);
     },
-    [update]
+    [update, notify]
   );
 
   const toggleFriendAdded = useCallback(
@@ -378,6 +403,7 @@ export function useProfile({ state, update, notify }) {
     sendFriendRequest,
     loadFriendRequests,
     respondFriendRequest,
+    reportUser,
     saveProfile,
     uploadPhoto,
     toggleFriendAdded,

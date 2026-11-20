@@ -57,6 +57,7 @@ export default function Nutrition() {
     quickAI,
     createMeal,
     removeMeal,
+    updateMeal,
     addDishToCatalog,
     saveNutritionGoals,
   } = useApp();
@@ -65,6 +66,7 @@ export default function Nutrition() {
   const [mealName, setMealName] = useState('');
   const [mealCalories, setMealCalories] = useState('');
   const [mealTime, setMealTime] = useState('');
+  const [editingMealId, setEditingMealId] = useState(null);
   const [dishForm, setDishForm] = useState(EMPTY_DISH_FORM);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [goalsForm, setGoalsForm] = useState(EMPTY_GOALS_FORM);
@@ -125,11 +127,14 @@ export default function Nutrition() {
     const time =
       mealTime ||
       new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    const ok = await createMeal(name, calories, time);
+    const ok = editingMealId
+      ? await updateMeal(editingMealId, { name, calories, time })
+      : await createMeal(name, calories, time);
     if (ok) {
       setMealName('');
       setMealCalories('');
       setMealTime('');
+      setEditingMealId(null);
     }
   };
 
@@ -247,15 +252,19 @@ export default function Nutrition() {
       <WaterTracker />
 
       <div className='chips'>
-        <button type='button' className='chip active' onClick={openSettings}>
+        <button
+          type='button'
+          className='chip active'
+          onClick={() => go('survey')}
+        >
           {t('Цель', 'Goal')}: {goalLabel}
         </button>
         <button type='button' className='chip' onClick={openSettings}>
           {t('Персональные настройки', 'Personal settings')}
         </button>
-        <button type='button' className='chip' onClick={openSettings}>
+        <span className='chip'>
           {goalCalories || '—'} {t('ккал', 'kcal')}
-        </button>
+        </span>
       </div>
 
       <section className='fp-nutrition-panel'>
@@ -544,14 +553,28 @@ export default function Nutrition() {
                 {` · ${entry.calories || 0} ${t('ккал', 'kcal')}`}
                 {entry.time ? ` · ${entry.time}` : ''}
               </span>
-              <button
-                type='button'
-                className='icon'
-                aria-label={t('Удалить', 'Remove')}
-                onClick={() => removeMeal(entry.id)}
-              >
-                <i className='fas fa-trash' />
-              </button>
+              <div className='row-buttons'>
+                <button
+                  type='button'
+                  className='secondary'
+                  onClick={() => {
+                    setEditingMealId(entry.id);
+                    setMealName(entry.name || '');
+                    setMealCalories(String(entry.calories || ''));
+                    setMealTime(entry.time || '');
+                  }}
+                >
+                  {t('Изменить', 'Edit')}
+                </button>
+                <button
+                  type='button'
+                  className='icon'
+                  aria-label={t('Удалить', 'Remove')}
+                  onClick={() => removeMeal(entry.id)}
+                >
+                  <i className='fas fa-trash' />
+                </button>
+              </div>
             </div>
           ))
         )}
@@ -584,7 +607,9 @@ export default function Nutrition() {
             style={{ marginTop: 8 }}
             onClick={handleAddToDiary}
           >
-            {t('Добавить в дневник', 'Add to diary')}
+            {editingMealId
+              ? t('Сохранить', 'Save')
+              : t('Добавить в дневник', 'Add to diary')}
           </button>
         )}
       </section>

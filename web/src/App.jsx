@@ -103,7 +103,8 @@ function TabBar() {
 }
 
 export default function App() {
-  const { state, t, closeMetric, closeAchievement, update, go } = useApp();
+  const { state, t, closeMetric, closeAchievement, update, go, notify } =
+    useApp();
   const { pathname } = useLocation();
 
   // Держим state.screen в синхроне с реальным маршрутом. Иначе при переходе
@@ -115,6 +116,22 @@ export default function App() {
       update?.({ screen });
     }
   }, [pathname, state.screen, update]);
+
+  // Гостю один раз за сессию показываем, почему действия записи недоступны.
+  useEffect(() => {
+    if (
+      state.authenticated === false &&
+      !sessionStorage.getItem('fp-guest-notified')
+    ) {
+      notify(
+        t(
+          'Вы в гостевом режиме: войдите, чтобы сохранять тренировки, питание и данные.',
+          'Guest mode: sign in to save workouts, nutrition and data.'
+        )
+      );
+      sessionStorage.setItem('fp-guest-notified', '1');
+    }
+  }, [state.authenticated, notify, t]);
 
   const authScreens = new Set(['login', 'register', 'reset']);
   const chromeScreens = new Set([

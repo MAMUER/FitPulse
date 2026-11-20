@@ -13,6 +13,8 @@ import (
 	"github.com/MAMUER/project/internal/middleware"
 )
 
+const msgMealNotFound = "Блюдо не найдено"
+
 type meal struct {
 	ID        string    `json:"id"`
 	Name      string    `json:"name"`
@@ -274,6 +276,66 @@ func (g *gateway) createMealHandler(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func (g *gateway) updateMealHandler(w http.ResponseWriter, r *http.Request) {
+	userID, ok := r.Context().Value(middleware.UserIDKey).(string)
+	if !ok {
+		http.Error(w, msgUnauthorized, http.StatusUnauthorized)
+		return
+	}
+	mealID := chi.URLParam(r, "meal_id")
+	id, err := strconv.ParseInt(mealID, 10, 64)
+	if err != nil || id <= 0 {
+		http.Error(w, "неверный meal_id", http.StatusBadRequest)
+		return
+	}
+	var req struct {
+		Name     string `json:"name"`
+		Calories int    `json:"calories"`
+		Time     string `json:"time"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, errBadRequest, http.StatusBadRequest)
+		return
+	}
+	if req.Name == "" {
+		req.Name = "Блюдо"
+	}
+	if req.Calories < 0 {
+		req.Calories = 0
+	}
+	if req.Time == "" {
+		req.Time = time.Now().Format("15:04")
+	}
+	w.Header().Set(headerContentType, contentTypeJSON)
+	if g.db != nil {
+		res, err := g.db.Exec(
+			`UPDATE nutrition_meals SET name = $1, calories = $2, meal_time = $3
+			 WHERE id = $4 AND user_id = $5`,
+			req.Name, req.Calories, req.Time, id, userID,
+		)
+		if err != nil {
+			g.log.Error("Failed to update meal", zap.Error(err))
+			http.Error(w, "failed to update meal", http.StatusInternalServerError)
+			return
+		}
+		affected, _ := res.RowsAffected()
+		if affected == 0 {
+			http.Error(w, msgMealNotFound, http.StatusNotFound)
+			return
+		}
+		writeJSON(w, map[string]interface{}{"status": "ok"})
+		return
+	}
+	// Fallback в памяти: delete + add.
+	if !globalStore.deleteMeal(userID, mealID) {
+		http.Error(w, msgMealNotFound, http.StatusNotFound)
+		return
+	}
+	updated := globalStore.addMeal(userID, req.Name, req.Calories)
+	updated.Time = req.Time
+	writeJSON(w, map[string]interface{}{"status": "ok", "meal": updated})
+}
+
 func (g *gateway) deleteMealHandler(w http.ResponseWriter, r *http.Request) {
 	userID, ok := r.Context().Value(middleware.UserIDKey).(string)
 	if !ok {
@@ -303,7 +365,7 @@ func (g *gateway) deleteMealHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		affected, _ := res.RowsAffected()
 		if affected == 0 {
-			http.Error(w, "Блюдо не найдено", http.StatusNotFound)
+			http.Error(w, msgMealNotFound, http.StatusNotFound)
 			return
 		}
 		g.writeJSON(w, http.StatusOK, map[string]interface{}{
@@ -312,7 +374,7 @@ func (g *gateway) deleteMealHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !globalStore.deleteMeal(userID, mealID) {
-		http.Error(w, "Блюдо не найдено", http.StatusNotFound)
+		http.Error(w, msgMealNotFound, http.StatusNotFound)
 		return
 	}
 	g.writeJSON(w, http.StatusOK, map[string]interface{}{

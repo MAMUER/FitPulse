@@ -59,6 +59,21 @@ export function useNutrition({
     [loadMeals, notify]
   );
 
+  const updateMeal = useCallback(
+    async (mealId, meal) => {
+      try {
+        await api.updateMeal(mealId, meal);
+        await loadMeals();
+        notify('Запись обновлена');
+        return true;
+      } catch {
+        notify('Ошибка обновления записи');
+        return false;
+      }
+    },
+    [loadMeals, notify]
+  );
+
   const setNutritionPeriod = useCallback(
     (period) => {
       update({ nutritionPeriod: period });
@@ -196,6 +211,7 @@ export function useNutrition({
     saveNutritionGoals,
     createMeal,
     removeMeal,
+    updateMeal,
     setNutritionPeriod,
     setTrainingPeriod,
     openMeal,

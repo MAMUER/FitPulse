@@ -92,6 +92,12 @@ spec:
               - key: YANDEX_REDIRECT_URL
                 path: YANDEX_REDIRECT_URL
                 optional: true
+              - key: TELEGRAM_BOT_TOKEN
+                path: TELEGRAM_BOT_TOKEN
+                optional: true
+              - key: TELEGRAM_CHAT_ID
+                path: TELEGRAM_CHAT_ID
+                optional: true
         - name: grpc-tls
           secret:
             secretName: grpc-server-tls
@@ -157,6 +163,10 @@ spec:
               value: "/etc/secrets/YANDEX_CLIENT_SECRET"
             - name: YANDEX_REDIRECT_URL_FILE
               value: "/etc/secrets/YANDEX_REDIRECT_URL"
+            - name: TELEGRAM_BOT_TOKEN_FILE
+              value: "/etc/secrets/TELEGRAM_BOT_TOKEN"
+            - name: TELEGRAM_CHAT_ID_FILE
+              value: "/etc/secrets/TELEGRAM_CHAT_ID"
             - name: OTEL_EXPORTER_OTLP_ENDPOINT
               value: "opentelemetry-collector.monitoring.svc.cluster.local:4317"
             - name: OTEL_SERVICE_NAME

@@ -1044,7 +1044,9 @@ h3,
   font-size: 14px;
 }
 
-.notification::after {
+/* Красная точка только когда есть непрочитанные уведомления (напр. заявки в
+   друзья). Клик по колокольчику открывает список. */
+.notification.has-unread::after {
   content: "";
   width: 6px;
   height: 6px;
@@ -2720,6 +2722,31 @@ h3,
 }
 
 .profile-stats div small {
+  color: var(--muted);
+  font-size: 8px;
+}
+
+.profile-stats .stat {
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  text-align: center;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.profile-stats .stat:hover {
+  opacity: 0.7;
+}
+
+.profile-stats .stat b {
+  display: block;
+  font-size: 16px;
+  font-family: var(--font-display);
+}
+
+.profile-stats .stat small {
   color: var(--muted);
   font-size: 8px;
 }

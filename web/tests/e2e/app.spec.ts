@@ -20,7 +20,7 @@ async function setupConfig(page: Page, config: (typeof CONFIGS)[number]) {
   await page.addInitScript(
     (c: { theme: string; highContrast: boolean; lang: string }) => {
       localStorage.setItem(
-        'fitpulse-merged-v9',
+        'fitpulse-merged-v1',
         JSON.stringify({
           screen: 'login',
           theme: c.theme,

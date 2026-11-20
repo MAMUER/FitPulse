@@ -55,6 +55,8 @@ const defaultContext = {
   loadTrainingPlans: vi.fn(),
   loadAchievements: vi.fn(),
   loadProgress: vi.fn(),
+  loadFriendRequests: vi.fn(),
+  respondFriendRequest: vi.fn(),
 };
 
 function renderHome(overrides = {}) {

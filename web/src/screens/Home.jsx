@@ -1,4 +1,5 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import Modal from '../components/Modal';
 import MonthSwitcher from '../components/MonthSwitcher';
 import WaterTracker from '../components/WaterTracker';
 import { useApp } from '../contexts/AppContext';
@@ -62,17 +63,29 @@ export default function Home() {
     loadTrainingPlans,
     loadAchievements,
     loadProgress,
-    showNotification,
     nextHack,
+    loadFriendRequests,
+    respondFriendRequest,
   } = useApp();
   const storyStrip = useRef(null);
+  const [notifOpen, setNotifOpen] = useState(false);
 
   useEffect(() => {
     loadBiometrics();
     loadTrainingPlans();
     loadAchievements();
     loadProgress();
-  }, [loadBiometrics, loadTrainingPlans, loadAchievements, loadProgress]);
+    loadFriendRequests();
+  }, [
+    loadBiometrics,
+    loadTrainingPlans,
+    loadAchievements,
+    loadProgress,
+    loadFriendRequests,
+  ]);
+
+  const friendRequests = state.friendRequests || [];
+  const hasUnread = friendRequests.length > 0;
 
   useEffect(() => {
     const timer = setInterval(() => nextHack(), 10000);
@@ -175,9 +188,9 @@ export default function Home() {
         <div className='row' style={{ gap: 7 }}>
           <button
             type='button'
-            className='notification'
+            className={`notification${hasUnread ? ' has-unread' : ''}`}
             aria-label={t('Уведомления', 'Notifications')}
-            onClick={showNotification}
+            onClick={() => setNotifOpen(true)}
           >
             <i className='fas fa-bell' />
           </button>
@@ -366,14 +379,11 @@ export default function Home() {
 
       <div className='between section'>
         <h3>{t('Активность сегодня', "Today's activity")}</h3>
-        <button type='button' className='link' onClick={openMonth}>
+        <button type='button' className='link' onClick={() => go('body')}>
           {t('Подробнее', 'Details')}
         </button>
       </div>
       <section className='card'>
-        <div className='activity-chart'>
-          <strong>{stepsVal}</strong>
-        </div>
         <div className='legend'>
           <span>
             <i className='fas fa-circle' style={{ color: 'var(--green)' }} />
@@ -477,6 +487,62 @@ export default function Home() {
             </div>
           </dialog>
         </div>
+      )}
+
+      {notifOpen && (
+        <Modal
+          className='fp-profile-modal'
+          label={t('Уведомления', 'Notifications')}
+          onClose={() => setNotifOpen(false)}
+        >
+          <section className='fp-profile-box'>
+            <div className='between'>
+              <div>
+                <div className='eyebrow'>
+                  {t('УВЕДОМЛЕНИЯ', 'NOTIFICATIONS')}
+                </div>
+                <h3>{t('Заявки в друзья', 'Friend requests')}</h3>
+              </div>
+              <button
+                type='button'
+                className='icon'
+                aria-label={t('Закрыть', 'Close')}
+                onClick={() => setNotifOpen(false)}
+              >
+                ×
+              </button>
+            </div>
+            {friendRequests.length === 0 ? (
+              <p className='muted'>
+                {t('Новых уведомлений нет', 'No new notifications')}
+              </p>
+            ) : (
+              friendRequests.map((req) => (
+                <div className='body-row' key={req.id}>
+                  <span>
+                    <b>{req.display_name || t('Участник', 'Member')}</b>
+                  </span>
+                  <div className='row-buttons'>
+                    <button
+                      type='button'
+                      className='secondary'
+                      onClick={() => respondFriendRequest(req.id, 'accept')}
+                    >
+                      {t('Принять', 'Accept')}
+                    </button>
+                    <button
+                      type='button'
+                      className='danger'
+                      onClick={() => respondFriendRequest(req.id, 'decline')}
+                    >
+                      {t('Отклонить', 'Decline')}
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
+          </section>
+        </Modal>
       )}
     </section>
   );

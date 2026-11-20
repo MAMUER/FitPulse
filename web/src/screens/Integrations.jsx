@@ -4,6 +4,25 @@ import ListItem from '../components/ListItem';
 import Panel from '../components/Panel';
 import { useApp } from '../contexts/AppContext';
 
+// Если бэкенд не вернул провайдеров, показываем статичный список (реальное
+// подключение — через OpenWearables).
+const FALLBACK_PROVIDERS = [
+  'Garmin',
+  'Oura',
+  'Whoop',
+  'Polar',
+  'Suunto',
+  'Strava',
+  'Withings',
+  'Apple Health',
+  'Google Health Connect',
+  'Samsung Health',
+].map((name) => ({
+  source: name.toLowerCase().replace(/\s+/g, '-'),
+  source_name: name,
+  connected: false,
+}));
+
 export default function Integrations() {
   const { notify, t, loadIntegrationProviders, disconnectIntegration } =
     useApp();
@@ -65,14 +84,10 @@ export default function Integrations() {
     if (loading) {
       return <EmptyState text={t('Загрузка...', 'Loading...')} />;
     }
-    if (providers.length === 0) {
-      return (
-        <EmptyState text={t('Нет доступных интеграций', 'No integrations')} />
-      );
-    }
+    const list = providers.length ? providers : FALLBACK_PROVIDERS;
     return (
       <>
-        {providers.map((provider) => {
+        {list.map((provider) => {
           const isConnected = provider.connected;
           const isProcessing = actionLoading === provider.source;
           const statusText = isConnected

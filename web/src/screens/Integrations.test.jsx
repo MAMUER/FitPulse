@@ -40,7 +40,7 @@ describe('Integrations', () => {
     );
   });
 
-  it('shows empty when no providers', async () => {
+  it('shows fallback providers when none are returned', async () => {
     const loadIntegrationProviders = vi.fn().mockResolvedValue([]);
     const disconnectIntegration = vi.fn();
     useApp.mockReturnValue({
@@ -50,11 +50,11 @@ describe('Integrations', () => {
       disconnectIntegration,
     });
     render(<Integrations />);
-    await screen.findByText('Нет доступных интеграций');
+    await screen.findByText('Garmin');
     expect(screen.queryByText('Отключить')).not.toBeInTheDocument();
   });
 
-  it('handles load error', async () => {
+  it('shows fallback providers on load error', async () => {
     const loadIntegrationProviders = vi
       .fn()
       .mockRejectedValue(new Error('fail'));
@@ -66,7 +66,7 @@ describe('Integrations', () => {
       disconnectIntegration,
     });
     render(<Integrations />);
-    await screen.findByText('Нет доступных интеграций');
+    await screen.findByText('Garmin');
     expect(loadIntegrationProviders).toHaveBeenCalled();
   });
 

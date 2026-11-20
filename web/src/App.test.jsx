@@ -67,6 +67,8 @@ const renderApp = (overrides = {}, initialEntry) => {
     generatePlan: () => {},
     completeWorkout: () => {},
     loadProgress: () => {},
+    loadFriendRequests: () => {},
+    respondFriendRequest: () => {},
   });
 
   return render(

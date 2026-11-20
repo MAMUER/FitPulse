@@ -804,3 +804,14 @@ CREATE TABLE IF NOT EXISTS friend_requests (
 
 CREATE INDEX IF NOT EXISTS idx_friend_requests_to
     ON friend_requests(to_user_id, status);
+
+-- Жалобы пользователей (напр. на некорректное фото). Отправляются в oncall-bot.
+CREATE TABLE IF NOT EXISTS reports (
+    id              SERIAL PRIMARY KEY,
+    reporter_id     TEXT NOT NULL,
+    reported_user_id TEXT NOT NULL,
+    reason          TEXT NOT NULL DEFAULT '',
+    created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_reports_reported ON reports(reported_user_id, created_at DESC);

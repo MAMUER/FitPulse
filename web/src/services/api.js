@@ -306,6 +306,18 @@ export async function respondFriendRequest(id, action) {
   });
 }
 
+// ---- Reports (жалобы, напр. на фото) ----
+
+export async function reportUser(reportedUserId, reason) {
+  return backendRequest('/api/v1/report', {
+    method: 'POST',
+    body: JSON.stringify({
+      reported_user_id: reportedUserId,
+      reason: reason || 'Жалоба на фото',
+    }),
+  });
+}
+
 export async function loadMeals() {
   const data = await backendRequest('/api/v1/nutrition/meals');
   return data;
@@ -333,6 +345,21 @@ export async function removeMeal(mealId) {
     `/api/v1/nutrition/meals/${pathSegment(mealId)}`,
     {
       method: 'DELETE',
+    }
+  );
+  return data;
+}
+
+export async function updateMeal(mealId, meal) {
+  const data = await backendRequest(
+    `/api/v1/nutrition/meals/${pathSegment(mealId)}`,
+    {
+      method: 'PUT',
+      body: JSON.stringify({
+        name: meal.name,
+        calories: meal.calories || 0,
+        time: meal.time || '',
+      }),
     }
   );
   return data;

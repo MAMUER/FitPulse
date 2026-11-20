@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { loadState, saveState } from './storage';
 
-const KEY = 'fitpulse-merged-v9';
+const KEY = 'fitpulse-merged-v1';
 
 beforeEach(() => {
   localStorage.clear();
@@ -57,7 +57,7 @@ describe('saveState', () => {
   });
 
   it('ignores oversized strings', () => {
-    saveState({ screen: 'home', blob: 'x'.repeat(100_001) });
+    saveState({ screen: 'home', blob: 'x'.repeat(500_001) });
     expect(localStorage.getItem(KEY)).toBeNull();
   });
 });

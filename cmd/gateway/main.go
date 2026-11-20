@@ -1495,6 +1495,7 @@ func (g *gateway) registerTrainingRoutes(r chi.Router) {
 	r.Get("/leaderboard", g.getLeaderboardHandler)
 	r.Put("/leaderboard/me", g.syncLeaderboardHandler)
 	r.Get("/users/search", g.searchUsersHandler)
+	r.Post("/report", g.reportHandler)
 
 	// Dish catalog (nutrition)
 	r.Get("/dishes", g.getDishesHandler)
@@ -1514,6 +1515,7 @@ func (g *gateway) registerMealCalendarRoutes(r chi.Router) {
 	r.Get("/nutrition/meals", g.listMealsHandler)
 
 	r.Post("/nutrition/meals", g.createMealHandler)
+	r.Put("/nutrition/meals/{meal_id}", g.updateMealHandler)
 
 	r.Delete("/nutrition/meals/{meal_id}", g.deleteMealHandler)
 

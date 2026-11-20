@@ -213,6 +213,9 @@ create_secrets() {
 	# Ensure SEED_ADMIN_EMAIL and SEED_ADMIN_PASSWORD exist in app-secrets (required by seed-admin job)
 	kubectl patch secret app-secrets -n fitness-platform-production --type=merge -p "{\"stringData\":{\"SEED_ADMIN_EMAIL\":\"${SEED_ADMIN_EMAIL:-admin@fittpulse.duckdns.org}\",\"SEED_ADMIN_PASSWORD\":\"${SEED_ADMIN_PASSWORD:-FitPulseAdmin2026!}\"}}" >/dev/null 2>&1 || true
 
+	# TELEGRAM_* — для отправки жалоб (напр. на фото) в oncall-bot.
+	kubectl patch secret app-secrets -n fitness-platform-production --type=merge -p "{\"stringData\":{\"TELEGRAM_BOT_TOKEN\":\"${TELEGRAM_BOT_TOKEN:-}\",\"TELEGRAM_CHAT_ID\":\"${TELEGRAM_CHAT_ID:-}\"}}" >/dev/null 2>&1 || true
+
 	# seed-admin cannot produce Argon2id hashes with pgcrypto, so precompute the
 	# PHC string through the same code path as user-service and ship it in
 	# app-secrets. This must stay in sync with the password patched above.

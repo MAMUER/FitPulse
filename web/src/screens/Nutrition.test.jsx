@@ -133,6 +133,7 @@ function makeContext(overrides = {}) {
     quickAI: vi.fn(),
     createMeal: vi.fn().mockResolvedValue(true),
     removeMeal: vi.fn().mockResolvedValue(true),
+    updateMeal: vi.fn().mockResolvedValue(true),
     addDishToCatalog: vi.fn().mockResolvedValue(true),
     saveNutritionGoals: vi.fn(),
     drinkWater: vi.fn(),
