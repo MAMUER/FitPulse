@@ -3228,9 +3228,11 @@ h3,
   top: 0;
   left: 50%;
   width: min(460px, 100vw);
-  height: 100vh;
+  /* Оставляем место снизу под нижнюю навигацию, иначе она перекрывается. */
+  height: calc(100vh - 64px);
   transform: translateX(-50%);
-  z-index: 20000;
+  /* Ниже нижней навигации (z-index 8), чтобы таб-бар оставался кликабельным. */
+  z-index: 7;
   overflow-y: auto;
   padding: 24px 17px 35px;
   background: var(--bg);

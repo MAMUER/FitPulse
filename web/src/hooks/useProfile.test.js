@@ -68,6 +68,7 @@ describe('useProfile', () => {
       'loadProfile',
       'openFriendProfile',
       'removeFriendById',
+      'reportUser',
       'respondFriendRequest',
       'saveProfile',
       'searchFriends',

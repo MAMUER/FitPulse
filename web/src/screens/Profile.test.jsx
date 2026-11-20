@@ -187,7 +187,7 @@ describe('Profile', () => {
       })
     );
 
-    const stat = screen.getByText('Событий').closest('div');
+    const stat = screen.getByText('Событий').closest('button');
     expect(stat.querySelector('b').textContent).toBe('3');
   });
 

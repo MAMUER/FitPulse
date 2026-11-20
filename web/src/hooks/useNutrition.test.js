@@ -82,6 +82,7 @@ describe('useNutrition', () => {
       'selectMeal',
       'setNutritionPeriod',
       'setTrainingPeriod',
+      'updateMeal',
     ]);
   });
 
