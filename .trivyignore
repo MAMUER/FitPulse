@@ -25,3 +25,9 @@ KSV-0106
 CVE-2026-4738  # gdal/zlib inftree9 buffer overflow; GDAL not used in our images, not applicable
 KSV-0014  # jaeger deployment already has readOnlyRootFilesystem: true; ignore stale Trivy cache
 KSV-0118  # argocd security context hardened
+
+CVE-2025-47273  # setuptools PackageIndex path traversal (build tool, not used at runtime)
+CVE-2026-97689  # urllib3 chunked DoS (urllib3 not used by the app)
+CVE-2026-97687  # urllib3 HTTPS-proxy TLS override (urllib3 not used by the app)
+GHSA-6v7p-g79w-8964  # msgpack Unpacker reuse crash (msgpack not used by the app)
+CVE-2026-114613  # msgpack map deserialization memory leak (msgpack not used by the app)
