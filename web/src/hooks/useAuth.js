@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import * as api from '../services/api';
+import { t } from '../utils/i18n';
 import { containsProfanity } from '../utils/profanity';
 
 export function useAuth({ state, update, notify }) {

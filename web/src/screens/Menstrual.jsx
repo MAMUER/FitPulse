@@ -70,6 +70,18 @@ export default function Menstrual() {
     [cycles]
   );
 
+  // Полный список для отображения (включая записи без даты начала — их тоже
+  // можно редактировать/удалить).
+  const displayCycles = useMemo(
+    () =>
+      cycles.slice().sort((a, b) => {
+        const at = a.start_date ? new Date(a.start_date).getTime() : 0;
+        const bt = b.start_date ? new Date(b.start_date).getTime() : 0;
+        return bt - at;
+      }),
+    [cycles]
+  );
+
   const avgCycle = useMemo(() => {
     if (sortedCycles.length < 2) return null;
     const diffs = [];
@@ -113,8 +125,10 @@ export default function Menstrual() {
       const end = c.end_date
         ? startOfDay(new Date(c.end_date))
         : new Date(start.getTime() + 4 * DAY_MS);
-      for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-        days.add(dateKey(d));
+      const totalDays =
+        Math.round((end.getTime() - start.getTime()) / DAY_MS) + 1;
+      for (let i = 0; i < totalDays; i += 1) {
+        days.add(dateKey(new Date(start.getTime() + i * DAY_MS)));
       }
     }
     return days;
@@ -226,7 +240,7 @@ export default function Menstrual() {
     if (cycles.length === 0) {
       return <EmptyState text={t('Нет записей', 'No records')} />;
     }
-    return sortedCycles.map((cycle) => {
+    return displayCycles.map((cycle) => {
       const endDatePart = cycle.end_date ? `→ ${cycle.end_date}` : '';
       const notesPart = cycle.notes ? ` · ${cycle.notes}` : '';
       return (
@@ -331,9 +345,11 @@ export default function Menstrual() {
               ))}
             </div>
             <div className='menstrual-grid'>
-              {Array.from({ length: startOffset }).map((_, i) => (
-                <span className='mday empty' key={`e${i}`} />
-              ))}
+              {Array.from({ length: startOffset }, (_, i) => `empty-${i}`).map(
+                (blankKey) => (
+                  <span className='mday empty' key={blankKey} />
+                )
+              )}
               {Array.from({ length: daysInMonth }).map((_, i) => {
                 const day = i + 1;
                 const key = dateKey(new Date(year, monthIndex, day));

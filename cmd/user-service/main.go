@@ -419,7 +419,7 @@ func sendVerificationEmailIfNeeded(ctx context.Context, s *userServer, email, ve
 
 				zap.Error(sendErr),
 
-				zap.String("email", sanitize.LogString(email)))
+				zap.String("email", strings.ReplaceAll(strings.ReplaceAll(email, "\r", ""), "\n", "")))
 			return
 		}
 

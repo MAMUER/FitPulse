@@ -71,12 +71,14 @@ describe('useNutrition', () => {
   it('returns all nutrition callbacks', () => {
     setup();
     expect(Object.keys(result.current).sort()).toEqual([
+      'addDishToCatalog',
       'createMeal',
       'loadDishes',
       'loadMeals',
       'openMeal',
       'removeMeal',
       'saveCustomMeal',
+      'saveNutritionGoals',
       'selectMeal',
       'setNutritionPeriod',
       'setTrainingPeriod',

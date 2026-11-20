@@ -2203,7 +2203,7 @@ func (g *gateway) forgotPasswordHandler(w http.ResponseWriter, r *http.Request) 
 			if sendErr := g.emailSender.SendPasswordResetEmail(emailCtx, req.Email, code, ""); sendErr != nil {
 				g.log.Warn("Failed to send password reset email",
 					zap.Error(sendErr),
-					zap.String("email", sanitize.LogString(req.Email)))
+					zap.String("email", strings.ReplaceAll(strings.ReplaceAll(req.Email, "\r", ""), "\n", "")))
 			}
 		}()
 	}

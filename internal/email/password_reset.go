@@ -2,10 +2,15 @@ package email
 
 import (
 	"context"
+	_ "embed"
 	"fmt"
+	"html"
 	"net/smtp"
 	"strings"
 )
+
+//go:embed password_reset.html
+var passwordResetHTMLTemplate string
 
 // SendPasswordResetEmail sends a password reset code to the given address.
 // Mirrors SendVerificationEmail (rate limit, skip domains, TLS) but renders the
@@ -14,6 +19,8 @@ func (s *SMTPClient) SendPasswordResetEmail(ctx context.Context, toEmail, code, 
 	if err := ctx.Err(); err != nil {
 		return err
 	}
+	// Защита от SMTP-инъекции: убираем CR/LF из адреса получателя.
+	toEmail = stripCRLF(toEmail)
 
 	for _, domain := range s.cfg.SkipSendDomains {
 		if strings.HasSuffix(toEmail, "@"+domain) {
@@ -56,40 +63,14 @@ func (s *SMTPClient) SendPasswordResetEmail(ctx context.Context, toEmail, code, 
 	return nil
 }
 
-const passwordResetHTMLTemplate = `<!DOCTYPE html>
-<html lang="ru">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Восстановление пароля — FitPulse</title>
-<style>%s</style>
-</head>
-<body>
-  <div class="container">
-    <div class="header">
-      <div class="icon">&#128274;</div>
-      <h1>Восстановление пароля</h1>
-      <p>Сброс пароля для FitPulse</p>
-    </div>
-    <div class="body">
-      <p>Здравствуйте!</p>
-      <p>Получен запрос на восстановление пароля для <strong>%s</strong>. Используйте код ниже, чтобы задать новый пароль:</p>
-      <div class="token-section">
-        <p>Код подтверждения:</p>
-        <div class="token-code" style="font-size: 28px; letter-spacing: 6px;">%s</div>
-      </div>
-      <p style="margin-top: 20px; font-size: 13px; color: #8b949e;">
-        Код действителен 15 минут. Если вы не запрашивали восстановление пароля, просто проигнорируйте это письмо — ваш пароль не изменится.
-      </p>
-    </div>
-    <div class="footer">
-      <p>С уважением, команда <span class="app-name">FitPulse</span></p>
-      <p style="margin-top: 4px;">Ваш персональный фитнес-ассистент</p>
-    </div>
-  </div>
-</body>
-</html>`
-
 func buildPasswordResetHTML(emailAddr, code string) string {
-	return fmt.Sprintf(passwordResetHTMLTemplate, emailCSS, emailAddr, code)
+	// CSS-блок собираем отдельно и подставляем в <head> (шаблон не содержит
+	// <style>, поэтому HTML/CSS-линтер не ругается на плейсхолдер).
+	style := "<style>" + emailCSS + "</style>"
+	return fmt.Sprintf(
+		passwordResetHTMLTemplate,
+		style,
+		html.EscapeString(emailAddr),
+		html.EscapeString(code),
+	)
 }

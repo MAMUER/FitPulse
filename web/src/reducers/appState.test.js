@@ -45,9 +45,6 @@ describe('getInitialState defaults', () => {
     expect(state.registered).toBe(false);
     expect(state.guest).toBe(false);
     expect(state.region).toBe('RU');
-    expect(state.chatConsent).toBe(false);
-    expect(state.chatSettings).toEqual(defaultState.chatSettings);
-    expect(state.chatMessages).toEqual(defaultState.chatMessages);
     expect(state.storySeen).toEqual({});
     expect(state.twoFactorSetup).toBeNull();
     expect(state.twoFactorTempToken).toBeNull();
@@ -122,9 +119,6 @@ describe('getInitialState saved values', () => {
       registered: true,
       guest: true,
       region: 'US',
-      chatConsent: true,
-      chatSettings: { allowGuest: true },
-      chatMessages: [{ from: 'Я', text: 'Привет' }],
       storySeen: { 0: true },
       twoFactorSetup: { secret: 's' },
       twoFactorTempToken: 'temp',
@@ -193,9 +187,6 @@ describe('getInitialState saved values', () => {
     expect(state.registered).toBe(true);
     expect(state.guest).toBe(true);
     expect(state.region).toBe('US');
-    expect(state.chatConsent).toBe(true);
-    expect(state.chatSettings).toEqual({ allowGuest: true });
-    expect(state.chatMessages).toEqual([{ from: 'Я', text: 'Привет' }]);
     expect(state.storySeen).toEqual({ 0: true });
     expect(state.twoFactorSetup).toEqual({ secret: 's' });
     expect(state.twoFactorTempToken).toBe('temp');

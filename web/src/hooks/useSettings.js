@@ -11,15 +11,6 @@ export function useSettings({ state, update, notify }) {
     );
   }, [state.survey, notify]);
 
-  const chatSettings = useCallback(() => {
-    notify(
-      t(
-        'Настройки чата: приватность, статус, уведомления',
-        'Chat settings: privacy, status, notifications'
-      )
-    );
-  }, [notify]);
-
   const nutritionSettings = useCallback(() => {
     notify(
       `${t('Настройки питания', 'Nutrition settings')}: ${t('цель', 'goal')} --- улучшение формы, 2 350 ${t('ккал', 'kcal')}, ${t('белок', 'protein')} 120--145 г, ${t('аллергии', 'allergies')} ${(state.survey?.allergies || []).join(', ') || t('не указаны', 'not specified')}`
@@ -64,7 +55,6 @@ export function useSettings({ state, update, notify }) {
 
   return {
     showRestrictions,
-    chatSettings,
     nutritionSettings,
     setGoal,
     loadIntegrationProviders,

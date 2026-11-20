@@ -9,7 +9,6 @@ import {
 import { useAI } from '../hooks/useAI';
 import { useAuth } from '../hooks/useAuth';
 import { useCalendar } from '../hooks/useCalendar';
-import { useChat } from '../hooks/useChat';
 import { useHealth } from '../hooks/useHealth';
 import { useMedia } from '../hooks/useMedia';
 import { useNavigation } from '../hooks/useNavigation';
@@ -106,9 +105,6 @@ export function AppProvider({ children }) {
         registered: state.registered,
         guest: state.guest,
         region: state.region,
-        chatConsent: state.chatConsent,
-        chatSettings: state.chatSettings,
-        chatMessages: state.chatMessages,
         storySeen: state.storySeen,
         twoFactorSetup: state.twoFactorSetup,
         twoFactorTempToken: state.twoFactorTempToken,
@@ -157,7 +153,6 @@ export function AppProvider({ children }) {
   });
   const training = useTraining({ state, update, notify });
   const health = useHealth({ state, update, notify, t });
-  const chat = useChat({ state, update, notify });
   const profile = useProfile({ state, update, notify });
   const stories = useStories({ state, update });
   const survey = useSurvey({ state, update, notify });
@@ -203,7 +198,6 @@ export function AppProvider({ children }) {
       ...nutrition,
       ...training,
       ...health,
-      ...chat,
       ...profile,
       ...stories,
       ...survey,
@@ -222,7 +216,6 @@ export function AppProvider({ children }) {
       nutrition,
       training,
       health,
-      chat,
       profile,
       stories,
       survey,

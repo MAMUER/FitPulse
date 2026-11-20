@@ -45,7 +45,6 @@ type TranslationKeys = {
     timer: string;
     ai: string;
     profile: string;
-    chat: string;
     guest: string;
     terms: string;
     privacy: string;
@@ -65,7 +64,6 @@ type TranslationKeys = {
     changePassword: string;
     devices: string;
     restrictions: string;
-    chatSettings: string;
     nutritionSettings: string;
     searchFriends: string;
   };
@@ -79,7 +77,6 @@ type TranslationKeys = {
     timer: string;
     ai: string;
     profile: string;
-    chat: string;
     guest: string;
     terms: string;
     privacy: string;
@@ -99,7 +96,6 @@ type TranslationKeys = {
     changePassword: string;
     devices: string;
     restrictions: string;
-    chatSettings: string;
     nutritionSettings: string;
     searchFriends: string;
   };
@@ -132,7 +128,6 @@ function getText(key: TextKey, config: (typeof CONFIGS)[number]) {
       timer: 'Таймер',
       ai: 'AI',
       profile: 'Профиль',
-      chat: 'Чат',
       guest: 'Продолжить как гость',
       terms: 'Пользовательское соглашение',
       privacy: 'Политика конфиденциальности',
@@ -150,10 +145,9 @@ function getText(key: TextKey, config: (typeof CONFIGS)[number]) {
       theme: 'Тема',
       language: 'Язык',
       deleteAccount: 'Удалить аккаунт',
-      changePassword: 'Сменить пароль',
+      changePassword: 'Изменить пароль',
       devices: 'Устройства',
       restrictions: 'Ограничения',
-      chatSettings: 'Настройки чата',
       nutritionSettings: 'Настройки питания',
       searchFriends: 'Найти',
     },
@@ -167,7 +161,6 @@ function getText(key: TextKey, config: (typeof CONFIGS)[number]) {
       timer: 'Timer',
       ai: 'AI',
       profile: 'Profile',
-      chat: 'Chat',
       guest: 'Continue as guest',
       terms: 'Terms of Use',
       privacy: 'Privacy Policy',
@@ -187,7 +180,6 @@ function getText(key: TextKey, config: (typeof CONFIGS)[number]) {
       changePassword: 'Change password',
       devices: 'Devices',
       restrictions: 'Restrictions',
-      chatSettings: 'Chat settings',
       nutritionSettings: 'Nutrition settings',
       searchFriends: 'Search',
     },
@@ -256,8 +248,10 @@ for (const config of CONFIGS) {
         .getByRole('button', { name: getText('profile', config) })
         .click();
       const settings = page.locator('.settings .setting');
+      // Кнопка смены пароля — это .secondary.full, а не .setting, поэтому ищем
+      // её по тексту напрямую (в блоке настроек и в опасной зоне).
       await expect(
-        settings.filter({ hasText: getText('changePassword', config) }).first()
+        page.locator(`text=${getText('changePassword', config)}`).first()
       ).toBeVisible();
       await expect(
         settings.filter({ hasText: getText('theme', config) }).first()
@@ -299,47 +293,6 @@ for (const config of CONFIGS) {
           exact: true,
         })
       ).toBeVisible();
-    });
-
-    test('chat screen renders and opens settings', async ({ page }) => {
-      await page.locator(`text=${getText('guest', config)}`).click();
-      // The chat tab is `chatOnly` (hidden until the chat screen is open), so
-      // the chat screen is reached through the profile shortcut.
-      await page
-        .getByRole('button', { name: getText('profile', config) })
-        .click();
-      // Кнопка чата в .profile-actions тоже содержит иконку, поэтому
-      // сопоставляем текст, а не accessible name.
-      await page
-        .locator('.profile-actions button')
-        .filter({
-          hasText: new RegExp(
-            `^\\s*${getText('chat', config).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*$`
-          ),
-        })
-        .click();
-      await expect(
-        page.getByRole('heading', {
-          name: getText('chat', config),
-          exact: true,
-        })
-      ).toBeVisible();
-      // «Настройки чата» есть и как подпись кнопки, и как aria-label иконки-шестерёнки,
-      // поэтому кликаем по кнопке с таким именем, а диалог проверяем по факту открытия
-      // и aria-label — без зависимости от вычисления accessible name.
-      await page
-        .getByRole('button', {
-          name: getText('chatSettings', config),
-          exact: true,
-        })
-        .first()
-        .click();
-      const dialog = page.locator('dialog.fp-dialog[open]');
-      await expect(dialog).toBeVisible();
-      await expect(dialog).toHaveAttribute(
-        'aria-label',
-        getText('chatSettings', config)
-      );
     });
 
     test('nutrition period tabs exist', async ({ page }) => {

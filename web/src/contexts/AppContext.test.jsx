@@ -33,7 +33,6 @@ vi.mock('../hooks/useHealth', () => ({
     loadBodyComposition: vi.fn(),
   })),
 }));
-vi.mock('../hooks/useChat', () => ({ useChat: vi.fn(() => ({})) }));
 vi.mock('../hooks/useProfile', () => ({
   useProfile: vi.fn(() => ({ loadProfile: vi.fn() })),
 }));

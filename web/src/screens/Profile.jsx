@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import ChatSettingsModal from '../components/ChatSettingsModal';
 import Modal from '../components/Modal';
 import { useApp } from '../contexts/AppContext';
 
@@ -31,7 +30,6 @@ export default function Profile() {
     showDevices,
     showRestrictions,
     nutritionSettings,
-    saveChatSettings: persistChatSettings,
     searchUsers,
     sendFriendRequest,
     loadFriendRequests,
@@ -44,7 +42,6 @@ export default function Profile() {
   const [passwordOpen, setPasswordOpen] = useState(false);
   const [friendModalOpen, setFriendModalOpen] = useState(false);
   const [friendSearch, setFriendSearch] = useState('');
-  const [chatSettingsOpen, setChatSettingsOpen] = useState(false);
 
   useEffect(() => {
     loadProfile();
@@ -102,11 +99,6 @@ export default function Profile() {
   const handleSavePassword = () => {
     changePassword();
     setPasswordOpen(false);
-  };
-
-  const handleSaveChatSettings = () => {
-    persistChatSettings();
-    setChatSettingsOpen(false);
   };
 
   return (
@@ -534,14 +526,6 @@ export default function Profile() {
             </button>
           </section>
         </Modal>
-      )}
-      {chatSettingsOpen && (
-        <ChatSettingsModal
-          state={state}
-          t={t}
-          onClose={() => setChatSettingsOpen(false)}
-          onSave={handleSaveChatSettings}
-        />
       )}
 
       {friendModalOpen && (

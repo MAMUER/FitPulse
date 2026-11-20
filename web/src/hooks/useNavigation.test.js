@@ -13,7 +13,6 @@ function makeState(overrides = {}) {
     screen: 'home',
     guest: false,
     legalReturnScreen: null,
-    selectedChat: null,
     selectedMeal: null,
     selectedMetric: null,
     showDateModal: false,
@@ -57,7 +56,6 @@ describe('useNavigation', () => {
     setup({
       selectedMetric: 'weight',
       showDateModal: true,
-      selectedChat: 'Анна',
     });
     act(() => result.current.go('body'));
     expect(update).toHaveBeenCalledWith({
@@ -67,24 +65,7 @@ describe('useNavigation', () => {
       showDateModal: false,
       selectedAchievement: null,
       selectedStory: null,
-      selectedChat: 'Анна',
     });
-  });
-
-  it('go keeps selected chat when leaving another screen', () => {
-    setup({ screen: 'chatDetail', selectedChat: 'Анна' });
-    act(() => result.current.go('home'));
-    expect(update).toHaveBeenCalledWith(
-      expect.objectContaining({ screen: 'home', selectedChat: 'Анна' })
-    );
-  });
-
-  it('go clears chat selection when entering chat screen', () => {
-    setup({ screen: 'home', selectedChat: 'Анна' });
-    act(() => result.current.go('chat'));
-    expect(update).toHaveBeenCalledWith(
-      expect.objectContaining({ screen: 'chat', selectedChat: null })
-    );
   });
 
   it('go updates the route to match the selected screen', () => {

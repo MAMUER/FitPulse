@@ -7,8 +7,10 @@ package email
 import (
 	"context"
 	"crypto/tls"
+	_ "embed"
 	"errors"
 	"fmt"
+	"html"
 	"net"
 	"net/smtp"
 	"strconv"
@@ -185,6 +187,8 @@ func (s *SMTPClient) SendVerificationEmail(ctx context.Context, toEmail, verifyT
 		return err
 
 	}
+	// Защита от SMTP-инъекции: убираем CR/LF из адреса получателя.
+	toEmail = stripCRLF(toEmail)
 
 	for _, domain := range s.cfg.SkipSendDomains {
 
@@ -391,7 +395,18 @@ func deliverSMTPSession(client *smtp.Client, cfg Config, toEmail, msg string) er
 	return nil
 }
 
+// stripCRLF removes CR and LF characters so user-controlled values cannot
+// inject extra SMTP headers or break out of an HTML context.
+func stripCRLF(s string) string {
+	s = strings.ReplaceAll(s, "\r", "")
+	return strings.ReplaceAll(s, "\n", "")
+}
+
 func buildMessage(from, to, subject, body string) string {
+	// Strip CR/LF from header fields to prevent SMTP header injection.
+	from = stripCRLF(from)
+	to = stripCRLF(to)
+	subject = stripCRLF(subject)
 
 	return fmt.Sprintf(
 
@@ -414,176 +429,22 @@ func buildMessage(from, to, subject, body string) string {
 
 }
 
-const emailCSS = `
-
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-
-  body {
-
-    background-color: #0d1117;
-
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, sans-serif;
-
-    color: #c9d1d9;
-
-    line-height: 1.6;
-
-    padding: 20px;
-
-  }
-
-  .container {
-
-    max-width: 520px;
-
-    margin: 0 auto;
-
-    background-color: #161b22;
-
-    border-radius: 12px;
-
-    border: 1px solid #30363d;
-
-    overflow: hidden;
-
-  }
-
-  .header {
-
-    background: linear-gradient(135deg, #1a7f37 0%, #2ea043 100%);
-
-    padding: 32px 24px;
-
-    text-align: center;
-
-  }
-
-  .header .icon { font-size: 48px; margin-bottom: 12px; }
-
-  .header h1 { color: #ffffff; font-size: 22px; font-weight: 700; margin-bottom: 4px; }
-
-  .header p { color: rgba(255,255,255,0.85); font-size: 14px; }
-
-  .body { padding: 28px 24px; }
-
-  .body p { margin-bottom: 16px; font-size: 15px; color: #c9d1d9; }
-
-  .btn {
-
-    display: block; width: 100%; text-align: center;
-
-    background-color: #238636; color: #ffffff; text-decoration: none;
-
-    padding: 14px 24px; border-radius: 8px; font-size: 16px; font-weight: 600;
-
-    margin: 20px 0; transition: background-color 0.2s;
-
-  }
-
-  .btn:hover { background-color: #2ea043; }
-
-  .token-section { margin-top: 24px; padding-top: 20px; border-top: 1px solid #21262d; }
-
-  .token-section p { font-size: 13px; color: #8b949e; margin-bottom: 10px; }
-
-  .token-code {
-
-    background-color: #0d1117; border: 1px solid #30363d; border-radius: 6px;
-
-    padding: 12px 16px; font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
-
-    font-size: 14px; letter-spacing: 1px; color: #58a6ff; text-align: center;
-
-    word-break: break-all; user-select: all;
-
-  }
-
-  .footer { padding: 20px 24px; text-align: center; border-top: 1px solid #21262d; font-size: 12px; color: #484f58; }
-
-  .footer .app-name { color: #2ea043; font-weight: 600; }
-
-  .email-display {
-
-    background-color: #0d1117; border: 1px solid #30363d; border-radius: 6px;
-
-    padding: 8px 12px; font-size: 14px; color: #58a6ff; margin: 12px 0;
-
-  }
-
-`
-
-const emailHTMLTemplate = `<!DOCTYPE html>
-
-<html lang="ru">
-
-<head>
-
-<meta charset="UTF-8">
-
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-<title>Подтвердите email — FitPulse</title>
-
-<style>%s</style>
-
-</head>
-
-<body>
-
-  <div class="container">
-
-    <div class="header">
-
-      <div class="icon">&#128233;</div>
-
-      <h1>Подтвердите ваш email</h1>
-
-      <p>Остался один шаг до старта!</p>
-
-    </div>
-
-    <div class="body">
-
-      <p>Здравствуйте!</p>
-
-      <p>Спасибо за регистрацию в <strong>FitPulse</strong>. Для активации аккаунта подтвердите ваш email, нажав на кнопку ниже:</p>
-
-      <div class="email-display">%s</div>
-
-      <a href="%s" class="btn">Подтвердить email</a>
-
-      <div class="token-section">
-
-        <p>Если кнопка не работает, скопируйте этот токен и введите его вручную:</p>
-
-        <div class="token-code">%s</div>
-
-      </div>
-
-      <p style="margin-top: 20px; font-size: 13px; color: #8b949e;">
-
-        Ссылка действительна 24 часа. Если вы не регистрировались в FitPulse, просто проигнорируйте это письмо.
-
-      </p>
-
-    </div>
-
-    <div class="footer">
-
-      <p>С уважением, команда <span class="app-name">FitPulse</span></p>
-
-      <p style="margin-top: 4px;">Ваш персональный фитнес-ассистент</p>
-
-    </div>
-
-  </div>
-
-</body>
-
-</html>`
+//go:embed email.css
+var emailCSS string
+
+//go:embed verification.html
+var emailHTMLTemplate string
 
 func buildVerificationHTML(emailAddr, token, confirmURL string) string {
-
-	return fmt.Sprintf(emailHTMLTemplate, emailCSS, emailAddr, confirmURL, token)
-
+	// Escape user-controlled values before embedding them in the HTML body
+	// (prevents HTML/content injection in the email). The CSS block is injected
+	// into <head> so the template file itself stays CSS-free.
+	style := "<style>" + emailCSS + "</style>"
+	return fmt.Sprintf(
+		emailHTMLTemplate,
+		style,
+		html.EscapeString(emailAddr),
+		html.EscapeString(confirmURL),
+		html.EscapeString(token),
+	)
 }

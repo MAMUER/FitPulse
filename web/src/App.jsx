@@ -5,7 +5,6 @@ import { useApp } from './contexts/AppContext';
 import Ai from './screens/AI';
 import Body from './screens/Body';
 import Calendar from './screens/Calendar';
-import Chat from './screens/Chat';
 import Confirm from './screens/Confirm';
 import Home from './screens/Home';
 import Integrations from './screens/Integrations';
@@ -45,7 +44,6 @@ function TabBar() {
     navItem('menstrual', 'Цикл', 'Cycle', 'fas fa-droplet'),
     navItem('integrations', 'Устройства', 'Devices', 'fas fa-watch'),
     navItem('profile', 'Профиль', 'Profile', 'fas fa-user'),
-    navItem('chat', 'Чат', 'Chat', 'fas fa-comments'),
   ];
   const isMoreActive = moreItems.some((item) => activeKey === item.key);
 
@@ -114,7 +112,7 @@ export default function App() {
   useEffect(() => {
     const screen = pathname.replace(/^\//, '').split('/')[0] || 'home';
     if (state.screen !== screen) {
-      update({ screen });
+      update?.({ screen });
     }
   }, [pathname, state.screen, update]);
 
@@ -131,7 +129,6 @@ export default function App() {
     '/body',
     '/menstrual',
     '/profile',
-    '/chat',
   ]);
   const showAppChrome = chromeScreens.has(pathname);
 
@@ -163,7 +160,6 @@ export default function App() {
         <Route path='/body' element={<Body />} />
         <Route path='/menstrual' element={<Menstrual />} />
         <Route path='/profile' element={<Profile />} />
-        <Route path='/chat' element={<Chat />} />
         <Route path='/legal' element={<Legal />} />
         <Route path='/privacy' element={<Legal />} />
         <Route path='/terms' element={<Legal />} />

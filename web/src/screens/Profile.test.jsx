@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { BrowserRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -56,7 +56,6 @@ const baseContext = (overrides = {}) => ({
   showDevices: vi.fn(),
   showRestrictions: vi.fn(),
   nutritionSettings: vi.fn(),
-  saveChatSettings: vi.fn(),
   searchFriends: vi.fn(),
   openFriendProfile: vi.fn(),
   showAchievement: vi.fn(),
@@ -113,30 +112,11 @@ describe('Profile', () => {
     renderProfile(baseContext());
 
     await user.click(
-      screen.getAllByRole('button', { name: /Сменить пароль/ })[0]
+      screen.getAllByRole('button', { name: /Изменить пароль/ })[0]
     );
 
     expect(screen.getByRole('dialog', { name: 'Смена пароля' })).toBeVisible();
     expect(screen.getByLabelText('Текущий пароль')).toBeInTheDocument();
-  });
-
-  it('saves chat privacy settings from the profile', async () => {
-    const user = userEvent.setup();
-    const saveChatSettings = vi.fn();
-    renderProfile(baseContext({ saveChatSettings }));
-
-    await user.click(screen.getByRole('button', { name: /Настройки чата/ }));
-    expect(
-      screen.getByRole('dialog', { name: 'Настройки чата' })
-    ).toBeVisible();
-    await user.click(screen.getByRole('button', { name: 'Сохранить' }));
-
-    expect(saveChatSettings).toHaveBeenCalledTimes(1);
-    await waitFor(() => {
-      expect(
-        screen.queryByRole('dialog', { name: 'Настройки чата' })
-      ).not.toBeInTheDocument();
-    });
   });
 
   it('routes theme, language, contrast, and documents to their existing actions', () => {
@@ -216,7 +196,7 @@ describe('Profile', () => {
     renderProfile(context);
 
     fireEvent.click(
-      screen.getByRole('button', { name: 'Изменить пароль', exact: true })
+      screen.getAllByRole('button', { name: 'Изменить пароль', exact: true })[0]
     );
     expect(screen.getByRole('dialog', { name: 'Смена пароля' })).toBeVisible();
 
@@ -232,7 +212,7 @@ describe('Profile', () => {
     renderProfile(baseContext());
 
     fireEvent.click(
-      screen.getByRole('button', { name: 'Изменить пароль', exact: true })
+      screen.getAllByRole('button', { name: 'Изменить пароль', exact: true })[0]
     );
     fireEvent.click(screen.getByLabelText('Закрыть'));
 
@@ -243,22 +223,11 @@ describe('Profile', () => {
     renderProfile(baseContext());
 
     fireEvent.click(
-      screen.getByRole('button', { name: 'Изменить пароль', exact: true })
+      screen.getAllByRole('button', { name: 'Изменить пароль', exact: true })[0]
     );
     fireEvent.click(document.querySelector('.fp-modal-backdrop'));
 
     expect(screen.queryByRole('dialog', { name: 'Смена пароля' })).toBeNull();
-  });
-
-  it('navigates to the chat screen from the stats and the actions', () => {
-    const context = baseContext();
-    renderProfile(context);
-
-    fireEvent.click(screen.getByLabelText('Друзья'));
-    expect(context.go).toHaveBeenCalledWith('chat');
-
-    fireEvent.click(screen.getByRole('button', { name: 'Чат', exact: true }));
-    expect(context.go).toHaveBeenLastCalledWith('chat');
   });
 
   it('opens achievements, friends and the survey', () => {
@@ -295,18 +264,5 @@ describe('Profile', () => {
       screen.getByRole('button', { name: 'Персональные данные' })
     );
     expect(context.openLegal).toHaveBeenLastCalledWith('consent');
-  });
-
-  it('opens and closes the chat settings', () => {
-    renderProfile(baseContext());
-
-    // The settings row also contains its description, so match on a substring.
-    fireEvent.click(screen.getByRole('button', { name: /Настройки чата/ }));
-    expect(
-      screen.getByRole('dialog', { name: 'Настройки чата' })
-    ).toBeVisible();
-
-    fireEvent.click(screen.getByLabelText('Закрыть'));
-    expect(screen.queryByRole('dialog', { name: 'Настройки чата' })).toBeNull();
   });
 });

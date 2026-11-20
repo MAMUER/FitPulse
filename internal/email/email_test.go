@@ -686,7 +686,13 @@ func TestBuildMessageWithNewlines(t *testing.T) {
 
 	msg := buildMessage("from@test.com", "to@test.com", "Subject\nwith\nnewlines", "Body\nwith\nnewlines")
 
-	assert.Contains(t, msg, "Subject\nwith\nnewlines")
+	// Заголовки очищаются от CR/LF — защита от SMTP-инъекции (CWE-93).
+
+	assert.NotContains(t, msg, "Subject\nwith\nnewlines")
+
+	assert.Contains(t, msg, "Subjectwithnewlines")
+
+	// Тело письма сохраняет переносы строк.
 
 	assert.Contains(t, msg, "Body\nwith\nnewlines")
 

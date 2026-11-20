@@ -35,7 +35,10 @@ const EMPTY_DISH_FORM = {
 };
 
 function macrosLine(dish) {
-  return `Б ${dish.protein_g ?? 0} · Ж ${dish.fat_g ?? 0} · У ${dish.carbs_g ?? 0}`;
+  const p = dish.protein_g ?? 0;
+  const f = dish.fat_g ?? 0;
+  const c = dish.carbs_g ?? 0;
+  return `Б ${p} г · Ж ${f} г · У ${c} г`;
 }
 
 export default function Nutrition() {

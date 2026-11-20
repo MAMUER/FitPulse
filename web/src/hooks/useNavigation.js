@@ -23,7 +23,6 @@ export function useNavigation({ state, update }) {
         showDateModal: false,
         selectedAchievement: null,
         selectedStory: null,
-        selectedChat: screen === 'chat' ? null : state.selectedChat,
       });
     },
     [
@@ -33,7 +32,6 @@ export function useNavigation({ state, update }) {
       state.showDateModal,
       state.selectedAchievement,
       state.selectedStory,
-      state.selectedChat,
       update,
       navigate,
     ]
@@ -71,7 +69,7 @@ export function useNavigation({ state, update }) {
       return;
     }
     const target = state.guest ? 'home' : 'login';
-    update({ screen: target });
+    update({ legalReturnScreen: null, screen: target });
     void navigate(`/${target}`);
   }, [state.legalReturnScreen, state.guest, update, navigate]);
 

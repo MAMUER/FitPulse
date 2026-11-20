@@ -3,6 +3,7 @@ package main
 import (
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strconv"
 	"strings"
@@ -332,7 +333,7 @@ func (g *gateway) respondFriendRequestHandler(w http.ResponseWriter, r *http.Req
 		`SELECT from_user_id, status FROM friend_requests WHERE id = $1 AND to_user_id = $2`,
 		id, userID,
 	).Scan(&fromID, &currentStatus)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		http.Error(w, "заявка не найдена", http.StatusNotFound)
 		return
 	}

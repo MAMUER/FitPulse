@@ -44,7 +44,6 @@ describe('useSettings', () => {
   it('returns all settings callbacks', () => {
     setup();
     expect(Object.keys(result.current).sort()).toEqual([
-      'chatSettings',
       'disconnectIntegration',
       'loadIntegrationProviders',
       'nutritionSettings',
@@ -65,14 +64,6 @@ describe('useSettings', () => {
     setup();
     result.current.showRestrictions();
     expect(notify).toHaveBeenCalledWith('Аллергии: нет\nОграничения: нет');
-  });
-
-  it('chatSettings opens privacy info', () => {
-    setup();
-    result.current.chatSettings();
-    expect(notify).toHaveBeenCalledWith(
-      'Настройки чата: приватность, статус, уведомления'
-    );
   });
 
   it('nutritionSettings describes current goal', () => {
