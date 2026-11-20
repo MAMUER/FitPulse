@@ -411,9 +411,19 @@ func stripCRLF(s string) string {
 }
 
 func buildMessage(from, to, subject, body string) string {
-	// Strip CR/LF from header fields to prevent SMTP header injection.
-	from = stripCRLF(from)
-	to = stripCRLF(to)
+	// Валидируем From/To через net/mail.ParseAddress — это распознаваемый
+	// CodeQL-барьер (CWE-93/CWE-640). Если адрес некорректен (в т.ч. содержит
+	// CR/LF), сбрасываем его. Тему чистим от CR/LF.
+	if addr, err := mail.ParseAddress(from); err == nil {
+		from = addr.Address
+	} else {
+		from = ""
+	}
+	if addr, err := mail.ParseAddress(to); err == nil {
+		to = addr.Address
+	} else {
+		to = ""
+	}
 	subject = stripCRLF(subject)
 
 	return fmt.Sprintf(

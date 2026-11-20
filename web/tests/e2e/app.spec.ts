@@ -265,7 +265,7 @@ for (const config of CONFIGS) {
       ).toBeVisible();
     });
 
-    test('training quick add and navigation', async ({ page }) => {
+    test('training screen renders for guests (start hidden)', async ({ page }) => {
       await page.locator(`text=${getText('guest', config)}`).click();
       await page
         .locator('.bottom-nav .nav')
@@ -277,22 +277,11 @@ for (const config of CONFIGS) {
           exact: true,
         })
       ).toBeVisible();
-      // На экране тренировок нет таймера: карточка тренировки запускается
-      // кнопкой "Начать". Результат зависит от бэкенда, поэтому проверяем, что
-      // карточка отрисовалась и экран не «прыгнул» после клика.
+      // Гостю доступен просмотр, но не запуск тренировок (guest lockdown):
+      // кнопка «Начать» скрыта, пока пользователь не авторизован.
       await expect(
         page.locator(`text=${getText('startWorkout', config)}`).first()
-      ).toBeVisible();
-      await page
-        .locator(`text=${getText('startWorkout', config)}`)
-        .first()
-        .click();
-      await expect(
-        page.getByRole('heading', {
-          name: getText('training', config),
-          exact: true,
-        })
-      ).toBeVisible();
+      ).toHaveCount(0);
     });
 
     test('nutrition period tabs exist', async ({ page }) => {
