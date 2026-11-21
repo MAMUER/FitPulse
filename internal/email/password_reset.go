@@ -5,6 +5,7 @@ import (
 	_ "embed"
 	"fmt"
 	"html"
+	"log"
 	"net/mail"
 	"net/smtp"
 	"strings"
@@ -47,6 +48,11 @@ func (s *SMTPClient) SendPasswordResetEmail(ctx context.Context, toEmail, code, 
 	body := buildPasswordResetHTML(toEmail, code)
 	msg := buildMessage(s.cfg.From, toEmail, subject, body)
 	addr := fmt.Sprintf("%s:%d", s.cfg.Host, s.cfg.Port)
+
+	if s.cfg.DryRun {
+		log.Printf("[email] DRY-RUN: не отправляю письмо на %s (subject=%q)", toEmail, subject)
+		return nil
+	}
 
 	var err error
 	if s.cfg.UseTLS {

@@ -1638,3 +1638,19 @@ func (s *fakeSMTPServerForEmailTest) serve() {
 	}
 
 }
+
+func TestSendVerificationEmail_DryRun(t *testing.T) {
+	client := NewSMTPClient(Config{Host: "localhost", Port: 1025, From: "test@test.com", DryRun: true})
+
+	origSend := smtpSendMailFn
+	called := false
+	smtpSendMailFn = func(addr string, auth smtp.Auth, from string, to []string, msg []byte) error {
+		called = true
+		return nil
+	}
+	t.Cleanup(func() { smtpSendMailFn = origSend })
+
+	require.NoError(t, client.SendVerificationEmail(context.Background(), "user@example.com", "token", "http://localhost"))
+	assert.False(t, called)              // письмо не отправлено
+	assert.Equal(t, 0, client.dailySent) // счётчик не увеличен
+}

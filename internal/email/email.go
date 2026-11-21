@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"html"
+	"log"
 	"net"
 	"net/mail"
 	"net/smtp"
@@ -40,6 +41,8 @@ type Config struct {
 	DailyLimit int // maximum emails per day (0 = unlimited)
 
 	SkipSendDomains []string // domains for which sending is skipped (test)
+
+	DryRun bool // if true, log the email instead of sending (SMTP_DRY_RUN=true)
 
 }
 
@@ -132,6 +135,8 @@ func LoadConfig() Config {
 		DailyLimit: dailyLimit,
 
 		SkipSendDomains: skipDomains,
+
+		DryRun: config.GetEnv("SMTP_DRY_RUN", "false") == "true",
 	}
 
 }
@@ -229,6 +234,11 @@ func (s *SMTPClient) SendVerificationEmail(ctx context.Context, toEmail, verifyT
 	msg := buildMessage(s.cfg.From, toEmail, subject, body)
 
 	addr := fmt.Sprintf("%s:%d", s.cfg.Host, s.cfg.Port)
+
+	if s.cfg.DryRun {
+		log.Printf("[email] DRY-RUN: не отправляю письмо на %s (subject=%q)", toEmail, subject)
+		return nil
+	}
 
 	var err error
 
