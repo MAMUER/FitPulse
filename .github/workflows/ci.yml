@@ -2057,6 +2057,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     if: always()
+    permissions:
+      contents: read
+      checks: read
+      actions: read
     needs:
       [
         detect-changes,
@@ -2194,6 +2198,20 @@ jobs:
           format: html
           disable_web_page_preview: true
           message: ${{ steps.msg.outputs.message }}
+
+      # Второе сообщение: дайджест ВСЕХ annotations прогона. GitHub превращает
+      # каждый ::warning::/::error::/::notice::/::deprecation:: (а также находки
+      # CodeQL, Trivy, SonarCloud, Super-Linter) в annotation чек-рана, поэтому
+      # здесь они собираются одним списком и приходят в Telegram.
+      - name: Send annotations digest (warnings, errors, notes) to Telegram
+        if: always()
+        continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python3 scripts/ci/telegram-digest.py
 
   dependabot-auto-merge:
     name: Dependabot auto-merge
