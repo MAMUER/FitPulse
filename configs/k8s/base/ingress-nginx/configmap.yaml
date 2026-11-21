@@ -19,6 +19,10 @@ data:
     hsts-include-subdomains: "true"
     hsts-preload: "true"
 
+    # Явно фиксируем TLS 1.2/1.3. Дефолт ingress-nginx совпадает, но без явной
+    # строки конфигурация TLS не видна в манифестах и её нельзя проверить ревью.
+    ssl-protocols: "TLSv1.2 TLSv1.3"
+
     # ===== ModSecurity WAF =====
     enable-modsecurity: "true"
     modsecurity-snippet: |
