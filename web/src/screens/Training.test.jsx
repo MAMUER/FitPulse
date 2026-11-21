@@ -283,6 +283,75 @@ describe('Training', () => {
     ).toBeInTheDocument();
   });
 
+  it('renders GAN plans from plan_data.days', () => {
+    const context = makeContext({
+      state: {
+        trainingPlans: [
+          {
+            plan_id: 'gan-1',
+            training_goal: 'recovery',
+            plan_data: {
+              days: [
+                {
+                  title: 'День восстановления',
+                  level: 'Лёгкий',
+                  duration: '30',
+                  calories: 210,
+                  time: '09:00',
+                  exercises: [
+                    ['Растяжка', '10 мин'],
+                    ['Планка', '3 × 45 сек'],
+                  ],
+                },
+              ],
+            },
+          },
+        ],
+      },
+    });
+    useApp.mockReturnValue(context);
+
+    render(<Training />);
+
+    expect(screen.getByText('День восстановления')).toBeInTheDocument();
+    expect(screen.getByText('Растяжка')).toBeInTheDocument();
+    expect(screen.getByText('Планка')).toBeInTheDocument();
+  });
+
+  it('renders GAN plans from plan_data.workouts', () => {
+    const context = makeContext({
+      state: {
+        trainingPlans: [
+          {
+            plan_id: 'gan-2',
+            plan_data: {
+              workouts: [{ name: 'День ног' }],
+            },
+          },
+        ],
+      },
+    });
+    useApp.mockReturnValue(context);
+
+    render(<Training />);
+
+    expect(screen.getByText('День ног')).toBeInTheDocument();
+  });
+
+  it('skips plans whose plan_data has no days or workouts', () => {
+    const context = makeContext({
+      state: {
+        trainingPlans: [{ plan_id: 'gan-3', plan_data: { duration_weeks: 4 } }],
+      },
+    });
+    useApp.mockReturnValue(context);
+
+    render(<Training />);
+
+    expect(screen.queryByText('День восстановления')).not.toBeInTheDocument();
+    expect(screen.queryByText('День ног')).not.toBeInTheDocument();
+  });
+
   it('renders without videos and plans', () => {
     const context = makeContext({
       state: { trainingVideos: null, trainingPlans: null },
