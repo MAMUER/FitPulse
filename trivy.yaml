@@ -1,4 +1,25 @@
+# Конфигурация Trivy для CI (сканирование ФС и образов).
+# Используется в scripts/ci/security.sh и .github/workflows/ci.yml (trivy-action).
+# См. docs/ARCHITECTURE.md §27 и SECURITY.md.
+
+scan:
+  # Пропускать каталоги зависимостей/сборки/вендора — Trivy использует lock-файлы
+  # (package-lock.json, go.sum), а не выгруженные деревья модулей. Ускоряет
+  # сканирование и убирает шум.
+  skip-dirs:
+    - node_modules
+    - web/node_modules
+    - .git
+    - vendor
+    - dist
+    - web/dist
+    - test-results
+    - playwright-report
+    - .cache
+
 misconfiguration:
+  # Реестры, чьи образы считаются доверенными для KSV-проверок
+  # (убирает ложные «unknown registry» для официальных образов).
   trusted_registries:
     - docker.io
     - quay.io
@@ -9,5 +30,7 @@ misconfiguration:
     - mcr.microsoft.com
 
 vulnerability:
+  # Источники severity: NVD + GitHub Security Advisories (шире покрытие).
   severity-source:
+    - nvd
     - ghsa

@@ -2697,4 +2697,16 @@ configs/k8s/
 4. **Images**: тегируются через `IMAGE_TAG` environment variable (default: `latest`)
 5. **Backup**: настройте `BACKUP_KEY` и `PGPASSWORD` для бэкапов
 6. **DNS**: Tailscale Funnel (домен `*.ts.net`, TLS автоматически)
-7. **Тестирование**: валидируйте YAML через `python -c "import yaml; list(yaml.safe_load_all(open('configs/k8s/base/namespace.yaml')))"`
+7. **Тестирование**: валидируйте YAML через `python -c "import yaml; list(yaml.safe_load_all(open('configs/k8s/base/namespace.yaml')))"
+
+---
+
+## 27. Сканирование образов и конфигураций (`trivy.yaml`)
+
+`trivy.yaml` — конфигурация [Trivy](https://trivy.dev/) для сканирования в CI (джобы `docker`/`deploy`):
+
+- **`misconfiguration.trusted_registries`** — список доверенных реестров (`docker.io`, `quay.io`, `gcr.io`, `registry.k8s.io`, `ghcr.io`, `public.ecr.aws`, `mcr.microsoft.com`). Образы из них не помечаются как «unknown registry» при misconfiguration-скане (KSV-0125 и т.п.).
+- **`vulnerability.severity-source: [nvd, ghsa]`** — источники severity: NVD + GitHub Security Advisories (шире покрытие).
+- **`scan.skip-dirs`** — пропускать `node_modules`, `.git`, `vendor`, `dist`, `test-results` и т.п. (Trivy использует lock-файлы `package-lock.json`/`go.sum`, а не выгруженные деревья зависимостей) — быстрее и меньше шума.
+
+**Зачем:** CI сканирует образы (Trivy image scan) и манифесты (KSV/trivy config). `trivy.yaml` задаёт доверенные реестры (меньше ложных срабатываний) и источник severity (GHSA). Исключения по конкретным CVE/KSV — в `.trivyignore` и в `SECURITY.md`.`
