@@ -10,7 +10,6 @@ import { useAI } from '../hooks/useAI';
 import { useAuth } from '../hooks/useAuth';
 import { useCalendar } from '../hooks/useCalendar';
 import { useHealth } from '../hooks/useHealth';
-import { useMedia } from '../hooks/useMedia';
 import { useNavigation } from '../hooks/useNavigation';
 import { useNutrition } from '../hooks/useNutrition';
 import { useProfile } from '../hooks/useProfile';
@@ -157,7 +156,6 @@ export function AppProvider({ children }) {
   const stories = useStories({ state, update });
   const survey = useSurvey({ state, update, notify });
   const ai = useAI({ state, update, notify });
-  const media = useMedia({ state, update, notify });
   const settings = useSettings({ state, update, notify });
 
   useEffect(() => {
@@ -202,7 +200,6 @@ export function AppProvider({ children }) {
       ...stories,
       ...survey,
       ...ai,
-      ...media,
       ...settings,
     }),
     [
@@ -220,7 +217,6 @@ export function AppProvider({ children }) {
       stories,
       survey,
       ai,
-      media,
       settings,
     ]
   );

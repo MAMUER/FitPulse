@@ -29,8 +29,8 @@ func newCatalogMockDB(t *testing.T) (*sql.DB, sqlmock.Sqlmock) {
 	return db, mock
 }
 
-func catalogCtx(userID string) context.Context {
-	return context.WithValue(context.Background(), middleware.UserIDKey, userID)
+func catalogCtx() context.Context {
+	return context.WithValue(context.Background(), middleware.UserIDKey, "u1")
 }
 
 func catalogReq(ctx context.Context, method, target, body string) *http.Request {
@@ -46,7 +46,7 @@ func TestDishes_GetDishesHandler_NilDB(t *testing.T) {
 	g := newTestGateway() // db == nil
 
 	w := httptest.NewRecorder()
-	g.getDishesHandler(w, catalogReq(catalogCtx("u1"), "GET", "/api/v1/dishes", ""))
+	g.getDishesHandler(w, catalogReq(catalogCtx(), "GET", "/api/v1/dishes", ""))
 
 	assert.Equal(t, http.StatusOK, w.Code)
 	assert.Contains(t, w.Body.String(), "dishes")
@@ -64,7 +64,7 @@ func TestDishes_GetDishesHandler_Success(t *testing.T) {
 		)
 
 	w := httptest.NewRecorder()
-	g.getDishesHandler(w, catalogReq(catalogCtx("u1"), "GET", "/api/v1/dishes?slot=breakfast&q=овс", ""))
+	g.getDishesHandler(w, catalogReq(catalogCtx(), "GET", "/api/v1/dishes?slot=breakfast&q=овс", ""))
 
 	assert.Equal(t, http.StatusOK, w.Code)
 	assert.Contains(t, w.Body.String(), "Овсянка")
@@ -79,7 +79,7 @@ func TestDishes_GetDishesHandler_QueryError(t *testing.T) {
 	mock.ExpectQuery("SELECT id, name, meal_slot").WillReturnError(errors.New("boom"))
 
 	w := httptest.NewRecorder()
-	g.getDishesHandler(w, catalogReq(catalogCtx("u1"), "GET", "/api/v1/dishes", ""))
+	g.getDishesHandler(w, catalogReq(catalogCtx(), "GET", "/api/v1/dishes", ""))
 
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
 }
@@ -97,7 +97,7 @@ func TestDishes_AddDishHandler_NilDB(t *testing.T) {
 	g := newTestGateway() // db == nil
 
 	w := httptest.NewRecorder()
-	g.addDishHandler(w, catalogReq(catalogCtx("u1"), "POST", "/api/v1/dishes", `{"name":"x"}`))
+	g.addDishHandler(w, catalogReq(catalogCtx(), "POST", "/api/v1/dishes", `{"name":"x"}`))
 
 	assert.Equal(t, http.StatusServiceUnavailable, w.Code)
 }
@@ -108,7 +108,7 @@ func TestDishes_AddDishHandler_InvalidJSON(t *testing.T) {
 	g.db = db
 
 	w := httptest.NewRecorder()
-	g.addDishHandler(w, catalogReq(catalogCtx("u1"), "POST", "/api/v1/dishes", "{"))
+	g.addDishHandler(w, catalogReq(catalogCtx(), "POST", "/api/v1/dishes", "{"))
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 }
@@ -119,7 +119,7 @@ func TestDishes_AddDishHandler_EmptyName(t *testing.T) {
 	g.db = db
 
 	w := httptest.NewRecorder()
-	g.addDishHandler(w, catalogReq(catalogCtx("u1"), "POST", "/api/v1/dishes", `{"name":"   "}`))
+	g.addDishHandler(w, catalogReq(catalogCtx(), "POST", "/api/v1/dishes", `{"name":"   "}`))
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 }
@@ -133,7 +133,7 @@ func TestDishes_AddDishHandler_ImageTooLarge(t *testing.T) {
 	body := `{"name":"Блюдо","image_url":"` + big + `"}`
 
 	w := httptest.NewRecorder()
-	g.addDishHandler(w, catalogReq(catalogCtx("u1"), "POST", "/api/v1/dishes", body))
+	g.addDishHandler(w, catalogReq(catalogCtx(), "POST", "/api/v1/dishes", body))
 
 	assert.Equal(t, http.StatusRequestEntityTooLarge, w.Code)
 }
@@ -146,7 +146,7 @@ func TestDishes_AddDishHandler_CountError(t *testing.T) {
 	mock.ExpectQuery("SELECT COUNT").WillReturnError(errors.New("boom"))
 
 	w := httptest.NewRecorder()
-	g.addDishHandler(w, catalogReq(catalogCtx("u1"), "POST", "/api/v1/dishes", `{"name":"Блюдо"}`))
+	g.addDishHandler(w, catalogReq(catalogCtx(), "POST", "/api/v1/dishes", `{"name":"Блюдо"}`))
 
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
 }
@@ -160,7 +160,7 @@ func TestDishes_AddDishHandler_LimitReached(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(maxDishesPerUser))
 
 	w := httptest.NewRecorder()
-	g.addDishHandler(w, catalogReq(catalogCtx("u1"), "POST", "/api/v1/dishes", `{"name":"Блюдо"}`))
+	g.addDishHandler(w, catalogReq(catalogCtx(), "POST", "/api/v1/dishes", `{"name":"Блюдо"}`))
 
 	assert.Equal(t, http.StatusConflict, w.Code)
 }
@@ -176,7 +176,7 @@ func TestDishes_AddDishHandler_Success(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(int64(7)))
 
 	w := httptest.NewRecorder()
-	g.addDishHandler(w, catalogReq(catalogCtx("u1"), "POST", "/api/v1/dishes",
+	g.addDishHandler(w, catalogReq(catalogCtx(), "POST", "/api/v1/dishes",
 		`{"name":"Блюдо","meal_slot":"lunch","kcal":500,"protein_g":20,"fat_g":10,"carbs_g":60}`))
 
 	assert.Equal(t, http.StatusOK, w.Code)
@@ -194,7 +194,7 @@ func TestDishes_AddDishHandler_InsertError(t *testing.T) {
 	mock.ExpectQuery("INSERT INTO dishes").WillReturnError(errors.New("boom"))
 
 	w := httptest.NewRecorder()
-	g.addDishHandler(w, catalogReq(catalogCtx("u1"), "POST", "/api/v1/dishes", `{"name":"Блюдо"}`))
+	g.addDishHandler(w, catalogReq(catalogCtx(), "POST", "/api/v1/dishes", `{"name":"Блюдо"}`))
 
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
 }
@@ -214,7 +214,7 @@ func TestFriends_GetFriendsHandler_NilDB(t *testing.T) {
 	g := newTestGateway() // db == nil
 
 	w := httptest.NewRecorder()
-	g.getFriendsHandler(w, catalogReq(catalogCtx("u1"), "GET", "/api/v1/friends", ""))
+	g.getFriendsHandler(w, catalogReq(catalogCtx(), "GET", "/api/v1/friends", ""))
 
 	assert.Equal(t, http.StatusOK, w.Code)
 	assert.Contains(t, w.Body.String(), "friends")
@@ -233,7 +233,7 @@ func TestFriends_GetFriendsHandler_Success(t *testing.T) {
 		)
 
 	w := httptest.NewRecorder()
-	g.getFriendsHandler(w, catalogReq(catalogCtx("u1"), "GET", "/api/v1/friends", ""))
+	g.getFriendsHandler(w, catalogReq(catalogCtx(), "GET", "/api/v1/friends", ""))
 
 	assert.Equal(t, http.StatusOK, w.Code)
 	body := w.Body.String()
@@ -251,7 +251,7 @@ func TestFriends_GetFriendsHandler_QueryError(t *testing.T) {
 	mock.ExpectQuery("SELECT id, friend_name, friend_user_id").WillReturnError(errors.New("boom"))
 
 	w := httptest.NewRecorder()
-	g.getFriendsHandler(w, catalogReq(catalogCtx("u1"), "GET", "/api/v1/friends", ""))
+	g.getFriendsHandler(w, catalogReq(catalogCtx(), "GET", "/api/v1/friends", ""))
 
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
 }
@@ -269,7 +269,7 @@ func TestFriends_AddFriendHandler_NilDB(t *testing.T) {
 	g := newTestGateway() // db == nil
 
 	w := httptest.NewRecorder()
-	g.addFriendHandler(w, catalogReq(catalogCtx("u1"), "POST", "/api/v1/friends", `{"friend_name":"x"}`))
+	g.addFriendHandler(w, catalogReq(catalogCtx(), "POST", "/api/v1/friends", `{"friend_name":"x"}`))
 
 	assert.Equal(t, http.StatusServiceUnavailable, w.Code)
 }
@@ -280,7 +280,7 @@ func TestFriends_AddFriendHandler_InvalidJSON(t *testing.T) {
 	g.db = db
 
 	w := httptest.NewRecorder()
-	g.addFriendHandler(w, catalogReq(catalogCtx("u1"), "POST", "/api/v1/friends", "{"))
+	g.addFriendHandler(w, catalogReq(catalogCtx(), "POST", "/api/v1/friends", "{"))
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 }
@@ -291,7 +291,7 @@ func TestFriends_AddFriendHandler_EmptyName(t *testing.T) {
 	g.db = db
 
 	w := httptest.NewRecorder()
-	g.addFriendHandler(w, catalogReq(catalogCtx("u1"), "POST", "/api/v1/friends", `{"friend_name":"  "}`))
+	g.addFriendHandler(w, catalogReq(catalogCtx(), "POST", "/api/v1/friends", `{"friend_name":"  "}`))
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 }
@@ -305,7 +305,7 @@ func TestFriends_AddFriendHandler_Success(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(int64(9)))
 
 	w := httptest.NewRecorder()
-	g.addFriendHandler(w, catalogReq(catalogCtx("u1"), "POST", "/api/v1/friends",
+	g.addFriendHandler(w, catalogReq(catalogCtx(), "POST", "/api/v1/friends",
 		`{"friend_name":"Анна","friend_user_id":"user-2","status":"online"}`))
 
 	assert.Equal(t, http.StatusOK, w.Code)
@@ -321,7 +321,7 @@ func TestFriends_AddFriendHandler_InsertError(t *testing.T) {
 	mock.ExpectQuery("INSERT INTO friends").WillReturnError(errors.New("boom"))
 
 	w := httptest.NewRecorder()
-	g.addFriendHandler(w, catalogReq(catalogCtx("u1"), "POST", "/api/v1/friends", `{"friend_name":"Анна"}`))
+	g.addFriendHandler(w, catalogReq(catalogCtx(), "POST", "/api/v1/friends", `{"friend_name":"Анна"}`))
 
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
 }
@@ -339,7 +339,7 @@ func TestFriends_RemoveFriendHandler_NilDB(t *testing.T) {
 	g := newTestGateway() // db == nil
 
 	w := httptest.NewRecorder()
-	g.removeFriendHandler(w, catalogReq(catalogCtx("u1"), "DELETE", "/api/v1/friends/1", ""))
+	g.removeFriendHandler(w, catalogReq(catalogCtx(), "DELETE", "/api/v1/friends/1", ""))
 
 	assert.Equal(t, http.StatusServiceUnavailable, w.Code)
 }
@@ -350,7 +350,7 @@ func TestFriends_RemoveFriendHandler_InvalidID(t *testing.T) {
 	g.db = db
 
 	w := httptest.NewRecorder()
-	g.removeFriendHandler(w, catalogReq(catalogCtx("u1"), "DELETE", "/api/v1/friends/abc", ""))
+	g.removeFriendHandler(w, catalogReq(catalogCtx(), "DELETE", "/api/v1/friends/abc", ""))
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 }
@@ -361,7 +361,7 @@ func TestFriends_RemoveFriendHandler_NonPositiveID(t *testing.T) {
 	g.db = db
 
 	w := httptest.NewRecorder()
-	g.removeFriendHandler(w, catalogReq(catalogCtx("u1"), "DELETE", "/api/v1/friends/0", ""))
+	g.removeFriendHandler(w, catalogReq(catalogCtx(), "DELETE", "/api/v1/friends/0", ""))
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 }
@@ -374,7 +374,7 @@ func TestFriends_RemoveFriendHandler_Success(t *testing.T) {
 	mock.ExpectExec("DELETE FROM friends").WillReturnResult(sqlmock.NewResult(0, 1))
 
 	w := httptest.NewRecorder()
-	g.removeFriendHandler(w, catalogReq(catalogCtx("u1"), "DELETE", "/api/v1/friends/5", ""))
+	g.removeFriendHandler(w, catalogReq(catalogCtx(), "DELETE", "/api/v1/friends/5", ""))
 
 	assert.Equal(t, http.StatusOK, w.Code)
 	require.NoError(t, mock.ExpectationsWereMet())
@@ -388,7 +388,7 @@ func TestFriends_RemoveFriendHandler_ExecError(t *testing.T) {
 	mock.ExpectExec("DELETE FROM friends").WillReturnError(errors.New("boom"))
 
 	w := httptest.NewRecorder()
-	g.removeFriendHandler(w, catalogReq(catalogCtx("u1"), "DELETE", "/api/v1/friends/5", ""))
+	g.removeFriendHandler(w, catalogReq(catalogCtx(), "DELETE", "/api/v1/friends/5", ""))
 
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
 }
@@ -408,7 +408,7 @@ func TestReport_Handler_InvalidJSON(t *testing.T) {
 	g := newTestGateway()
 
 	w := httptest.NewRecorder()
-	g.reportHandler(w, catalogReq(catalogCtx("u1"), "POST", "/api/v1/report", "{"))
+	g.reportHandler(w, catalogReq(catalogCtx(), "POST", "/api/v1/report", "{"))
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 }
@@ -420,7 +420,7 @@ func TestReport_Handler_NilDB(t *testing.T) {
 	g := newTestGateway() // db == nil
 
 	w := httptest.NewRecorder()
-	g.reportHandler(w, catalogReq(catalogCtx("u1"), "POST", "/api/v1/report",
+	g.reportHandler(w, catalogReq(catalogCtx(), "POST", "/api/v1/report",
 		`{"reported_user_id":"u2","reason":"spam"}`))
 
 	assert.Equal(t, http.StatusOK, w.Code)
@@ -437,7 +437,7 @@ func TestReport_Handler_Success(t *testing.T) {
 	mock.ExpectExec("INSERT INTO reports").WillReturnResult(sqlmock.NewResult(0, 1))
 
 	w := httptest.NewRecorder()
-	g.reportHandler(w, catalogReq(catalogCtx("u1"), "POST", "/api/v1/report",
+	g.reportHandler(w, catalogReq(catalogCtx(), "POST", "/api/v1/report",
 		`{"reported_user_id":"u2","reason":"spam"}`))
 
 	assert.Equal(t, http.StatusOK, w.Code)
@@ -455,7 +455,7 @@ func TestReport_InsertError(t *testing.T) {
 	mock.ExpectExec("INSERT INTO reports").WillReturnError(errors.New("boom"))
 
 	w := httptest.NewRecorder()
-	g.reportHandler(w, catalogReq(catalogCtx("u1"), "POST", "/api/v1/report",
+	g.reportHandler(w, catalogReq(catalogCtx(), "POST", "/api/v1/report",
 		`{"reason":"spam"}`))
 
 	assert.Equal(t, http.StatusOK, w.Code)

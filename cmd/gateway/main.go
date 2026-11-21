@@ -1360,7 +1360,7 @@ func (g *gateway) registerPublicRoutes(r chi.Router) {
 
 // registerProtectedRoutes registers routes under /api/v1 that require authentication.
 
-const profilePath = "/profile"
+const profilePath = "/api/v1/profile"
 
 func (g *gateway) registerProtectedRoutes(r chi.Router, authMiddleware func(http.Handler) http.Handler) {
 
@@ -1399,17 +1399,20 @@ func (g *gateway) registerAccountRoutes(r chi.Router) {
 
 	r.Delete(profilePath, g.deleteProfileHandler)
 
+	// Полное удаление аккаунта (все данные пользователя).
+	r.Delete("/api/v1/account", g.deleteAccountHandler)
+
 	r.Get(profilePath+"/export", g.exportUserDataHandler)
 
 	// Survey
 
-	r.Get("/survey", g.loadSurveyHandler)
+	r.Get("/api/v1/survey", g.loadSurveyHandler)
 
-	r.Post("/survey", g.saveSurveyHandler)
+	r.Post("/api/v1/survey", g.saveSurveyHandler)
 
 	// Chat
 
-	r.Post("/chat", g.chatHandler)
+	r.Post("/api/v1/chat", g.chatHandler)
 
 }
 
@@ -1418,23 +1421,23 @@ func (g *gateway) registerHealthFeatureRoutes(r chi.Router) {
 
 	// Health features
 
-	r.Get("/health/conditions", g.listHealthConditionsHandler)
+	r.Get("/api/v1/health/conditions", g.listHealthConditionsHandler)
 
-	r.Post("/health/conditions", g.upsertHealthConditionHandler)
+	r.Post("/api/v1/health/conditions", g.upsertHealthConditionHandler)
 
-	r.Delete("/health/conditions/{condition_id}", g.deleteHealthConditionHandler)
+	r.Delete("/api/v1/health/conditions/{condition_id}", g.deleteHealthConditionHandler)
 
-	r.Get("/health/body-composition", g.listBodyCompositionHandler)
+	r.Get("/api/v1/health/body-composition", g.listBodyCompositionHandler)
 
-	r.Post("/health/body-composition", g.createBodyCompositionHandler)
+	r.Post("/api/v1/health/body-composition", g.createBodyCompositionHandler)
 
-	r.Get("/health/menstrual-cycles", g.listMenstrualCyclesHandler)
+	r.Get("/api/v1/health/menstrual-cycles", g.listMenstrualCyclesHandler)
 
-	r.Post("/health/menstrual-cycles", g.createMenstrualCycleHandler)
+	r.Post("/api/v1/health/menstrual-cycles", g.createMenstrualCycleHandler)
 
-	r.Put("/health/menstrual-cycles/{cycle_id}", g.updateMenstrualCycleHandler)
+	r.Put("/api/v1/health/menstrual-cycles/{cycle_id}", g.updateMenstrualCycleHandler)
 
-	r.Delete("/health/menstrual-cycles/{cycle_id}", g.deleteMenstrualCycleHandler)
+	r.Delete("/api/v1/health/menstrual-cycles/{cycle_id}", g.deleteMenstrualCycleHandler)
 
 }
 
@@ -1443,15 +1446,15 @@ func (g *gateway) registerTFARoutes(r chi.Router) {
 
 	// 2FA TOTP (protected routes - require auth)
 
-	r.Post("/auth/2fa/setup", g.setupTOTPHandler)
+	r.Post("/api/v1/auth/2fa/setup", g.setupTOTPHandler)
 
-	r.Post("/auth/2fa/confirm", g.confirmTOTPHandler)
+	r.Post("/api/v1/auth/2fa/confirm", g.confirmTOTPHandler)
 
-	r.Get("/auth/2fa/status", g.totpStatusHandler)
+	r.Get("/api/v1/auth/2fa/status", g.totpStatusHandler)
 
-	r.Post("/auth/2fa/disable", g.disableTOTPHandler)
+	r.Post("/api/v1/auth/2fa/disable", g.disableTOTPHandler)
 
-	r.Post("/auth/critical-session", g.criticalSessionHandler)
+	r.Post("/api/v1/auth/critical-session", g.criticalSessionHandler)
 
 }
 
@@ -1460,9 +1463,9 @@ func (g *gateway) registerBiometricRoutes(r chi.Router) {
 
 	// Biometrics
 
-	r.Post("/biometrics", g.addBiometricRecordHandler)
+	r.Post("/api/v1/biometrics", g.addBiometricRecordHandler)
 
-	r.Get("/biometrics", g.getBiometricRecordsHandler)
+	r.Get("/api/v1/biometrics", g.getBiometricRecordsHandler)
 
 }
 
@@ -1471,39 +1474,39 @@ func (g *gateway) registerTrainingRoutes(r chi.Router) {
 
 	// Training
 
-	r.Get("/training/plans", g.listPlansHandler)
+	r.Get("/api/v1/training/plans", g.listPlansHandler)
 
-	r.Post("/training/generate", g.generatePlanHandler)
+	r.Post("/api/v1/training/generate", g.generatePlanHandler)
 
-	r.Get("/training/plans/{plan_id}", g.getPlanHandler)
+	r.Get("/api/v1/training/plans/{plan_id}", g.getPlanHandler)
 
-	r.Get("/training/progress", g.getProgressHandler)
+	r.Get("/api/v1/training/progress", g.getProgressHandler)
 
-	r.Post("/training/complete", g.completeWorkoutHandler)
+	r.Post("/api/v1/training/complete", g.completeWorkoutHandler)
 
-	r.Get("/achievements", g.getAchievementsHandler)
+	r.Get("/api/v1/achievements", g.getAchievementsHandler)
 
 	// Friends (social graph)
-	r.Get("/friends", g.getFriendsHandler)
-	r.Post("/friends", g.addFriendHandler)
-	r.Delete("/friends/{id}", g.removeFriendHandler)
-	r.Post("/friends/request", g.sendFriendRequestHandler)
-	r.Get("/friends/requests", g.listFriendRequestsHandler)
-	r.Post("/friends/requests/{id}/{action}", g.respondFriendRequestHandler)
+	r.Get("/api/v1/friends", g.getFriendsHandler)
+	r.Post("/api/v1/friends", g.addFriendHandler)
+	r.Delete("/api/v1/friends/{id}", g.removeFriendHandler)
+	r.Post("/api/v1/friends/request", g.sendFriendRequestHandler)
+	r.Get("/api/v1/friends/requests", g.listFriendRequestsHandler)
+	r.Post("/api/v1/friends/requests/{id}/{action}", g.respondFriendRequestHandler)
 
 	// Leaderboard + user search
-	r.Get("/leaderboard", g.getLeaderboardHandler)
-	r.Put("/leaderboard/me", g.syncLeaderboardHandler)
-	r.Get("/users/search", g.searchUsersHandler)
-	r.Post("/report", g.reportHandler)
+	r.Get("/api/v1/leaderboard", g.getLeaderboardHandler)
+	r.Put("/api/v1/leaderboard/me", g.syncLeaderboardHandler)
+	r.Get("/api/v1/users/search", g.searchUsersHandler)
+	r.Post("/api/v1/report", g.reportHandler)
 
 	// Dish catalog (nutrition)
-	r.Get("/dishes", g.getDishesHandler)
-	r.Post("/dishes", g.addDishHandler)
+	r.Get("/api/v1/dishes", g.getDishesHandler)
+	r.Post("/api/v1/dishes", g.addDishHandler)
 
 	// ML
 
-	r.Post("/ml/feedback", g.handleMLFeedback)
+	r.Post("/api/v1/ml/feedback", g.handleMLFeedback)
 
 }
 
@@ -1512,36 +1515,36 @@ func (g *gateway) registerMealCalendarRoutes(r chi.Router) {
 
 	// Nutrition
 
-	r.Get("/nutrition/meals", g.listMealsHandler)
+	r.Get("/api/v1/nutrition/meals", g.listMealsHandler)
 
-	r.Post("/nutrition/meals", g.createMealHandler)
-	r.Put("/nutrition/meals/{meal_id}", g.updateMealHandler)
+	r.Post("/api/v1/nutrition/meals", g.createMealHandler)
+	r.Put("/api/v1/nutrition/meals/{meal_id}", g.updateMealHandler)
 
-	r.Delete("/nutrition/meals/{meal_id}", g.deleteMealHandler)
+	r.Delete("/api/v1/nutrition/meals/{meal_id}", g.deleteMealHandler)
 
 	// Calendar
 
-	r.Get("/calendar/events", g.listCalendarEventsHandler)
+	r.Get("/api/v1/calendar/events", g.listCalendarEventsHandler)
 
-	r.Post("/calendar/events", g.createCalendarEventHandler)
+	r.Post("/api/v1/calendar/events", g.createCalendarEventHandler)
 
-	r.Put("/calendar/events/{event_id}", g.updateCalendarEventHandler)
+	r.Put("/api/v1/calendar/events/{event_id}", g.updateCalendarEventHandler)
 
-	r.Delete("/calendar/events/{event_id}", g.deleteCalendarEventHandler)
+	r.Delete("/api/v1/calendar/events/{event_id}", g.deleteCalendarEventHandler)
 
 	// Videos
 
-	r.Get("/videos", g.listVideosHandler)
+	r.Get("/api/v1/videos", g.listVideosHandler)
 
 	// Body composition
 
-	r.Get("/health/body-composition", g.listBodyCompositionHandler)
+	r.Get("/api/v1/health/body-composition", g.listBodyCompositionHandler)
 
-	r.Post("/health/body-composition", g.createBodyCompositionHandler)
+	r.Post("/api/v1/health/body-composition", g.createBodyCompositionHandler)
 
 	// Logout
 
-	r.Post("/logout", g.logoutHandler)
+	r.Post("/api/v1/logout", g.logoutHandler)
 
 }
 
@@ -1550,15 +1553,15 @@ func (g *gateway) registerIntegrationRoutes(r chi.Router) {
 
 	// Integrations
 
-	r.Post("/integrations/withings/sync", g.withingsSyncHandler)
+	r.Post("/api/v1/integrations/withings/sync", g.withingsSyncHandler)
 
 	// Open Wearables integration management (requires auth)
 
-	r.Get("/api/v1/integrations/providers", g.proxyToBiometricWithUser)
+	r.Get("/api/v1/api/v1/integrations/providers", g.proxyToBiometricWithUser)
 
 	r.Route("/api/v1/integrations/{source}", func(r chi.Router) {
 
-		r.Post("/disconnect", func(w http.ResponseWriter, r *http.Request) {
+		r.Post("/api/v1/disconnect", func(w http.ResponseWriter, r *http.Request) {
 
 			source := chi.URLParam(r, "source")
 

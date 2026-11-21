@@ -16,8 +16,8 @@ import (
 
 // socialReqWithParams builds a request with chi URL params (id/action) attached,
 // as the router would provide for /friends/requests/{id}/{action}.
-func socialReqWithParams(ctx context.Context, method, target, body, id, action string) *http.Request {
-	r := catalogReq(ctx, method, target, body)
+func socialReqWithParams(ctx context.Context, target, id, action string) *http.Request {
+	r := catalogReq(ctx, "POST", target, "")
 	rctx := chi.NewRouteContext()
 	rctx.URLParams.Add("id", id)
 	rctx.URLParams.Add("action", action)
@@ -30,7 +30,7 @@ func TestSocial_Leaderboard_NilDB(t *testing.T) {
 	g := newTestGateway()
 
 	w := httptest.NewRecorder()
-	g.getLeaderboardHandler(w, catalogReq(catalogCtx("u1"), "GET", "/api/v1/leaderboard", ""))
+	g.getLeaderboardHandler(w, catalogReq(catalogCtx(), "GET", "/api/v1/leaderboard", ""))
 
 	assert.Equal(t, http.StatusOK, w.Code)
 	assert.Contains(t, w.Body.String(), "leaderboard")
@@ -49,7 +49,7 @@ func TestSocial_Leaderboard_Success(t *testing.T) {
 		)
 
 	w := httptest.NewRecorder()
-	g.getLeaderboardHandler(w, catalogReq(catalogCtx("u1"), "GET", "/api/v1/leaderboard", ""))
+	g.getLeaderboardHandler(w, catalogReq(catalogCtx(), "GET", "/api/v1/leaderboard", ""))
 
 	assert.Equal(t, http.StatusOK, w.Code)
 	body := w.Body.String()
@@ -66,7 +66,7 @@ func TestSocial_Leaderboard_QueryError(t *testing.T) {
 	mock.ExpectQuery("SELECT user_id, display_name, points").WillReturnError(errors.New("boom"))
 
 	w := httptest.NewRecorder()
-	g.getLeaderboardHandler(w, catalogReq(catalogCtx("u1"), "GET", "/api/v1/leaderboard", ""))
+	g.getLeaderboardHandler(w, catalogReq(catalogCtx(), "GET", "/api/v1/leaderboard", ""))
 
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
 }
@@ -86,7 +86,7 @@ func TestSocial_SyncLeaderboard_NilDB(t *testing.T) {
 	g := newTestGateway()
 
 	w := httptest.NewRecorder()
-	g.syncLeaderboardHandler(w, catalogReq(catalogCtx("u1"), "PUT", "/api/v1/leaderboard/me", `{"points":1}`))
+	g.syncLeaderboardHandler(w, catalogReq(catalogCtx(), "PUT", "/api/v1/leaderboard/me", `{"points":1}`))
 
 	assert.Equal(t, http.StatusServiceUnavailable, w.Code)
 }
@@ -97,7 +97,7 @@ func TestSocial_SyncLeaderboard_InvalidJSON(t *testing.T) {
 	g.db = db
 
 	w := httptest.NewRecorder()
-	g.syncLeaderboardHandler(w, catalogReq(catalogCtx("u1"), "PUT", "/api/v1/leaderboard/me", "{"))
+	g.syncLeaderboardHandler(w, catalogReq(catalogCtx(), "PUT", "/api/v1/leaderboard/me", "{"))
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 }
@@ -110,7 +110,7 @@ func TestSocial_SyncLeaderboard_Success(t *testing.T) {
 	mock.ExpectExec("INSERT INTO leaderboard").WillReturnResult(sqlmock.NewResult(0, 1))
 
 	w := httptest.NewRecorder()
-	g.syncLeaderboardHandler(w, catalogReq(catalogCtx("u1"), "PUT", "/api/v1/leaderboard/me",
+	g.syncLeaderboardHandler(w, catalogReq(catalogCtx(), "PUT", "/api/v1/leaderboard/me",
 		`{"display_name":"Анна","points":100,"xp":10,"workouts":5}`))
 
 	assert.Equal(t, http.StatusOK, w.Code)
@@ -126,7 +126,7 @@ func TestSocial_SyncLeaderboard_ClampsNegatives(t *testing.T) {
 	mock.ExpectExec("INSERT INTO leaderboard").WillReturnResult(sqlmock.NewResult(0, 1))
 
 	w := httptest.NewRecorder()
-	g.syncLeaderboardHandler(w, catalogReq(catalogCtx("u1"), "PUT", "/api/v1/leaderboard/me",
+	g.syncLeaderboardHandler(w, catalogReq(catalogCtx(), "PUT", "/api/v1/leaderboard/me",
 		`{"display_name":"  ","points":-5,"xp":-1,"workouts":-2}`))
 
 	assert.Equal(t, http.StatusOK, w.Code)
@@ -141,7 +141,7 @@ func TestSocial_SyncLeaderboard_ExecError(t *testing.T) {
 	mock.ExpectExec("INSERT INTO leaderboard").WillReturnError(errors.New("boom"))
 
 	w := httptest.NewRecorder()
-	g.syncLeaderboardHandler(w, catalogReq(catalogCtx("u1"), "PUT", "/api/v1/leaderboard/me", `{"points":1}`))
+	g.syncLeaderboardHandler(w, catalogReq(catalogCtx(), "PUT", "/api/v1/leaderboard/me", `{"points":1}`))
 
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
 }
@@ -152,7 +152,7 @@ func TestSocial_SearchUsers_NilDB(t *testing.T) {
 	g := newTestGateway()
 
 	w := httptest.NewRecorder()
-	g.searchUsersHandler(w, catalogReq(catalogCtx("u1"), "GET", "/api/v1/users/search?q=ан", ""))
+	g.searchUsersHandler(w, catalogReq(catalogCtx(), "GET", "/api/v1/users/search?q=ан", ""))
 
 	assert.Equal(t, http.StatusOK, w.Code)
 	assert.Contains(t, w.Body.String(), "users")
@@ -164,7 +164,7 @@ func TestSocial_SearchUsers_ShortQuery(t *testing.T) {
 	g.db = db
 
 	w := httptest.NewRecorder()
-	g.searchUsersHandler(w, catalogReq(catalogCtx("u1"), "GET", "/api/v1/users/search?q=a", ""))
+	g.searchUsersHandler(w, catalogReq(catalogCtx(), "GET", "/api/v1/users/search?q=a", ""))
 
 	assert.Equal(t, http.StatusOK, w.Code)
 	assert.Contains(t, w.Body.String(), `"users":[]`)
@@ -182,7 +182,7 @@ func TestSocial_SearchUsers_Success(t *testing.T) {
 		)
 
 	w := httptest.NewRecorder()
-	g.searchUsersHandler(w, catalogReq(catalogCtx("u1"), "GET", "/api/v1/users/search?q=анна", ""))
+	g.searchUsersHandler(w, catalogReq(catalogCtx(), "GET", "/api/v1/users/search?q=анна", ""))
 
 	assert.Equal(t, http.StatusOK, w.Code)
 	assert.Contains(t, w.Body.String(), "Анна")
@@ -197,7 +197,7 @@ func TestSocial_SearchUsers_QueryError(t *testing.T) {
 	mock.ExpectQuery("SELECT user_id, display_name, points").WillReturnError(errors.New("boom"))
 
 	w := httptest.NewRecorder()
-	g.searchUsersHandler(w, catalogReq(catalogCtx("u1"), "GET", "/api/v1/users/search?q=анна", ""))
+	g.searchUsersHandler(w, catalogReq(catalogCtx(), "GET", "/api/v1/users/search?q=анна", ""))
 
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
 }
@@ -217,7 +217,7 @@ func TestSocial_SendFriendRequest_NilDB(t *testing.T) {
 	g := newTestGateway()
 
 	w := httptest.NewRecorder()
-	g.sendFriendRequestHandler(w, catalogReq(catalogCtx("u1"), "POST", "/api/v1/friends/request", `{"to_user_id":"u2"}`))
+	g.sendFriendRequestHandler(w, catalogReq(catalogCtx(), "POST", "/api/v1/friends/request", `{"to_user_id":"u2"}`))
 
 	assert.Equal(t, http.StatusServiceUnavailable, w.Code)
 }
@@ -228,7 +228,7 @@ func TestSocial_SendFriendRequest_InvalidJSON(t *testing.T) {
 	g.db = db
 
 	w := httptest.NewRecorder()
-	g.sendFriendRequestHandler(w, catalogReq(catalogCtx("u1"), "POST", "/api/v1/friends/request", "{"))
+	g.sendFriendRequestHandler(w, catalogReq(catalogCtx(), "POST", "/api/v1/friends/request", "{"))
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 }
@@ -240,12 +240,12 @@ func TestSocial_SendFriendRequest_EmptyOrSelf(t *testing.T) {
 
 	// Empty target.
 	w := httptest.NewRecorder()
-	g.sendFriendRequestHandler(w, catalogReq(catalogCtx("u1"), "POST", "/api/v1/friends/request", `{"to_user_id":""}`))
+	g.sendFriendRequestHandler(w, catalogReq(catalogCtx(), "POST", "/api/v1/friends/request", `{"to_user_id":""}`))
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 
 	// Self target.
 	w2 := httptest.NewRecorder()
-	g.sendFriendRequestHandler(w2, catalogReq(catalogCtx("u1"), "POST", "/api/v1/friends/request", `{"to_user_id":"u1"}`))
+	g.sendFriendRequestHandler(w2, catalogReq(catalogCtx(), "POST", "/api/v1/friends/request", `{"to_user_id":"u1"}`))
 	assert.Equal(t, http.StatusBadRequest, w2.Code)
 }
 
@@ -257,7 +257,7 @@ func TestSocial_SendFriendRequest_Success(t *testing.T) {
 	mock.ExpectExec("INSERT INTO friend_requests").WillReturnResult(sqlmock.NewResult(0, 1))
 
 	w := httptest.NewRecorder()
-	g.sendFriendRequestHandler(w, catalogReq(catalogCtx("u1"), "POST", "/api/v1/friends/request", `{"to_user_id":"u2"}`))
+	g.sendFriendRequestHandler(w, catalogReq(catalogCtx(), "POST", "/api/v1/friends/request", `{"to_user_id":"u2"}`))
 
 	assert.Equal(t, http.StatusOK, w.Code)
 	require.NoError(t, mock.ExpectationsWereMet())
@@ -271,7 +271,7 @@ func TestSocial_SendFriendRequest_ExecError(t *testing.T) {
 	mock.ExpectExec("INSERT INTO friend_requests").WillReturnError(errors.New("boom"))
 
 	w := httptest.NewRecorder()
-	g.sendFriendRequestHandler(w, catalogReq(catalogCtx("u1"), "POST", "/api/v1/friends/request", `{"to_user_id":"u2"}`))
+	g.sendFriendRequestHandler(w, catalogReq(catalogCtx(), "POST", "/api/v1/friends/request", `{"to_user_id":"u2"}`))
 
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
 }
@@ -291,7 +291,7 @@ func TestSocial_ListFriendRequests_NilDB(t *testing.T) {
 	g := newTestGateway()
 
 	w := httptest.NewRecorder()
-	g.listFriendRequestsHandler(w, catalogReq(catalogCtx("u1"), "GET", "/api/v1/friends/requests", ""))
+	g.listFriendRequestsHandler(w, catalogReq(catalogCtx(), "GET", "/api/v1/friends/requests", ""))
 
 	assert.Equal(t, http.StatusOK, w.Code)
 	assert.Contains(t, w.Body.String(), "requests")
@@ -310,7 +310,7 @@ func TestSocial_ListFriendRequests_Success(t *testing.T) {
 		)
 
 	w := httptest.NewRecorder()
-	g.listFriendRequestsHandler(w, catalogReq(catalogCtx("u1"), "GET", "/api/v1/friends/requests", ""))
+	g.listFriendRequestsHandler(w, catalogReq(catalogCtx(), "GET", "/api/v1/friends/requests", ""))
 
 	assert.Equal(t, http.StatusOK, w.Code)
 	assert.Contains(t, w.Body.String(), "Анна")
@@ -325,7 +325,7 @@ func TestSocial_ListFriendRequests_QueryError(t *testing.T) {
 	mock.ExpectQuery("SELECT fr.id, fr.from_user_id").WillReturnError(errors.New("boom"))
 
 	w := httptest.NewRecorder()
-	g.listFriendRequestsHandler(w, catalogReq(catalogCtx("u1"), "GET", "/api/v1/friends/requests", ""))
+	g.listFriendRequestsHandler(w, catalogReq(catalogCtx(), "GET", "/api/v1/friends/requests", ""))
 
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
 }
@@ -336,7 +336,7 @@ func TestSocial_Respond_Unauthorized(t *testing.T) {
 	g := newTestGateway()
 
 	w := httptest.NewRecorder()
-	g.respondFriendRequestHandler(w, socialReqWithParams(context.Background(), "POST", "/api/v1/friends/requests/1/accept", "", "1", "accept"))
+	g.respondFriendRequestHandler(w, socialReqWithParams(context.Background(), "/api/v1/friends/requests/1/accept", "1", "accept"))
 
 	assert.Equal(t, http.StatusUnauthorized, w.Code)
 }
@@ -345,7 +345,7 @@ func TestSocial_Respond_NilDB(t *testing.T) {
 	g := newTestGateway()
 
 	w := httptest.NewRecorder()
-	g.respondFriendRequestHandler(w, socialReqWithParams(catalogCtx("u1"), "POST", "/api/v1/friends/requests/1/accept", "", "1", "accept"))
+	g.respondFriendRequestHandler(w, socialReqWithParams(catalogCtx(), "/api/v1/friends/requests/1/accept", "1", "accept"))
 
 	assert.Equal(t, http.StatusServiceUnavailable, w.Code)
 }
@@ -356,7 +356,7 @@ func TestSocial_Respond_InvalidID(t *testing.T) {
 	g.db = db
 
 	w := httptest.NewRecorder()
-	g.respondFriendRequestHandler(w, socialReqWithParams(catalogCtx("u1"), "POST", "/api/v1/friends/requests/x/accept", "", "x", "accept"))
+	g.respondFriendRequestHandler(w, socialReqWithParams(catalogCtx(), "/api/v1/friends/requests/x/accept", "x", "accept"))
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 }
@@ -367,7 +367,7 @@ func TestSocial_Respond_InvalidAction(t *testing.T) {
 	g.db = db
 
 	w := httptest.NewRecorder()
-	g.respondFriendRequestHandler(w, socialReqWithParams(catalogCtx("u1"), "POST", "/api/v1/friends/requests/1/whatever", "", "1", "whatever"))
+	g.respondFriendRequestHandler(w, socialReqWithParams(catalogCtx(), "/api/v1/friends/requests/1/whatever", "1", "whatever"))
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 }
@@ -381,7 +381,7 @@ func TestSocial_Respond_NotFound(t *testing.T) {
 		WillReturnError(sql.ErrNoRows)
 
 	w := httptest.NewRecorder()
-	g.respondFriendRequestHandler(w, socialReqWithParams(catalogCtx("u1"), "POST", "/api/v1/friends/requests/1/accept", "", "1", "accept"))
+	g.respondFriendRequestHandler(w, socialReqWithParams(catalogCtx(), "/api/v1/friends/requests/1/accept", "1", "accept"))
 
 	assert.Equal(t, http.StatusNotFound, w.Code)
 }
@@ -394,7 +394,7 @@ func TestSocial_Respond_LoadError(t *testing.T) {
 	mock.ExpectQuery("SELECT from_user_id, status FROM friend_requests").WillReturnError(errors.New("boom"))
 
 	w := httptest.NewRecorder()
-	g.respondFriendRequestHandler(w, socialReqWithParams(catalogCtx("u1"), "POST", "/api/v1/friends/requests/1/accept", "", "1", "accept"))
+	g.respondFriendRequestHandler(w, socialReqWithParams(catalogCtx(), "/api/v1/friends/requests/1/accept", "1", "accept"))
 
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
 }
@@ -408,7 +408,7 @@ func TestSocial_Respond_NotPending(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"from_user_id", "status"}).AddRow("u2", "accepted"))
 
 	w := httptest.NewRecorder()
-	g.respondFriendRequestHandler(w, socialReqWithParams(catalogCtx("u1"), "POST", "/api/v1/friends/requests/1/accept", "", "1", "accept"))
+	g.respondFriendRequestHandler(w, socialReqWithParams(catalogCtx(), "/api/v1/friends/requests/1/accept", "1", "accept"))
 
 	assert.Equal(t, http.StatusOK, w.Code)
 	// No UPDATE expected because the request is not pending.
@@ -425,7 +425,7 @@ func TestSocial_Respond_Decline(t *testing.T) {
 	mock.ExpectExec("UPDATE friend_requests SET status").WillReturnResult(sqlmock.NewResult(0, 1))
 
 	w := httptest.NewRecorder()
-	g.respondFriendRequestHandler(w, socialReqWithParams(catalogCtx("u1"), "POST", "/api/v1/friends/requests/1/decline", "", "1", "decline"))
+	g.respondFriendRequestHandler(w, socialReqWithParams(catalogCtx(), "/api/v1/friends/requests/1/decline", "1", "decline"))
 
 	assert.Equal(t, http.StatusOK, w.Code)
 	require.NoError(t, mock.ExpectationsWereMet())
@@ -441,7 +441,7 @@ func TestSocial_Respond_UpdateError(t *testing.T) {
 	mock.ExpectExec("UPDATE friend_requests SET status").WillReturnError(errors.New("boom"))
 
 	w := httptest.NewRecorder()
-	g.respondFriendRequestHandler(w, socialReqWithParams(catalogCtx("u1"), "POST", "/api/v1/friends/requests/1/decline", "", "1", "decline"))
+	g.respondFriendRequestHandler(w, socialReqWithParams(catalogCtx(), "/api/v1/friends/requests/1/decline", "1", "decline"))
 
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
 }
@@ -463,7 +463,7 @@ func TestSocial_Respond_Accept(t *testing.T) {
 	mock.ExpectQuery("SELECT EXISTS").WillReturnError(errors.New("exists check failed"))
 
 	w := httptest.NewRecorder()
-	g.respondFriendRequestHandler(w, socialReqWithParams(catalogCtx("u1"), "POST", "/api/v1/friends/requests/1/accept", "", "1", "accept"))
+	g.respondFriendRequestHandler(w, socialReqWithParams(catalogCtx(), "/api/v1/friends/requests/1/accept", "1", "accept"))
 
 	assert.Equal(t, http.StatusOK, w.Code)
 	require.NoError(t, mock.ExpectationsWereMet())

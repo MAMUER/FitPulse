@@ -164,6 +164,10 @@ Kubescape scan запускается в CI на директорию `configs/k
 | --------- | ------ | ------------- |
 | `G101` | `cmd/gateway/main.go:203` | Ложноположительное: строки — публичные URL Yandex ID endpoints (`https://oauth.yandex.ru/authorize`, `https://oauth.yandex.ru/token`), известные всем разработчикам. Не являются credentials. |
 | `G101` | `cmd/gateway/helpers.go:94` | Ложноположительное: ключи мапы — пользовательские сообщения об ошибках (gRPC status text), а не пароли/токены/секреты. |
+| `G101` | `cmd/gateway/withings/config.go:9`, `cmd/user-service/main.go:140` | Ложноположительное: публичные OAuth endpoint URL (Withings) и текст ошибки «invalid credentials», не credentials. |
+| `G304` | `cmd/gateway/handlers_report.go:66` | Ложноположительное: путь к файлу берётся из доверенного env (k8s-секрет), не из пользовательского ввода. |
+| `G704` | `cmd/gateway/handlers_report.go:89,101` | Ложноположительное: фиксированный хост `api.telegram.org`, токен/чат-id из доверенного env. |
+| `G101`/`G102` | `cmd/gateway/handlers_health_test.go`, `internal/auth/jwt/jwt_test.go` | Test-only: локальные gRPC-серверы (bufconn) и тестовые ключи подписи, в проде не используются. |
 
 #### Semgrep — исключение сгенерированного кода (`.semgrepignore`)
 
@@ -514,3 +518,19 @@ gpg --full-generate-key
 
 - **GitHub Security Advisory**: [Create a security advisory](https://github.com/MAMUER/fitpulse/security/advisories)
 - **Email**: [mihnikolaenko12@yandex.ru](mailto:mihnikolaenko12@yandex.ru)
+
+---
+
+## Заглушки и ограничения (осознанно не реализовано)
+
+Перечисленное ниже — намеренные заглушки/ограничения (не баги). Они либо ждут backend/интеграции, либо требуют внешних данных.
+
+| Область | Файл(ы) | Статус / что не реализовано | Когда/как решить |
+| --- | --- | --- | --- |
+| Видео-уроки | `web/src/components/VideoModal.jsx`, `web/src/hooks/useMedia.js` | Плеер показывает демо-сообщение «Это демонстрационный видео-урок…»; реального видеосервиса нет. | Подключить источник видео (backend/S3/CDN), отдавать URL в `/api/v1/videos`. |
+| Удаление аккаунта | `web/src/screens/Profile.jsx` | Кнопка очищает только локальные данные; серверное удаление требует backend-эндпоинта. | Реализовать `DELETE /api/v1/account` (gateway → user-service + БД). |
+| Интеграции устройств | `web/src/screens/Integrations.jsx`, `web/src/services/api.js` | Чипы переключают состояние подключения; реальный OAuth с Garmin/Oura/Whoop/Polar/Suunto/Strava/Withings/Apple/Google/Samsung не реализован. | Подключить провайдеров (OAuth) через open-wearables/бэкенд. |
+| Силуэт тела | `web/src/screens/Body.jsx` | SVG-силуэт статичен (не пересчитывается по росту/весу/жиру/мышцам). | Реализовать авто-визуализацию по показателям. |
+| Истории | `web/src/screens/Home.jsx`, `web/src/reducers/appState.js` | Истории статичны (3 новости), не пользовательский контент. | Подключить backend-ленту историй. |
+| Тренировки (GAN) | `cmd/gateway/handlers_training.go` | `/training/plans` отдаёт сырой GAN-вывод (`plan_data`); богатые карточки с упражнениями не строятся. | Согласовать схему `plan_data` и маппить в карточки. |
+| e-mail (SMTP) | `internal/email` | Реальная отправка писем (регистрация/сброс пароля) требует настроенного SMTP; есть dry-run режим `SMTP_DRY_RUN=true` (письмо логируется, не отправляется). | Задать `SMTP_HOST/PORT/USER/PASSWORD` (или `*_FILE`) в окружении/email-worker. |

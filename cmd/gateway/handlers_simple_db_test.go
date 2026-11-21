@@ -15,10 +15,10 @@ import (
 )
 
 // simpleReqWithParam builds a request with a single chi URL param (e.g. meal_id).
-func simpleReqWithParam(ctx context.Context, method, target, body, key, value string) *http.Request {
+func simpleReqWithParam(ctx context.Context, method, target, body, value string) *http.Request {
 	r := catalogReq(ctx, method, target, body)
 	rctx := chi.NewRouteContext()
-	rctx.URLParams.Add(key, value)
+	rctx.URLParams.Add("meal_id", value)
 	return r.WithContext(context.WithValue(r.Context(), chi.RouteCtxKey, rctx))
 }
 
@@ -37,7 +37,7 @@ func TestSimpleDB_ListMeals_Success(t *testing.T) {
 		)
 
 	w := httptest.NewRecorder()
-	g.listMealsHandler(w, catalogReq(catalogCtx("u1"), "GET", "/api/v1/nutrition/meals", ""))
+	g.listMealsHandler(w, catalogReq(catalogCtx(), "GET", "/api/v1/nutrition/meals", ""))
 
 	assert.Equal(t, http.StatusOK, w.Code)
 	assert.Contains(t, w.Body.String(), "Овсянка")
@@ -52,7 +52,7 @@ func TestSimpleDB_ListMeals_QueryError(t *testing.T) {
 	mock.ExpectQuery("SELECT id, name, calories, meal_time").WillReturnError(errors.New("boom"))
 
 	w := httptest.NewRecorder()
-	g.listMealsHandler(w, catalogReq(catalogCtx("u1"), "GET", "/api/v1/nutrition/meals", ""))
+	g.listMealsHandler(w, catalogReq(catalogCtx(), "GET", "/api/v1/nutrition/meals", ""))
 
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
 }
@@ -69,7 +69,7 @@ func TestSimpleDB_CreateMeal_Success(t *testing.T) {
 		)
 
 	w := httptest.NewRecorder()
-	g.createMealHandler(w, catalogReq(catalogCtx("u1"), "POST", "/api/v1/nutrition/meals",
+	g.createMealHandler(w, catalogReq(catalogCtx(), "POST", "/api/v1/nutrition/meals",
 		`{"name":"Омлет","calories":250,"time":"09:00"}`))
 
 	assert.Equal(t, http.StatusCreated, w.Code)
@@ -85,7 +85,7 @@ func TestSimpleDB_CreateMeal_Error(t *testing.T) {
 	mock.ExpectQuery("INSERT INTO nutrition_meals").WillReturnError(errors.New("boom"))
 
 	w := httptest.NewRecorder()
-	g.createMealHandler(w, catalogReq(catalogCtx("u1"), "POST", "/api/v1/nutrition/meals", `{"name":"x"}`))
+	g.createMealHandler(w, catalogReq(catalogCtx(), "POST", "/api/v1/nutrition/meals", `{"name":"x"}`))
 
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
 }
@@ -98,7 +98,7 @@ func TestSimpleDB_UpdateMeal_NotFound(t *testing.T) {
 	mock.ExpectExec("UPDATE nutrition_meals").WillReturnResult(sqlmock.NewResult(0, 0))
 
 	w := httptest.NewRecorder()
-	g.updateMealHandler(w, simpleReqWithParam(catalogCtx("u1"), "PUT", "/api/v1/nutrition/meals/1", `{"name":"x"}`, "meal_id", "1"))
+	g.updateMealHandler(w, simpleReqWithParam(catalogCtx(), "PUT", "/api/v1/nutrition/meals/1", `{"name":"x"}`, "1"))
 
 	assert.Equal(t, http.StatusNotFound, w.Code)
 	require.NoError(t, mock.ExpectationsWereMet())
@@ -112,7 +112,7 @@ func TestSimpleDB_UpdateMeal_Success(t *testing.T) {
 	mock.ExpectExec("UPDATE nutrition_meals").WillReturnResult(sqlmock.NewResult(0, 1))
 
 	w := httptest.NewRecorder()
-	g.updateMealHandler(w, simpleReqWithParam(catalogCtx("u1"), "PUT", "/api/v1/nutrition/meals/1", `{"name":"x"}`, "meal_id", "1"))
+	g.updateMealHandler(w, simpleReqWithParam(catalogCtx(), "PUT", "/api/v1/nutrition/meals/1", `{"name":"x"}`, "1"))
 
 	assert.Equal(t, http.StatusOK, w.Code)
 	require.NoError(t, mock.ExpectationsWereMet())
@@ -126,7 +126,7 @@ func TestSimpleDB_UpdateMeal_Error(t *testing.T) {
 	mock.ExpectExec("UPDATE nutrition_meals").WillReturnError(errors.New("boom"))
 
 	w := httptest.NewRecorder()
-	g.updateMealHandler(w, simpleReqWithParam(catalogCtx("u1"), "PUT", "/api/v1/nutrition/meals/1", `{"name":"x"}`, "meal_id", "1"))
+	g.updateMealHandler(w, simpleReqWithParam(catalogCtx(), "PUT", "/api/v1/nutrition/meals/1", `{"name":"x"}`, "1"))
 
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
 }
@@ -137,7 +137,7 @@ func TestSimpleDB_DeleteMeal_InvalidID(t *testing.T) {
 	g.db = db
 
 	w := httptest.NewRecorder()
-	g.deleteMealHandler(w, simpleReqWithParam(catalogCtx("u1"), "DELETE", "/api/v1/nutrition/meals/x", "", "meal_id", "x"))
+	g.deleteMealHandler(w, simpleReqWithParam(catalogCtx(), "DELETE", "/api/v1/nutrition/meals/x", "", "x"))
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 }
@@ -150,7 +150,7 @@ func TestSimpleDB_DeleteMeal_NotFound(t *testing.T) {
 	mock.ExpectExec("DELETE FROM nutrition_meals").WillReturnResult(sqlmock.NewResult(0, 0))
 
 	w := httptest.NewRecorder()
-	g.deleteMealHandler(w, simpleReqWithParam(catalogCtx("u1"), "DELETE", "/api/v1/nutrition/meals/1", "", "meal_id", "1"))
+	g.deleteMealHandler(w, simpleReqWithParam(catalogCtx(), "DELETE", "/api/v1/nutrition/meals/1", "", "1"))
 
 	assert.Equal(t, http.StatusNotFound, w.Code)
 	require.NoError(t, mock.ExpectationsWereMet())
@@ -164,7 +164,7 @@ func TestSimpleDB_DeleteMeal_Success(t *testing.T) {
 	mock.ExpectExec("DELETE FROM nutrition_meals").WillReturnResult(sqlmock.NewResult(0, 1))
 
 	w := httptest.NewRecorder()
-	g.deleteMealHandler(w, simpleReqWithParam(catalogCtx("u1"), "DELETE", "/api/v1/nutrition/meals/1", "", "meal_id", "1"))
+	g.deleteMealHandler(w, simpleReqWithParam(catalogCtx(), "DELETE", "/api/v1/nutrition/meals/1", "", "1"))
 
 	assert.Equal(t, http.StatusOK, w.Code)
 	require.NoError(t, mock.ExpectationsWereMet())
@@ -178,7 +178,7 @@ func TestSimpleDB_DeleteMeal_Error(t *testing.T) {
 	mock.ExpectExec("DELETE FROM nutrition_meals").WillReturnError(errors.New("boom"))
 
 	w := httptest.NewRecorder()
-	g.deleteMealHandler(w, simpleReqWithParam(catalogCtx("u1"), "DELETE", "/api/v1/nutrition/meals/1", "", "meal_id", "1"))
+	g.deleteMealHandler(w, simpleReqWithParam(catalogCtx(), "DELETE", "/api/v1/nutrition/meals/1", "", "1"))
 
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
 }

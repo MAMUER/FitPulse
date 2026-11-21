@@ -39,7 +39,6 @@ vi.mock('../hooks/useProfile', () => ({
 vi.mock('../hooks/useStories', () => ({ useStories: vi.fn(() => ({})) }));
 vi.mock('../hooks/useSurvey', () => ({ useSurvey: vi.fn(() => ({})) }));
 vi.mock('../hooks/useAI', () => ({ useAI: vi.fn(() => ({})) }));
-vi.mock('../hooks/useMedia', () => ({ useMedia: vi.fn(() => ({})) }));
 vi.mock('../hooks/useSettings', () => ({ useSettings: vi.fn(() => ({})) }));
 
 const TestComponent = () => {

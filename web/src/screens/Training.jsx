@@ -1,6 +1,4 @@
 import { useEffect, useState } from 'react';
-import VideoCard from '../components/VideoCard';
-import VideoModal from '../components/VideoModal';
 import WorkoutSession from '../components/WorkoutSession';
 import { useApp } from '../contexts/AppContext';
 
@@ -22,7 +20,6 @@ export default function Training() {
     go,
   } = useApp();
 
-  const [videoIndex, setVideoIndex] = useState(null);
   const [exerciseName, setExerciseName] = useState('');
   const [exerciseSets, setExerciseSets] = useState('');
   const [activeWorkout, setActiveWorkout] = useState(null);
@@ -51,16 +48,46 @@ export default function Training() {
     : 0;
   const completedWorkouts = state.completedWorkouts || [];
   const exercises = customExercises || [];
-  const videos = state.trainingVideos || [];
   const plans = state.trainingPlans || [];
   const instructions = state.instructions || {};
   // «Мой план» показывает карточки только для планов, которые реально несут
-  // данные карточки (title/level массивами). Бэкенд /training/plans отдаёт
-  // плановые объекты (training_goal/duration_weeks) — они идут в «Планы FitPulse»,
-  // а не в карточки, поэтому прод не падает на пустых полях.
-  const cardPlans = plans.filter(
-    (plan) => Array.isArray(plan.title) || Array.isArray(plan.level)
-  );
+  // Карточки «Мой план»: планы с явными полями (title/level массивами) ИЛИ
+  // GAN-планы, у которых в plan_data есть дни/тренировки (days/workouts).
+  const cardPlans = plans.flatMap((plan) => {
+    if (Array.isArray(plan.title) || Array.isArray(plan.level)) {
+      return [plan];
+    }
+    const pd = plan.plan_data || {};
+    let days = [];
+    if (Array.isArray(pd.days)) {
+      days = pd.days;
+    } else if (Array.isArray(pd.workouts)) {
+      days = pd.workouts;
+    }
+    return days.map((day, i) => {
+      const ex = Array.isArray(day.exercises) ? day.exercises : [];
+      return {
+        id: `${plan.id ?? plan.plan_id ?? 'plan'}-${i}`,
+        title: [
+          day.title || day.name || `День ${i + 1}`,
+          day.title || day.name || `Day ${i + 1}`,
+        ],
+        level: [
+          day.level || plan.training_goal || 'Средний уровень',
+          day.level || plan.training_goal || 'Medium',
+        ],
+        duration: String(day.duration || ''),
+        calories: Number(day.calories) || 0,
+        time: day.time || '',
+        offset: i,
+        exercises: ex.map((e) =>
+          Array.isArray(e)
+            ? [String(e[0] ?? ''), String(e[1] ?? '')]
+            : [String(e), '']
+        ),
+      };
+    });
+  });
 
   const addExercise = () => {
     const name = exerciseName.trim();
@@ -69,13 +96,6 @@ export default function Training() {
     addCustomExercise({ name, sets });
     setExerciseName('');
     setExerciseSets('');
-  };
-
-  const handleVideoChange = (direction) => {
-    if (!videos.length) return;
-    setVideoIndex(
-      (current) => (current + direction + videos.length) % videos.length
-    );
   };
 
   return (
@@ -325,22 +345,6 @@ export default function Training() {
         <p style={instructionTextStyle}>{instructions.hygiene}</p>
       </div>
 
-      {videos.length > 0 && (
-        <>
-          <div className='section'>
-            <h3>{t('Видео-уроки', 'Video lessons')}</h3>
-          </div>
-          {videos.map((video, index) => (
-            <VideoCard
-              key={video.id || index}
-              video={video}
-              index={index}
-              onSelect={setVideoIndex}
-            />
-          ))}
-        </>
-      )}
-
       <div className='section'>
         <h3>{t('Добавить своё упражнение', 'Add your own exercise')}</h3>
       </div>
@@ -412,15 +416,6 @@ export default function Training() {
           t={t}
           onClose={() => setActiveWorkout(null)}
           onFinish={() => startWorkout(activeWorkout.title)}
-        />
-      )}
-
-      {videoIndex !== null && (
-        <VideoModal
-          videos={videos}
-          index={videoIndex}
-          onChange={handleVideoChange}
-          onClose={() => setVideoIndex(null)}
         />
       )}
     </section>

@@ -21,7 +21,6 @@ import Survey from './screens/Survey';
 import Training from './screens/Training';
 import TwoFASetup from './screens/TwoFASetup';
 import TwoFAVerify from './screens/TwoFAVerify';
-import Videos from './screens/Videos';
 
 function TabBar() {
   const { t, go } = useApp();
@@ -141,7 +140,6 @@ export default function App() {
     '/training',
     '/integrations',
     '/leaderboard',
-    '/videos',
     '/ai',
     '/body',
     '/menstrual',
@@ -172,7 +170,6 @@ export default function App() {
         <Route path='/training' element={<Training />} />
         <Route path='/integrations' element={<Integrations />} />
         <Route path='/leaderboard' element={<Leaderboard />} />
-        <Route path='/videos' element={<Videos />} />
         <Route path='/ai' element={<Ai />} />
         <Route path='/body' element={<Body />} />
         <Route path='/menstrual' element={<Menstrual />} />

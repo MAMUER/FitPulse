@@ -19,8 +19,6 @@ fix_local_path_rbac() {
 install_cert_manager() {
 	./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" "mkdir -p /tmp/cert-manager"
 	./scripts/ssh-retry.sh scp \
-		configs/k8s/base/cert-manager/cluster-issuer-staging.yaml \
-		configs/k8s/base/cert-manager/cluster-issuer.yaml \
 		configs/k8s/base/cert-manager/grpc-selfsigned-ca.yaml \
 		configs/k8s/base/cert-manager/rabbitmq-cert.yaml \
 		"${VPS_USER}@${VPS_HOST}:/tmp/cert-manager/"
@@ -32,8 +30,6 @@ echo '-> Waiting for cert-manager pods to be ready...'
 sudo k3s kubectl wait --namespace cert-manager --for=condition=ready pod -l app.kubernetes.io/instance=cert-manager --timeout=120s
 echo '✅ cert-manager installed successfully'
 echo '-> Creating Let'\''s Encrypt ClusterIssuers...'
-sudo k3s kubectl apply -f /tmp/cert-manager/cluster-issuer-staging.yaml
-sudo k3s kubectl apply -f /tmp/cert-manager/cluster-issuer.yaml
 sudo k3s kubectl apply -f /tmp/cert-manager/grpc-selfsigned-ca.yaml
 sudo k3s kubectl apply -f /tmp/cert-manager/rabbitmq-cert.yaml
 echo '✅ ClusterIssuers created'

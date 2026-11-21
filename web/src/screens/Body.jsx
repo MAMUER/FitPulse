@@ -122,6 +122,13 @@ export default function Body() {
   const handleChange = (field) => (event) =>
     setForm((current) => ({ ...current, [field]: event.target.value }));
 
+  // Авто-масштаб силуэта по весу (базовый 75 кг): силуэт растёт/сжимается с весом.
+  const silhouetteWeight = Number.parseFloat(form.weight) || weight || 0;
+  const silhouetteScale =
+    silhouetteWeight > 0
+      ? Math.min(1.35, Math.max(0.75, 0.75 + (silhouetteWeight - 50) / 120))
+      : 1;
+
   const handleSave = async () => {
     const heightValue = Number.parseFloat(form.height) || heightCm;
     const weightValue = Number.parseFloat(form.weight) || weight;
@@ -230,7 +237,10 @@ export default function Body() {
         <div className='body-wave' />
         <div className='body-wave' />
         <div className='body-wave' />
-        <div className='silhouette-container'>
+        <div
+          className='silhouette-container'
+          style={{ transform: `scale(${silhouetteScale})` }}
+        >
           <svg
             viewBox='0 0 200 280'
             fill='none'

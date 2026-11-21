@@ -488,7 +488,19 @@ export function changePassword(oldPass, newPass, confirmPass) {
 }
 
 export async function deleteAccount() {
-  localStorage.removeItem('fitpulse-merged-v9');
+  // Серверное удаление аккаунта (каскадит все данные пользователя).
+  try {
+    await backendRequest('/api/v1/account', { method: 'DELETE' });
+  } catch {
+    // Даже если сервер недоступен — локальные данные всё равно чистим.
+  }
+  // Локальная очистка (на случай офлайн/сбоя).
+  try {
+    localStorage.removeItem('fitpulse-merged-v1');
+    localStorage.removeItem('fitpulse-merged-v9');
+  } catch {
+    // ignore
+  }
   return true;
 }
 
