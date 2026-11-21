@@ -160,21 +160,40 @@ describe('auth', () => {
 });
 
 describe('two factor', () => {
-  it('setup2FA posts and returns data', async () => {
+  it('createCriticalSession returns the step-up token', async () => {
+    mocked.mockResolvedValue({ critical_session_token: 'crit-1' });
+    await expect(api.createCriticalSession()).resolves.toBe('crit-1');
+    expect(mocked).toHaveBeenCalledWith('/api/v1/auth/critical-session', {
+      method: 'POST',
+    });
+  });
+
+  it('setup2FA posts and returns data with the critical-session header', async () => {
     mocked.mockResolvedValue({ secret: 's' });
-    await expect(api.setup2FA()).resolves.toEqual({ secret: 's' });
+    await expect(api.setup2FA('crit-1')).resolves.toEqual({ secret: 's' });
     expect(mocked).toHaveBeenCalledWith('/api/v1/auth/2fa/setup', {
       method: 'POST',
+      headers: { 'X-Critical-Session-Token': 'crit-1' },
+    });
+  });
+
+  it('setup2FA omits the header when no critical token is given', async () => {
+    mocked.mockResolvedValue({ secret: 's' });
+    await api.setup2FA();
+    expect(mocked).toHaveBeenCalledWith('/api/v1/auth/2fa/setup', {
+      method: 'POST',
+      headers: {},
     });
   });
 
   it('confirm2FA posts passcode payload', async () => {
     mocked.mockResolvedValue({ ok: true });
     await expect(
-      api.confirm2FA('111111', 'secret', ['code-1'])
+      api.confirm2FA('111111', 'secret', ['code-1'], 'crit-1')
     ).resolves.toEqual({ ok: true });
     expect(mocked).toHaveBeenCalledWith('/api/v1/auth/2fa/confirm', {
       method: 'POST',
+      headers: { 'X-Critical-Session-Token': 'crit-1' },
       body: JSON.stringify({
         passcode: '111111',
         temp_secret: 'secret',
@@ -210,10 +229,11 @@ describe('two factor', () => {
     });
   });
 
-  it('disable2FA posts passcode', async () => {
-    await api.disable2FA('111111');
+  it('disable2FA posts passcode with the critical-session header', async () => {
+    await api.disable2FA('111111', 'crit-1');
     expect(mocked).toHaveBeenCalledWith('/api/v1/auth/2fa/disable', {
       method: 'POST',
+      headers: { 'X-Critical-Session-Token': 'crit-1' },
       body: JSON.stringify({ passcode: '111111' }),
     });
   });
@@ -262,6 +282,20 @@ describe('profile', () => {
     await expect(
       api.changePassword('old', 'newsecret', 'other')
     ).rejects.toThrow('Пароли не совпадают');
+  });
+
+  it('changeEmail sends PUT /api/v1/auth/email with new_email and password', async () => {
+    mocked.mockResolvedValue({ status: 'ok', message: 'Email changed successfully' });
+    await expect(
+      api.changeEmail('new@example.com', 'secret')
+    ).resolves.toEqual({ status: 'ok', message: 'Email changed successfully' });
+    expect(mocked).toHaveBeenCalledWith('/api/v1/auth/email', {
+      method: 'PUT',
+      body: JSON.stringify({ new_email: 'new@example.com', password: 'secret' }),
+    });
+    // Валидация: без email и без пароля — отказ.
+    await expect(api.changeEmail('', 'secret')).rejects.toThrow('Введите новый email');
+    await expect(api.changeEmail('new@example.com', '')).rejects.toThrow('Введите текущий пароль');
   });
 
   it('deleteAccount clears merged storage and returns true', async () => {

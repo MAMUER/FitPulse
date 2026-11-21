@@ -81,16 +81,36 @@ export function socialLogin(provider) {
   throw new Error(`Интеграция ${provider} не поддерживается`);
 }
 
-export async function setup2FA() {
+// Critical session — step-up подтверждение для чувствительных операций (2FA).
+// Раньше фронт звал /2fa/setup напрямую и получал 412 Precondition Failed.
+export async function createCriticalSession() {
+  const data = await backendRequest('/api/v1/auth/critical-session', {
+    method: 'POST',
+  });
+  return data?.critical_session_token || '';
+}
+
+function criticalHeaders(token) {
+  return token ? { 'X-Critical-Session-Token': token } : {};
+}
+
+export async function setup2FA(criticalToken) {
   const data = await backendRequest('/api/v1/auth/2fa/setup', {
     method: 'POST',
+    headers: criticalHeaders(criticalToken),
   });
   return data;
 }
 
-export async function confirm2FA(passcode, tempSecret, backupCodes) {
+export async function confirm2FA(
+  passcode,
+  tempSecret,
+  backupCodes,
+  criticalToken
+) {
   const data = await backendRequest('/api/v1/auth/2fa/confirm', {
     method: 'POST',
+    headers: criticalHeaders(criticalToken),
     body: JSON.stringify({
       passcode,
       temp_secret: tempSecret,
@@ -112,9 +132,10 @@ export async function verify2FA(tempToken, passcode, isBackupCode = false) {
   return data;
 }
 
-export async function disable2FA(passcode) {
+export async function disable2FA(passcode, criticalToken) {
   const data = await backendRequest('/api/v1/auth/2fa/disable', {
     method: 'POST',
+    headers: criticalHeaders(criticalToken),
     body: JSON.stringify({ passcode }),
   });
   return data;
@@ -491,6 +512,19 @@ export async function changePassword(oldPass, newPass, confirmPass) {
   return backendRequest('/api/v1/auth/change-password', {
     method: 'POST',
     body: JSON.stringify({ old_password: oldPass, new_password: newPass }),
+  });
+}
+
+export async function changeEmail(newEmail, password) {
+  if (!newEmail) {
+    throw new Error('Введите новый email');
+  }
+  if (!password) {
+    throw new Error('Введите текущий пароль');
+  }
+  return backendRequest('/api/v1/auth/email', {
+    method: 'PUT',
+    body: JSON.stringify({ new_email: newEmail, password }),
   });
 }
 

@@ -234,7 +234,9 @@ export function useAuth({ state, update, notify }) {
 
   const setup2FA = useCallback(async () => {
     try {
-      const data = await api.setup2FA();
+      // Шаг 1: step-up (critical session). Без него gateway отвечает 412.
+      const criticalToken = await api.createCriticalSession();
+      const data = await api.setup2FA(criticalToken);
       if (data) {
         update({
           twoFactorSetup: {
@@ -254,7 +256,13 @@ export function useAuth({ state, update, notify }) {
   const confirm2FA = useCallback(
     async (passcode, tempSecret, backupCodes) => {
       try {
-        const data = await api.confirm2FA(passcode, tempSecret, backupCodes);
+        const criticalToken = await api.createCriticalSession();
+        const data = await api.confirm2FA(
+          passcode,
+          tempSecret,
+          backupCodes,
+          criticalToken
+        );
         if (data?.success) {
           notify('2FA успешно настроена');
           update({ twoFactorSetup: null, screen: 'profile' });
@@ -292,7 +300,8 @@ export function useAuth({ state, update, notify }) {
   const disable2FA = useCallback(
     async (passcode) => {
       try {
-        const data = await api.disable2FA(passcode);
+        const criticalToken = await api.createCriticalSession();
+        const data = await api.disable2FA(passcode, criticalToken);
         if (data?.success) {
           update({ profile: { ...state.profile, twoFactor: false } });
           notify('2FA отключена');

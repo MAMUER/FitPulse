@@ -394,9 +394,24 @@ export function useProfile({ state, update, notify }) {
     update({ selectedAchievement: null });
   }, [update]);
 
+  const changeEmail = useCallback(
+    async (newEmail, password) => {
+      try {
+        const data = await api.changeEmail(newEmail, password);
+        notify(data?.message || 'Email изменён');
+        return true;
+      } catch (e) {
+        notify(e?.message || 'Не удалось сменить email');
+        return false;
+      }
+    },
+    [notify]
+  );
+
   return {
     editProfile,
     changePassword,
+    changeEmail,
     deleteAccount,
     searchFriends,
     showDevices,

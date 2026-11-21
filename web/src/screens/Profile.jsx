@@ -28,6 +28,7 @@ export default function Profile() {
     uploadPhoto,
     removePhoto,
     saveProfile,
+    changeEmail,
     showDevices,
     showRestrictions,
     searchUsers,
@@ -44,6 +45,7 @@ export default function Profile() {
   const [friendSearch, setFriendSearch] = useState('');
   const [editOpen, setEditOpen] = useState(false);
   const [editForm, setEditForm] = useState({ name: '', gender: '', age: '' });
+  const [emailForm, setEmailForm] = useState({ email: '', password: '' });
 
   const openEditProfile = () => {
     setEditForm({
@@ -63,6 +65,13 @@ export default function Profile() {
     });
     setLoading(false);
     if (ok) setEditOpen(false);
+  };
+
+  const handleSaveEmail = async () => {
+    setLoading(true);
+    const ok = await changeEmail(emailForm.email, emailForm.password);
+    setLoading(false);
+    if (ok) setEmailForm({ email: '', password: '' });
   };
 
   useEffect(() => {
@@ -634,6 +643,42 @@ export default function Profile() {
                 'Email is used to sign in and is changed via support.'
               )}
             </p>
+            <div className='section'>
+              <h3>{t('Смена email', 'Change email')}</h3>
+            </div>
+            <label className='form-label'>
+              {t('Новый email', 'New email')}
+              <input
+                type='email'
+                value={emailForm.email}
+                onChange={(e) =>
+                  setEmailForm({ ...emailForm, email: e.target.value })
+                }
+              />
+            </label>
+            <label className='form-label'>
+              {t('Текущий пароль', 'Current password')}
+              <input
+                type='password'
+                value={emailForm.password}
+                onChange={(e) =>
+                  setEmailForm({ ...emailForm, password: e.target.value })
+                }
+              />
+            </label>
+            <p className='muted fs-10'>
+              {t(
+                'Потребуется текущий пароль. После смены все сессии будут отозваны.',
+                'Your current password is required. All sessions are revoked after the change.'
+              )}
+            </p>
+            <button
+              type='button'
+              className='secondary full'
+              onClick={handleSaveEmail}
+            >
+              {t('Сменить email', 'Change email')}
+            </button>
             <button
               type='button'
               className='primary full'

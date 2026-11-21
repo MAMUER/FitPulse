@@ -1,4 +1,4 @@
-version: v1
+version: v2
 breaking:
   ignore:
     - FIELD_NO_DELETE
@@ -7,10 +7,8 @@ breaking:
     - FILE
 lint:
   use:
-    - DEFAULT
+    - STANDARD
   except:
     - PACKAGE_VERSION_SUFFIX
-  file_only: true
-  rpc_allow_same_request_response: true
   enum_zero_value_suffix: _UNSPECIFIED
-  enum_zero_value_capitalized: true
+  rpc_allow_same_request_response: true

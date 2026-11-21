@@ -9,7 +9,9 @@ export default function Achievements() {
 
   useEffect(() => {
     let cancelled = false;
-    Promise.resolve(loadAchievements()).finally(() => {
+    // void: дожидаемся только для снятия индикатора загрузки, результат
+    // приходит через state — сам промис намеренно не awaited.
+    void Promise.resolve(loadAchievements()).finally(() => {
       if (!cancelled) setLoading(false);
     });
     return () => {
@@ -27,6 +29,38 @@ export default function Achievements() {
   const pct = total > 0 ? Math.round((done / total) * 100) : 0;
   const streak = state.streak || 0;
   const maxStreak = state.maxStreak || 0;
+
+  // Тело страницы вынесено из JSX: вложенный тернарник в разметке ругается
+  // Sonar (javascript:S3358).
+  const renderBody = () => {
+    if (loading) {
+      return <p className='muted'>{t('Загрузка...', 'Loading...')}</p>;
+    }
+    if (total === 0) {
+      return <p className='muted'>{t('Нет достижений', 'No achievements')}</p>;
+    }
+    return (
+      <div className='grid-2'>
+        {achievements.map((achievement, index) => {
+          const isDone = Boolean(achievement.done || achievement.achieved);
+          const icon = achievement.icon || 'fa-trophy';
+          const key = achievement.id ?? achievement.name ?? index;
+          return (
+            <button
+              type='button'
+              key={key}
+              className={`achievement-card ${isDone ? 'done' : ''}`}
+              onClick={() => showAchievement?.(achievement.name)}
+            >
+              <i className={`fas ${icon}`} />
+              <strong>{achievement.name}</strong>
+              <small>{achievement.desc || achievement.description}</small>
+            </button>
+          );
+        })}
+      </div>
+    );
+  };
 
   return (
     <section className='achievements-page'>
@@ -66,31 +100,7 @@ export default function Achievements() {
         <i style={{ width: `${pct}%` }} />
       </div>
 
-      {loading ? (
-        <p className='muted'>{t('Загрузка...', 'Loading...')}</p>
-      ) : total === 0 ? (
-        <p className='muted'>{t('Нет достижений', 'No achievements')}</p>
-      ) : (
-        <div className='grid-2'>
-          {achievements.map((achievement, index) => {
-            const isDone = Boolean(achievement.done || achievement.achieved);
-            const icon = achievement.icon || 'fa-trophy';
-            const key = achievement.id ?? achievement.name ?? index;
-            return (
-              <button
-                type='button'
-                key={key}
-                className={`achievement-card ${isDone ? 'done' : ''}`}
-                onClick={() => showAchievement?.(achievement.name)}
-              >
-                <i className={`fas ${icon}`} />
-                <strong>{achievement.name}</strong>
-                <small>{achievement.desc || achievement.description}</small>
-              </button>
-            );
-          })}
-        </div>
-      )}
+      {renderBody()}
 
       <button
         type='button'

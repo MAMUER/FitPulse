@@ -8,6 +8,7 @@ import (
 
 	"go.uber.org/zap"
 
+	userpb "github.com/MAMUER/project/api/gen/user"
 	"github.com/MAMUER/project/internal/auth/password"
 	"github.com/MAMUER/project/internal/middleware"
 )
@@ -96,4 +97,58 @@ func (g *gateway) changePasswordHandler(w http.ResponseWriter, r *http.Request) 
 	}
 
 	writeJSON(w, map[string]interface{}{"status": "ok"})
+}
+
+// changeEmailHandler меняет email текущего пользователя.
+//
+// Раньше RPC ChangeEmail был объявлен в user.proto, но не реализован, а в
+// gateway не было ни хендлера, ни маршрута — сменить почту было невозможно.
+func (g *gateway) changeEmailHandler(w http.ResponseWriter, r *http.Request) {
+	userID, ok := r.Context().Value(middleware.UserIDKey).(string)
+	if !ok || userID == "" {
+		g.log.Error(errUnauthorized, zap.String("handler", "changeEmail"))
+		http.Error(w, msgUnauthorized, http.StatusUnauthorized)
+		return
+	}
+
+	var req struct {
+		NewEmail string `json:"new_email"`
+		Password string `json:"password"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		g.log.Error("Failed to decode change-email request", zap.Error(err))
+		http.Error(w, errBadRequest, http.StatusBadRequest)
+		return
+	}
+
+	if req.NewEmail == "" || req.Password == "" {
+		http.Error(w, "new_email and password are required", http.StatusBadRequest)
+		return
+	}
+
+	resp, err := g.userClient.ChangeEmail(r.Context(), &userpb.ChangeEmailRequest{
+		UserId:   userID,
+		NewEmail: req.NewEmail,
+		Password: req.Password,
+	})
+	if err != nil {
+		g.log.Error("Change email failed", zap.Error(err))
+		httpCode, errMsg := grpcToHTTPStatus(err)
+		http.Error(w, errMsg, httpCode)
+		return
+	}
+
+	writeJSON(w, map[string]interface{}{
+		"status":  "ok",
+		"message": resp.GetMessage(),
+	})
+
+	// Отзываем refresh-токены: клиент должен перелогиниться с новым email.
+	if g.db != nil {
+		if _, err := g.db.Exec(
+			`DELETE FROM refresh_tokens WHERE user_id = $1`, userID,
+		); err != nil {
+			g.log.Warn("Failed to revoke refresh tokens after email change", zap.Error(err))
+		}
+	}
 }

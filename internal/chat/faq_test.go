@@ -73,3 +73,21 @@ func TestLoadFAQFromJSON_InvalidJSON(t *testing.T) {
 	_, err := LoadFAQFromJSON([]byte(`invalid`))
 	assert.Error(t, err)
 }
+
+// Намерение «составить план» не должно уходить в ответ «как изменить план».
+func TestFindAnswer_GenerateIntent(t *testing.T) {
+	answer := FindAnswer("Составь план тренировок на неделю")
+	assert.Contains(t, answer, "Сгенерировать план")
+	assert.NotContains(t, answer, "измените")
+}
+
+func TestFindAnswer_GenerateIntentMonth(t *testing.T) {
+	answer := FindAnswer("Составь план тренировок на месяц")
+	assert.Contains(t, answer, "Сгенерировать план")
+}
+
+// Вопрос про композицию тела раньше не находил совпадений.
+func TestFindAnswer_BodyComposition(t *testing.T) {
+	answer := FindAnswer("Как улучшить композицию тела?")
+	assert.Contains(t, answer, "Внести показатели")
+}

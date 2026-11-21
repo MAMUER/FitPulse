@@ -225,10 +225,28 @@ describe('backendRequest', () => {
     expect(fetchMock.mock.calls[2][1]).not.toHaveProperty('retryOnNotFound');
   });
 
-  it('does not retry a 404 unless retryOnNotFound is set', async () => {
+  it('refreshes the session and retries a 404 on /api/v1 paths', async () => {
+    const { mod, fetchMock } = await setup({ baseUrl: BASE });
+    // 404 от gateway = истёкшая сессия (AuthMiddleware маскирует 401 под 404).
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse({}, 404))
+      .mockResolvedValueOnce(jsonResponse({ access_token: 'new' }))
+      .mockResolvedValueOnce(jsonResponse({ ok: true }));
+
+    await expect(
+      mod.backendRequest('/api/v1/calendar/events')
+    ).resolves.toEqual({ ok: true });
+
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(fetchMock.mock.calls[1][0]).toContain('/api/v1/auth/refresh');
+    expect(fetchMock.mock.calls[2][0]).toContain('/api/v1/calendar/events');
+  });
+
+  it('does not retry a 404 outside /api/v1', async () => {
     const { mod, fetchMock } = await setup({ baseUrl: BASE });
     fetchMock.mockResolvedValueOnce(jsonResponse({}, 404));
-    await expect(mod.backendRequest('/api/v1/chat')).rejects.toMatchObject({
+
+    await expect(mod.backendRequest('/health')).rejects.toMatchObject({
       message: 'Backend 404',
       status: 404,
     });

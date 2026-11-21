@@ -22,6 +22,7 @@ vi.mock('../services/api', () => ({
   submitResetCode: vi.fn(),
   submitNewPassword: vi.fn(),
   socialLogin: vi.fn(),
+  createCriticalSession: vi.fn(),
   confirmEmail: vi.fn(),
   setup2FA: vi.fn(),
   confirm2FA: vi.fn(),
@@ -85,6 +86,8 @@ afterAll(() => {
 
 beforeEach(() => {
   vi.resetAllMocks();
+  // 2FA-эндпоинты требуют critical session — по умолчанию отдаём токен.
+  api.createCriticalSession.mockResolvedValue('crit-1');
   window.location.href = '';
   update = vi.fn();
   notify = vi.fn();
@@ -510,7 +513,13 @@ describe('useAuth', () => {
     await act(async () => {
       await result.current.confirm2FA('123456', 'SECRET', ['backup']);
     });
-    expect(api.confirm2FA).toHaveBeenCalledWith('123456', 'SECRET', ['backup']);
+    expect(api.confirm2FA).toHaveBeenCalledWith(
+      '123456',
+      'SECRET',
+      ['backup'],
+      'crit-1'
+    );
+    expect(api.createCriticalSession).toHaveBeenCalled();
     expect(update).toHaveBeenCalledWith({
       twoFactorSetup: null,
       screen: 'profile',
@@ -581,7 +590,8 @@ describe('useAuth', () => {
     await act(async () => {
       await result.current.disable2FA('123456');
     });
-    expect(api.disable2FA).toHaveBeenCalledWith('123456');
+    expect(api.disable2FA).toHaveBeenCalledWith('123456', 'crit-1');
+    expect(api.createCriticalSession).toHaveBeenCalled();
     expect(update).toHaveBeenCalledWith({
       profile: { ...state.profile, twoFactor: false },
     });

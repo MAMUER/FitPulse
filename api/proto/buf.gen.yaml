@@ -1,16 +1,23 @@
-version: v1
+version: v2
 plugins:
-  - plugin: buf.build/community/nebuo/plugins/go
-    out: api/gen
+  # Локальные плагины. Установка: `make proto-plugins`
+  #   go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+  #   go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+  #   go install github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-grpc-gateway@latest
+  #
+  # out/ считаются от каталога buf.gen.yaml (api/proto), поэтому ../gen.
+  # paths=source_relative сохраняет раскладку api/gen/<dir>/<file>.pb.go, которую
+  # импортирует Go-код (api/gen/user, api/gen/training, api/gen/biometric).
+  # Swagger/OpenAPI генерируется отдельно через `make swagger` (swag init).
+  - local: protoc-gen-go
+    out: ../gen
     opt:
       - paths=source_relative
-      - logtostderr=true
-  - plugin: buf.build/community/grpc-ecosystem/openapi
-    out: api/rest
-    opt:
-      - logtostderr=true
-  - plugin: buf.build/community/stephenh/grpc-gateway
-    out: api/gen
+  - local: protoc-gen-go-grpc
+    out: ../gen
     opt:
       - paths=source_relative
-      - logtostderr=true
+  - local: protoc-gen-grpc-gateway
+    out: ../gen
+    opt:
+      - paths=source_relative

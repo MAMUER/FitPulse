@@ -1240,6 +1240,95 @@ func (s *userServer) ChangeNickname(ctx context.Context, req *pb.ChangeNicknameR
 
 }
 
+// ChangeEmail меняет email пользователя после подтверждения текущим паролем.
+// Раньше RPC был объявлен в proto, но не реализован — фронт не мог сменить почту.
+func (s *userServer) ChangeEmail(ctx context.Context, req *pb.ChangeEmailRequest) (*pb.ChangeEmailResponse, error) {
+
+	if req.UserId == "" {
+
+		return nil, status.Error(codes.InvalidArgument, errUserIDRequired)
+
+	}
+
+	newEmail := strings.TrimSpace(req.NewEmail)
+
+	if newEmail == "" {
+
+		return nil, status.Error(codes.InvalidArgument, "new_email is required")
+
+	}
+
+	if len(newEmail) > 254 {
+
+		return nil, status.Error(codes.InvalidArgument, "new_email is too long")
+
+	}
+
+	// Смена email — чувствительная операция, подтверждаем текущим паролем.
+	currentHash, err := s.userRepo.GetPasswordHash(ctx, req.UserId)
+
+	if err != nil {
+
+		if apperrors.IsNotFound(err) {
+
+			return nil, status.Error(codes.NotFound, errUserNotFound)
+
+		}
+
+		s.log.Error("Failed to read password hash", zap.Error(err))
+
+		return nil, status.Error(codes.Internal, errDatabaseError)
+
+	}
+
+	if !authpassword.VerifyArgon2id(currentHash, req.Password) {
+
+		return nil, status.Error(codes.Unauthenticated, "invalid credentials")
+
+	}
+
+	emailHash := db.EmailHash(newEmail)
+
+	exists, err := s.userRepo.EmailExists(ctx, emailHash, req.UserId)
+
+	if err != nil {
+
+		s.log.Error("Failed to check email uniqueness", zap.Error(err))
+
+		return nil, status.Error(codes.Internal, errDatabaseError)
+
+	}
+
+	if exists {
+
+		return nil, status.Error(codes.AlreadyExists, "email already in use")
+
+	}
+
+	nonce, err := db.GenerateNonce()
+
+	if err != nil {
+
+		s.log.Error(logFailedToGenerateNonce, zap.Error(err))
+
+		return nil, status.Error(codes.Internal, errFailedToGenerateNonce)
+
+	}
+
+	if err := s.userRepo.UpdateEmailWithPgsodium(ctx, req.UserId, newEmail, nonce, emailHash); err != nil {
+
+		s.log.Error("Failed to update email", zap.Error(err), zap.String("user_id", sanitize.LogString(req.UserId)))
+
+		return nil, status.Error(codes.Internal, "failed to update email")
+
+	}
+
+	s.log.Info("Email changed", zap.String("user_id", sanitize.LogString(req.UserId)))
+
+	return &pb.ChangeEmailResponse{Message: "Email changed successfully"}, nil
+
+}
+
 // UploadProfilePhoto uploads a new profile photo for the user.
 
 func (s *userServer) UploadProfilePhoto(ctx context.Context, req *pb.UploadProfilePhotoRequest) (*pb.UploadProfilePhotoResponse, error) {

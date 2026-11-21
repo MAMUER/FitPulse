@@ -69,6 +69,7 @@ describe('useProfile', () => {
     setup();
     expect(Object.keys(result.current).sort()).toEqual([
       'addFriend',
+      'changeEmail',
       'changePassword',
       'deleteAccount',
       'editProfile',

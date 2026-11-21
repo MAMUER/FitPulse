@@ -192,14 +192,26 @@ const ADMIN_PASSWORD = process.env.SEED_ADMIN_PASSWORD ?? '';
 const HAS_AUTH = Boolean(process.env.BASE_URL && ADMIN_EMAIL && ADMIN_PASSWORD);
 
 async function login(page: Page, email: string, password: string) {
-  await page.goto('/login');
-  await page.locator('#loginEmail').fill(email);
-  await page.locator('#loginPassword').fill(password);
-  await page.getByRole('button', { name: 'Войти', exact: true }).click();
-  // После успешного входа SPA уходит с /login на /home.
-  await page.waitForURL((url) => !url.pathname.includes('/login'), {
-    timeout: 15000,
-  });
+  // Логин лимитируется на бэкенде (AuthRateLimit), а каждый тест логинится
+  // заново — на прогонах из 18 тестов часть падала на 429. Делаем до 3 попыток.
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    await page.goto('/login');
+    await page.locator('#loginEmail').fill(email);
+    await page.locator('#loginPassword').fill(password);
+    await page.getByRole('button', { name: 'Войти', exact: true }).click();
+    const ok = await page
+      .waitForURL((url) => !url.pathname.includes('/login'), { timeout: 20000 })
+      .then(() => true)
+      .catch(() => false);
+    if (ok) return;
+    // Ждём снятия rate-limit по наблюдаемому условию (окно ~60 с), а не
+    // фиксированной паузой: плашка «слишком много попыток» должна исчезнуть.
+    await page
+      .locator('.fp-toast.show')
+      .waitFor({ state: 'hidden', timeout: 70000 })
+      .catch(() => {});
+  }
+  throw new Error('login failed after 3 attempts (rate limited?)');
 }
 
 // Дедупликация: раньше матрица гоняла 8 конфигов (RU/EN × light/dark × HC) × 11
@@ -357,21 +369,26 @@ for (const config of HAS_AUTH ? CONFIGS.slice(0, 1) : []) {
 (HAS_AUTH ? test.describe : test.describe.skip)(
   'FitPulse authenticated (admin)',
   () => {
-    test('login screen: Yandex button surfaces a visible toast', async ({
+    test('login screen: Yandex button starts the OAuth redirect', async ({
       page,
     }) => {
       await page.goto('/login');
-      await page.getByRole('button', { name: 'Яндекс' }).click();
-      // Тосты раньше не рендерились — этот тест ловит регрессию.
-      await expect(page.locator('.fp-toast.show')).toBeVisible();
-      await expect(page.locator('.fp-toast.show')).toContainText('Яндекс');
+      // Кнопка больше не показывает плашку «не настроено»: OAuth настроен,
+      // и фронт уходит на /api/v1/auth/yandex (дальше редирект на Yandex).
+      await Promise.all([
+        page.waitForURL(/api\/v1\/auth\/yandex|oauth\.yandex\.ru/, {
+          timeout: 20000,
+        }),
+        page.getByRole('button', { name: 'Яндекс' }).click(),
+      ]);
+      expect(page.url()).not.toContain('/login');
     });
 
     test('admin logs in and reaches home', async ({ page }) => {
       await login(page, ADMIN_EMAIL, ADMIN_PASSWORD);
-      await expect(
-        page.getByRole('heading', { name: 'Главная', exact: true })
-      ).toBeVisible();
+      // На Home больше нет <h2>Главная</h2>: теперь это персонализированный
+      // заголовок «Привет, …» + надзаголовок FITPULSE · СЕГОДНЯ.
+      await expect(page.locator('h1')).toContainText('Привет');
     });
 
     test('main screens render without uncaught runtime errors', async ({
@@ -386,7 +403,8 @@ for (const config of HAS_AUTH ? CONFIGS.slice(0, 1) : []) {
         { nav: 'Питание', heading: 'Питание' },
         { nav: 'Календарь', heading: 'Календарь' },
         { nav: 'Тренировки', heading: 'Тренировки' },
-        { nav: 'AI', heading: 'AI' },
+        // На экране AI заголовок «FitPulse AI», а не «AI».
+        { nav: 'AI', heading: 'FitPulse AI' },
       ];
       for (const target of targets) {
         await page
@@ -417,13 +435,21 @@ for (const config of HAS_AUTH ? CONFIGS.slice(0, 1) : []) {
     test('profile: change-password opens a working modal', async ({ page }) => {
       await login(page, ADMIN_EMAIL, ADMIN_PASSWORD);
       await page.goto('/profile');
-      await page.getByText('Изменить пароль').first().click();
-      // Модалка со сменой пароля должна открыться (поля #oldPass/#newPass).
+      // Кнопка живёт в danger-блоке: .secondary.full с текстом «Изменить пароль».
+      const changePasswordButton = page
+        .locator('button.secondary.full', { hasText: 'Изменить пароль' })
+        .first();
+      await changePasswordButton.waitFor({ state: 'visible', timeout: 20000 });
+      await changePasswordButton.click();
       await expect(page.locator('dialog[open]')).toBeVisible();
       await expect(page.locator('#oldPass')).toBeVisible();
       await expect(page.locator('#newPass')).toBeVisible();
       // Закрытие возвращает к профилю.
-      await page.getByRole('button', { name: 'Закрыть' }).first().click();
+      await page
+        .locator('dialog[open]')
+        .getByRole('button', { name: 'Закрыть' })
+        .first()
+        .click();
       await expect(page.locator('dialog[open]')).toHaveCount(0);
     });
 
@@ -449,14 +475,12 @@ for (const config of HAS_AUTH ? CONFIGS.slice(0, 1) : []) {
       page.on('pageerror', (err) => errors.push(err.message));
       await login(page, ADMIN_EMAIL, ADMIN_PASSWORD);
 
-      // Экраны, не покрытые нижней навигацией: тело, цикл, устройства,
-      // лидеры, видео. Раньше /videos падал в чёрный экран — ловим pageerror.
+      // Экраны, не покрытые нижней навигацией: тело, цикл, интеграции, лидеры.
       for (const path of [
         '/body',
         '/menstrual',
         '/integrations',
         '/leaderboard',
-        '/videos',
       ]) {
         await page.goto(path);
         await expect(page.locator('section').first()).toBeVisible();

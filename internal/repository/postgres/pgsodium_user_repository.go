@@ -1191,6 +1191,46 @@ func (r *PgsodiumUserRepository) NicknameExists(ctx context.Context, nickname, e
 
 }
 
+// EmailExists проверяет занятость email по его хешу (сам адрес зашифрован).
+func (r *PgsodiumUserRepository) EmailExists(ctx context.Context, emailHash, excludeUserID string) (bool, error) {
+
+	var exists bool
+
+	err := r.db.QueryRowContext(ctx, "SELECT EXISTS(SELECT 1 FROM users WHERE email_hash = $1 AND id != $2)", emailHash, excludeUserID).Scan(&exists)
+
+	if err != nil {
+
+		return false, apperrors.Internal("failed to check email uniqueness", err)
+
+	}
+
+	return exists, nil
+
+}
+
+// UpdateEmailWithPgsodium меняет зашифрованный email, nonce и хеш.
+func (r *PgsodiumUserRepository) UpdateEmailWithPgsodium(ctx context.Context, userID, email string, emailNonce []byte, emailHash string) error {
+
+	query := strings.Builder{}
+
+	query.WriteString("UPDATE users SET email_encrypted = ")
+
+	query.WriteString(db.PgsodiumRandomEncryptParam(1, 2))
+
+	query.WriteString(", email_nonce = $2, email_hash = $3, updated_at = NOW() WHERE id = $4")
+
+	_, execErr := r.db.ExecContext(ctx, query.String(), email, emailNonce, emailHash, userID) // NOSONAR go:S2077
+
+	if execErr != nil {
+
+		return apperrors.Internal("failed to update email", execErr)
+
+	}
+
+	return nil
+
+}
+
 func (r *PgsodiumUserRepository) FindYandexUser(ctx context.Context, yandexID string) (*entity.User, error) {
 
 	var user entity.User

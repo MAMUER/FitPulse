@@ -2035,6 +2035,35 @@ h3,
 }
 
 /* Leaderboard */
+.leaderboard {
+  min-width: 0;
+  overflow-x: hidden;
+}
+
+.leaderboard .card {
+  min-width: 0;
+  overflow: hidden;
+}
+
+/* Раньше длинные ники/очки не переносились и вылезали за карточку. */
+.leaderboard .body-row {
+  flex-wrap: wrap;
+  row-gap: 4px;
+}
+
+.leaderboard .body-row > * {
+  min-width: 0;
+}
+
+.leaderboard .body-row > span:nth-child(2) {
+  flex: 1 1 auto;
+  overflow-wrap: anywhere;
+}
+
+.leaderboard .body-row b {
+  overflow-wrap: anywhere;
+}
+
 .lb-rank {
   display: inline-grid;
   place-items: center;
@@ -3630,14 +3659,8 @@ textarea:focus {
 
 /* Плитки статистики в профиле (Серия / Событий / Достижений / Друзей).
    Класса .stat в CSS не было вообще — браузер рисовал дефолтную кнопку,
-   поэтому в тёмной теме они были белыми, а в светлой — чёрными. */
-.profile-stats {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 8px;
-  margin-top: 12px;
-}
-
+   поэтому в тёмной теме они были белыми, а в светлой — чёрными.
+   Сетка .profile-stats уже описана выше — здесь только .stat. */
 .stat {
   display: flex;
   flex-direction: column;
@@ -3720,7 +3743,7 @@ textarea:focus {
 .ai-kv-row dd {
   margin: 0;
   color: var(--text);
-  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 
 .setting {
