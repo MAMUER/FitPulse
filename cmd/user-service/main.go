@@ -637,6 +637,15 @@ func (s *userServer) AuthenticateYandex(ctx context.Context, req *pb.Authenticat
 
 // Yandex ID OAuth flow requires multiple nonce generations and INSERT logic.
 
+// isNoSuchUser reports whether err means "такого пользователя нет".
+// Репозиторий возвращает типизированную apperrors.NotFound ("user not found"),
+// а не сырой sql.ErrNoRows, поэтому проверять нужно оба варианта. Раньше
+// проверялся только sql.ErrNoRows, и первая авторизация через Яндекс падала в
+// 500 "database error" вместо создания пользователя.
+func isNoSuchUser(err error) bool {
+	return errors.Is(err, sql.ErrNoRows) || apperrors.IsNotFound(err)
+}
+
 func (s *userServer) findOrCreateYandexUser(ctx context.Context, yandexID, emailHash, emailVal, login, firstName, lastName string) (userID, role string, emailConfirmed bool, err error) {
 
 	userID, role, emailConfirmed, err = s.findYandexUserByID(ctx, yandexID)
@@ -647,7 +656,7 @@ func (s *userServer) findOrCreateYandexUser(ctx context.Context, yandexID, email
 
 	}
 
-	if !errors.Is(err, sql.ErrNoRows) {
+	if !isNoSuchUser(err) {
 
 		s.log.Error("Database error during Yandex auth", zap.Error(err))
 
@@ -663,7 +672,7 @@ func (s *userServer) findOrCreateYandexUser(ctx context.Context, yandexID, email
 
 	}
 
-	if !errors.Is(err, sql.ErrNoRows) {
+	if !isNoSuchUser(err) {
 
 		s.log.Error("Database error during Yandex auth", zap.Error(err))
 

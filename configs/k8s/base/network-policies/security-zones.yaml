@@ -57,6 +57,21 @@ spec:
           port: 5672
         - protocol: TCP
           port: 15672
+    # Исходящие вызовы во внешние API (HTTPS). Без этого правила dmz-зона
+    # (gateway, email-worker) не имеет egress во внешний мир вообще, и обмен
+    # кода авторизации падал: "Post https://oauth.yandex.ru/token: dial tcp
+    # 87.250.251.227:443: connect: connection refused". 443 нужен для OAuth
+    # (Yandex, Withings) и Turnstile siteverify.
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 10.0.0.0/8
+              - 172.16.0.0/12
+              - 192.168.0.0/16
+      ports:
+        - protocol: TCP
+          port: 443
 ---
 # App zone - microservices
 apiVersion: networking.k8s.io/v1

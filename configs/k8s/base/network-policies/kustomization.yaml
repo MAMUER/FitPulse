@@ -4,6 +4,7 @@ kind: Kustomization
 resources:
   - allow-backends-ingress.yaml
   - allow-backends-to-infrastructure.yaml
+  - allow-email-worker-smtp-egress.yaml
   - allow-backup-to-minio.yaml
   - allow-backup-to-postgres.yaml
   - allow-frontend-egress.yaml
