@@ -19,6 +19,11 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html', 'lcov'],
+      // Падение теста не должно отменять сбор coverage: по умолчанию Vitest
+      // пишет отчёт только при зелёном прогоне, и один красный тест убирал
+      // bin/lcov.info. SonarCloud при этом падал на «покрытие нового кода 0%»,
+      // а не на настоящей причине — отсутствующем отчёте.
+      reportOnFailure: true,
       exclude: [
         'node_modules/',
         'dist/',
