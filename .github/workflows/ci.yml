@@ -1903,12 +1903,12 @@ jobs:
           VPS_USER: ${{ secrets.VPS_USER }}
         run: |
           set -euo pipefail
-          ssh -p "${VPS_PORT:-22}" -o StrictHostKeyChecking=accept-new \
-            "${VPS_USER}@${VPS_HOST}" 'rm -rf /tmp/kube-bench /tmp/kube-bench-cfg'
-          scp -P "${VPS_PORT:-22}" -o StrictHostKeyChecking=accept-new \
-            /usr/local/bin/kube-bench "${VPS_USER}@${VPS_HOST}:/tmp/kube-bench"
-          scp -P "${VPS_PORT:-22}" -o StrictHostKeyChecking=accept-new -r \
-            /usr/local/kube-bench/cfg "${VPS_USER}@${VPS_HOST}:/tmp/kube-bench-cfg"
+          # ssh-retry.sh, а не голые ssh/scp: у него есть ретраи и keepalive.
+          # Голый scp на нестабильном линке падал с "Connection reset by peer"
+          # (kube-bench job), и деплой/скан останавливался без второй попытки.
+          ./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" 'rm -rf /tmp/kube-bench /tmp/kube-bench-cfg'
+          ./scripts/ssh-retry.sh scp /usr/local/bin/kube-bench "${VPS_USER}@${VPS_HOST}:/tmp/kube-bench"
+          ./scripts/ssh-retry.sh scp -r /usr/local/kube-bench/cfg "${VPS_USER}@${VPS_HOST}:/tmp/kube-bench-cfg"
       - name: Run kube-bench on k3s node via SSH
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
@@ -1916,7 +1916,9 @@ jobs:
           VPS_USER: ${{ secrets.VPS_USER }}
         run: |
           set -euo pipefail
-          ssh -p "${VPS_PORT:-22}" -o StrictHostKeyChecking=accept-new "${VPS_USER}@${VPS_HOST}" 'bash -s' << 'EOF'
+          # ssh с heredoc: ssh-retry буферизует stdin и проигрывает его на каждой
+          # попытке, поэтому ретраи не ломают передачу скрипта.
+          ./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" 'bash -s' << 'EOF'
           set -euo pipefail
           mkdir -p ~/security-results
           chmod +x /tmp/kube-bench
@@ -1927,7 +1929,7 @@ jobs:
 
           mkdir -p security-results
           # Скачиваем результат. Если файл пустой или команда выше упала, этот шаг тоже упадет (что правильно)
-          scp -P "${VPS_PORT:-22}" -o StrictHostKeyChecking=accept-new "${VPS_USER}@${VPS_HOST}:~/security-results/kube-bench-results.json" security-results/
+          ./scripts/ssh-retry.sh scp "${VPS_USER}@${VPS_HOST}:~/security-results/kube-bench-results.json" security-results/
 
       # Раньше файл скачивался в security-results/ и там же терялся: джоба не
       # публиковала артефакт, поэтому результаты CIS-скана невозможно было посмотреть.
@@ -1975,7 +1977,9 @@ jobs:
           VPS_USER: ${{ secrets.VPS_USER }}
         run: |
           set -euo pipefail
-          ssh -p "${VPS_PORT:-22}" -o StrictHostKeyChecking=accept-new "${VPS_USER}@${VPS_HOST}" 'bash -s' << 'EOF'
+          # ssh-retry.sh: ретраи + keepalive (голый ssh падал на "Connection
+          # reset by peer" при нестабильном линке до VPS).
+          ./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" 'bash -s' << 'EOF'
           set -euo pipefail
           mkdir -p ~/security-results
           if ! command -v kube-hunter >/dev/null 2>&1 && ! python3 -m kube_hunter --help >/dev/null 2>&1; then
@@ -1989,7 +1993,7 @@ jobs:
           fi
           EOF
           mkdir -p security-results
-          scp -P "${VPS_PORT:-22}" -o StrictHostKeyChecking=accept-new "${VPS_USER}@${VPS_HOST}:~/security-results/kube-hunter-results.json" security-results/ 2>/dev/null || true
+          ./scripts/ssh-retry.sh scp "${VPS_USER}@${VPS_HOST}:~/security-results/kube-hunter-results.json" security-results/ 2>/dev/null || true
 
   cosign-verify:
     name: Cosign Verify Images

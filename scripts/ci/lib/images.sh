@@ -210,13 +210,32 @@ pre_pull_images() {
 
 for img in "${images[@]}"; do
 	echo "-> Pulling $img (download progress hidden)..."
-	if ctr_output=$(sudo k3s ctr -n k8s.io images pull --user "${GITHUB_ACTOR}:${GHCR_TOKEN}" "$img" 2>&1); then
+	ctr_output=""
+	pulled=0
+	# k3s ctr не ретраит запросы к registry, а ghcr.io периодически отвечает
+	# транзиентным 401/таймаутом на первой попытке. Один повтор убирает
+	# большую часть fallback'ов на CRI.
+	for attempt in 1 2; do
+		if ctr_output=$(sudo k3s ctr -n k8s.io images pull --user "${GITHUB_ACTOR}:${GHCR_TOKEN}" "$img" 2>&1); then
+			pulled=1
+			break
+		fi
+		echo "    ctr attempt ${attempt}/2 failed" >&2
+		sleep 3
+	done
+	if [[ "$pulled" -eq 1 ]]; then
 		echo "Pulled $img"
 		continue
 	fi
-	echo "::warning::containerd pull failed for $img; retrying through CRI"
+
+	# Причину сбоя ctr печатаем в лог (токен вырезаем). Раньше она была видна
+	# только если падали ОБА метода, поэтому диагностировать было нечем.
+	printf '%s\n' "${ctr_output//"$GHCR_TOKEN"/[REDACTED]}" | tail -n 5 | sed 's/^/    ctr: /' >&2
+
+	# Fallback на CRI штатный и успешный, поэтому это не warning (который
+	# улетает в Telegram-дайджест как проблема), а информационная строка в логе.
 	if cri_output=$(sudo k3s crictl pull --creds "${GITHUB_ACTOR}:${GHCR_TOKEN}" "$img" 2>&1); then
-		echo "Pulled $img through CRI"
+		echo "Pulled $img through CRI (ctr failed, CRI fallback succeeded)"
 		continue
 	fi
 	echo "::error::Failed to pull $img from GHCR; last 30 lines from each method:" >&2
