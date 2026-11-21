@@ -200,6 +200,21 @@ class TestRunner:
         )
         return resp_body
 
+    def check(self, name, condition, detail=""):
+        """Assert a condition on the last response, counted like test()."""
+        num = self.passed + self.failed + self.skipped + 1
+        print(f"  [{num}] {name} ", end="", flush=True)
+        if condition:
+            self.passed += 1
+            print(f"{GREEN}PASS{RESET}")
+        else:
+            self.failed += 1
+            print(f"{RED}FAIL — {str(detail)[:160]}{RESET}")
+        self.results.append(
+            f"{'PASS' if condition else 'FAIL'} | {name} | {str(detail)[:160]}"
+        )
+        return bool(condition)
+
 
 def section(title):
     print(f"\n{CYAN}=== {title} ==={RESET}")
@@ -425,6 +440,92 @@ def test_training(t):
         "Get Progress", "GET", "/api/v1/training/progress", token=t.token, expected=200
     )
 
+    # Генерация плана — главный сценарий приложения (GAN внутри ml-generator).
+    # Раньше его не проверял никто: /training/plans отвечал 200, но содержимое
+    # сгенерированного плана (plan_data) не смотрел ни один тест.
+    generated = t.test(
+        "Generate Plan (GAN)",
+        "POST",
+        "/api/v1/training/generate",
+        token=t.token,
+        body={
+            "duration_weeks": 4,
+            "available_days": [1, 3, 5],
+            "class": "endurance_basic",
+            "confidence": 0.8,
+        },
+        expected=200,
+    )
+
+    plan_id = None
+    if isinstance(generated, dict):
+        plan_id = generated.get("plan_id")
+        t.check(
+            "Generate Plan returns plan_id",
+            bool(plan_id),
+            f"plan_id missing: {str(generated)[:140]}",
+        )
+        plan_data = generated.get("plan_data")
+        t.check(
+            "Generate Plan returns non-empty plan_data",
+            isinstance(plan_data, dict) and bool(plan_data),
+            f"plan_data={str(plan_data)[:140]}",
+        )
+    else:
+        t.check("Generate Plan returns a JSON object", False, "non-JSON body")
+
+    if plan_id:
+        fetched = t.test(
+            "Get Generated Plan",
+            "GET",
+            f"/api/v1/training/plans/{plan_id}",
+            token=t.token,
+            expected=200,
+        )
+        if isinstance(fetched, dict):
+            t.check(
+                "Generated Plan persisted with plan_data",
+                fetched.get("plan_id") == plan_id
+                and isinstance(fetched.get("plan_data"), dict)
+                and bool(fetched.get("plan_data")),
+                f"plan_id={fetched.get('plan_id')} plan_data="
+                f"{str(fetched.get('plan_data'))[:120]}",
+            )
+        else:
+            t.check(
+                "Generated Plan is a JSON object", False, f"body={str(fetched)[:120]}"
+            )
+
+
+def test_integrations(t):
+    section("9. OPEN WEARABLES")
+    # OpenWearables — агрегатор фитнес-данных с устройств. Проверяем, что
+    # каталог провайдеров реально проксируется через gateway к biometric-service.
+    providers = t.test(
+        "List providers",
+        "GET",
+        "/api/v1/integrations/providers",
+        token=t.token,
+        expected=200,
+    )
+    if isinstance(providers, dict):
+        items = providers.get("providers")
+        if items is None and isinstance(providers.get("data"), list):
+            items = providers["data"]
+        t.check(
+            "Providers payload contains a list",
+            isinstance(items, list),
+            f"providers={str(providers)[:160]}",
+        )
+        if isinstance(items, list):
+            t.check(
+                "At least one provider is offered",
+                len(items) > 0,
+                f"providers={str(items)[:160]}",
+            )
+    else:
+        t.check("Providers payload is a JSON object", False, "non-JSON body")
+
 
 def test_chat(t):
     section("6. Chat")
@@ -539,6 +640,7 @@ def main():
     test_biometrics(t)
     test_post_logout(t)
     test_training(t)
+    test_integrations(t)
     test_chat(t)
     test_totp(t)
     test_security(t)

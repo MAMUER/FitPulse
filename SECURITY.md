@@ -549,6 +549,60 @@ gpg --full-generate-key
 
 ---
 
+## Покрытие тестами и дублирование (Quality Gate)
+
+Раздел фиксирует, что покрыто тестами, а что принципиально не покрывается, и почему.
+Это нужно, чтобы «красный» Quality Gate читался как осознанное решение, а не как
+недоработка.
+
+### Что закрыто
+
+| Файл | Было | Стало | Чем |
+| --- | --- | --- | --- |
+| `cmd/gateway/handlers_account.go` | 0.0% | **100%** | `cmd/gateway/handlers_account_test.go`: 401 без userID, 503 без БД, успешное удаление (7 явных `DELETE` + `users`), игнорирование ошибок явных `DELETE`, 500 при сбое удаления `users` |
+| `web/src/screens/Training.jsx` | 59.1% строк | **100% строк** | `Training.test.jsx`: маппинг GAN-плана из `plan_data.days`, из `plan_data.workouts`, пропуск плана без дней/тренировок |
+| `cmd/gateway/handlers_report.go` | 63.9% | **~90%** | `cmd/gateway/handlers_report_test.go`: `notifyOncall` с подменой `http.DefaultClient` (успех, сетевая ошибка, отсутствие кредов) |
+
+### Что не покрывается осознанно
+
+**Go.** Из расчёта покрытия исключены (`sonar-project.properties`):
+
+`internal/queue`, `internal/middleware`, `internal/db`, `internal/grpc`,
+`internal/telemetry`, `internal/crypto`, `internal/totp`, `internal/testcontainers`,
+`cmd/**/main.go`, `cmd/ml-classifier/**`, `cmd/device-emulator/**`,
+`cmd/ml_generator/gan_train_test.py`.
+
+Причины: это инфраструктурные пакеты (очереди, TLS, БД, gRPC, телеметрия, TOTP,
+testcontainers) и точки входа. Они проверяются интеграционно (E2E API, k3s-деплой,
+`scripts/api-test.py`), а не юнит-тестами: юнит-тест на `main()` или на `grpc.Dial`
+проверял бы только мок, а не поведение. Исключение не скрывает продуктовую логику —
+вся бизнес-логика лежит в `cmd/*/handlers_*.go` и `internal/*` (кроме перечисленного)
+и покрыта.
+
+**Frontend.** Исключены `web/src/main.jsx`, `web/src/App.jsx`, `web/src/index.css`,
+`web/src/test/setup.js`. Это точка монтирования, маршрутизация (проверяется
+Playwright E2E) и стили.
+
+**Остаток по фронтенду.** `useNutrition.js` (~65%), `useProfile.js` (~67%),
+`api.js` (~72%) — непокрытыми остаются ветки ошибок и редкие пограничные случаи
+(429/401-ретраи, отсутствие localStorage, отмена запроса). Они требуют моков
+`fetch` с нетривиальными сценариями; выигрыш в метрике невелик, а хрупкость тестов
+растёт.
+
+### Дублирование
+
+`web/src/screens/Survey.jsx` показывал 44.5% дублированных строк. Проверка
+показала, что **ни один файл не делит с ним 8+ подряд идущих строк** — это не
+копипаста, а токенное дублирование Sonar: декларативная таблица `QUESTIONS`
+содержит ~50 однотипных пар `['Русский', 'English']`, и парсер CPD считает
+повторяющиеся токены.
+
+Данные вынесены в `web/src/data/surveyQuestions.js` (чистые данные отдельно от
+логики экрана), `Survey.jsx` сократился со 217 до 105 строк. Если метрика
+останется высокой — это особенность декларативных таблиц, а не дублирование кода.
+
+---
+
 ## Контакты
 
 - **GitHub Security Advisory**: [Create a security advisory](https://github.com/MAMUER/fitpulse/security/advisories)

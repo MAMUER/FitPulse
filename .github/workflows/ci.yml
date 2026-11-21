@@ -69,7 +69,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  GO_VERSION: "1.27.3"
+  GO_VERSION: "1.27.4"
   REGISTRY: ghcr.io
   FITPULSE_DOMAIN: "fitpulse.tail6f5dca.ts.net"
 

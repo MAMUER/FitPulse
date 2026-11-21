@@ -187,97 +187,17 @@ func NewSMTPClient(cfg Config) *SMTPClient {
 // The email contains a clickable link and a manual token for confirmation.
 
 func (s *SMTPClient) SendVerificationEmail(ctx context.Context, toEmail, verifyToken, baseURL string) error {
-
 	if err := ctx.Err(); err != nil {
-
 		return err
-
 	}
-	// Защита от SMTP-инъекции: убираем CR/LF из адреса получателя.
-	toEmail = stripCRLF(toEmail)
-	// Валидируем адрес через net/mail — это распознаётся CodeQL как барьер и
-	// гарантирует корректный конверт/заголовок без инъекций.
-	parsed, addrErr := mail.ParseAddress(toEmail)
-	if addrErr != nil {
-		return fmt.Errorf("invalid recipient address: %w", addrErr)
-	}
-	toEmail = parsed.Address
-
-	for _, domain := range s.cfg.SkipSendDomains {
-
-		if strings.HasSuffix(toEmail, "@"+domain) {
-
-			return fmt.Errorf("skipped: test domain %s", domain)
-
-		}
-
-	}
-
-	s.mu.Lock()
-
-	if s.cfg.DailyLimit > 0 && s.dailySent >= s.cfg.DailyLimit {
-
-		s.mu.Unlock()
-
-		return fmt.Errorf("daily email limit exceeded: %d/%d", s.dailySent, s.cfg.DailyLimit)
-
-	}
-
-	s.mu.Unlock()
-
-	confirmURL := fmt.Sprintf("%s/confirm?token=%s", baseURL, verifyToken)
-
-	subject := "Подтвердите ваш email — FitPulse"
-
-	body := buildVerificationHTML(toEmail, verifyToken, confirmURL)
-
-	msg := buildMessage(s.cfg.From, toEmail, subject, body)
-
-	addr := fmt.Sprintf("%s:%d", s.cfg.Host, s.cfg.Port)
-
-	if s.cfg.DryRun {
-		log.Printf("[email] DRY-RUN: не отправляю письмо на %s (subject=%q)", toEmail, subject)
-		return nil
-	}
-
-	var err error
-
-	if s.cfg.UseTLS {
-
-		err = sendWithTLSImpl(ctx, s.cfg, addr, toEmail, msg)
-
-	} else {
-
-		var auth smtp.Auth
-
-		if s.cfg.User != "" && s.cfg.Password != "" {
-
-			auth = smtp.PlainAuth("", s.cfg.User, s.cfg.Password, s.cfg.Host)
-
-		}
-
-		err = smtpSendMailFn(addr, auth, s.cfg.From, []string{toEmail}, []byte(msg))
-
-	}
-
-	s.mu.Lock()
-
-	if err == nil {
-
-		s.dailySent++
-
-	}
-
-	s.mu.Unlock()
-
+	toEmail, err := s.prepareSend(toEmail)
 	if err != nil {
-
-		return fmt.Errorf("send mail: %w", err)
-
+		return err
 	}
-
-	return nil
-
+	confirmURL := fmt.Sprintf("%s/confirm?token=%s", baseURL, verifyToken)
+	subject := "Подтвердите ваш email — FitPulse"
+	body := buildVerificationHTML(toEmail, verifyToken, confirmURL)
+	return s.deliverMessage(ctx, toEmail, subject, body)
 }
 
 // smtpSendMailFn is the actual implementation of smtp.SendMail.
@@ -475,4 +395,66 @@ func buildVerificationHTML(emailAddr, token, confirmURL string) string {
 		html.EscapeString(confirmURL),
 		html.EscapeString(token),
 	)
+}
+
+// prepareSend — общая часть SendVerificationEmail и SendPasswordResetEmail:
+// снимает CR/LF, валидирует адрес через net/mail, проверяет skip-домены и
+// дневной лимит. Вынесена, чтобы не дублировать ~35 строк в двух отправителях.
+func (s *SMTPClient) prepareSend(toEmail string) (string, error) {
+	// Защита от SMTP-инъекции: убираем CR/LF из адреса получателя.
+	toEmail = stripCRLF(toEmail)
+	// Валидация через net/mail — барьер для CodeQL и гарантия корректного
+	// конверта/заголовка без инъекций.
+	parsed, addrErr := mail.ParseAddress(toEmail)
+	if addrErr != nil {
+		return "", fmt.Errorf("invalid recipient address: %w", addrErr)
+	}
+	toEmail = parsed.Address
+
+	for _, domain := range s.cfg.SkipSendDomains {
+		if strings.HasSuffix(toEmail, "@"+domain) {
+			return "", fmt.Errorf("skipped: test domain %s", domain)
+		}
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.cfg.DailyLimit > 0 && s.dailySent >= s.cfg.DailyLimit {
+		return "", fmt.Errorf("daily email limit exceeded: %d/%d", s.dailySent, s.cfg.DailyLimit)
+	}
+	return toEmail, nil
+}
+
+// deliverMessage отправляет готовое письмо (DryRun/TLS/plain) и учитывает
+// дневной лимит. Тоже общая часть двух отправителей.
+func (s *SMTPClient) deliverMessage(ctx context.Context, toEmail, subject, body string) error {
+	msg := buildMessage(s.cfg.From, toEmail, subject, body)
+	addr := fmt.Sprintf("%s:%d", s.cfg.Host, s.cfg.Port)
+
+	if s.cfg.DryRun {
+		log.Printf("[email] DRY-RUN: не отправляю письмо на %s (subject=%q)", toEmail, subject)
+		return nil
+	}
+
+	var err error
+	if s.cfg.UseTLS {
+		err = sendWithTLSImpl(ctx, s.cfg, addr, toEmail, msg)
+	} else {
+		var auth smtp.Auth
+		if s.cfg.User != "" && s.cfg.Password != "" {
+			auth = smtp.PlainAuth("", s.cfg.User, s.cfg.Password, s.cfg.Host)
+		}
+		err = smtpSendMailFn(addr, auth, s.cfg.From, []string{toEmail}, []byte(msg))
+	}
+
+	s.mu.Lock()
+	if err == nil {
+		s.dailySent++
+	}
+	s.mu.Unlock()
+
+	if err != nil {
+		return fmt.Errorf("send mail: %w", err)
+	}
+	return nil
 }
