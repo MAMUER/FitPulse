@@ -1385,15 +1385,10 @@ func (g *gateway) yandexCallbackHandler(w http.ResponseWriter, r *http.Request) 
 	}
 	http.SetCookie(w, accessCookie)
 
-	if err := json.NewEncoder(w).Encode(map[string]interface{}{
-		"status":  "ok",
-		"user_id": grpcResp.GetUserId(),
-		"role":    grpcResp.GetRole(),
-	}); err != nil {
-
-		g.log.Error("Failed to encode Yandex login response", zap.Error(err))
-
-	}
+	// Браузер остаётся на странице колбэка, поэтому после успешного входа
+	// перенаправляем пользователя в приложение. Раньше здесь писался JSON
+	// ("status":"ok"), и пользователь видел голый JSON вместо главной страницы.
+	http.Redirect(w, r, "/", http.StatusFound)
 
 }
 

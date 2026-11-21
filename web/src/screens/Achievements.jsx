@@ -1,14 +1,20 @@
 import { useEffect, useState } from 'react';
-import EmptyState from '../components/EmptyState';
-import Panel from '../components/Panel';
 import { useApp } from '../contexts/AppContext';
 
+// Achievements — отдельная страница достижений. Раньше кнопки «Достижения» и
+// «Серия» в профиле просто скроллили к пустому блоку, а отдельного роута не было.
 export default function Achievements() {
-  const { state, t, go, loadAchievements } = useApp();
+  const { state, t, go, loadAchievements, showAchievement } = useApp();
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    loadAchievements().then(() => setLoading(false));
+    let cancelled = false;
+    Promise.resolve(loadAchievements()).finally(() => {
+      if (!cancelled) setLoading(false);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [loadAchievements]);
 
   const achievements =
@@ -16,48 +22,83 @@ export default function Achievements() {
       ? state.achievementsBackend
       : state.achievements || [];
 
-  let content;
-  if (loading) {
-    content = <EmptyState text={t('Загрузка...', 'Loading...')} />;
-  } else if (achievements.length === 0) {
-    content = <EmptyState text={t('Нет достижений', 'No achievements')} />;
-  } else {
-    content = (
-      <div className='achievements-grid'>
-        {achievements.map((ach, i) => (
-          <div
-            key={ach.id || ach.name || i}
-            className={`achievement-card ${ach.done || ach.achieved ? 'done' : ''}`}
-          >
-            <div className='achievement-icon'>
-              <i className={`fas ${ach.icon || 'fa-trophy'}`}></i>
-            </div>
-            <div className='achievement-name'>{ach.name}</div>
-            <div className='achievement-desc'>
-              {ach.desc || ach.description || ''}
-            </div>
-          </div>
-        ))}
-      </div>
-    );
-  }
+  const total = achievements.length;
+  const done = achievements.filter((item) => item.done || item.achieved).length;
+  const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+  const streak = state.streak || 0;
+  const maxStreak = state.maxStreak || 0;
 
   return (
-    <section className='achievements'>
-      <Panel
-        title={t('Достижения', 'Achievements')}
-        right={
-          <button
-            type='button'
-            className='secondary'
-            onClick={() => go('home')}
-          >
-            {t('Назад', 'Back')}
-          </button>
-        }
+    <section className='achievements-page'>
+      <div className='page-title'>
+        <div className='eyebrow'>FITPULSE ACHIEVEMENTS</div>
+        <h2>{t('Достижения', 'Achievements')}</h2>
+        <p>
+          {t(
+            'Награды за тренировки, серию и дисциплину.',
+            'Rewards for workouts, streaks and consistency.'
+          )}
+        </p>
+      </div>
+
+      <div className='fp-achievements-summary'>
+        <div className='fp-stat'>
+          <strong>
+            {done}/{total}
+          </strong>
+          <small>{t('получено', 'unlocked')}</small>
+        </div>
+        <div className='fp-stat'>
+          <strong>{pct}%</strong>
+          <small>{t('прогресс', 'progress')}</small>
+        </div>
+        <div className='fp-stat'>
+          <strong>{streak}</strong>
+          <small>{t('серия', 'streak')}</small>
+        </div>
+        <div className='fp-stat'>
+          <strong>{maxStreak}</strong>
+          <small>{t('рекорд', 'best')}</small>
+        </div>
+      </div>
+
+      <div className='fp-progress-line'>
+        <i style={{ width: `${pct}%` }} />
+      </div>
+
+      {loading ? (
+        <p className='muted'>{t('Загрузка...', 'Loading...')}</p>
+      ) : total === 0 ? (
+        <p className='muted'>{t('Нет достижений', 'No achievements')}</p>
+      ) : (
+        <div className='grid-2'>
+          {achievements.map((achievement, index) => {
+            const isDone = Boolean(achievement.done || achievement.achieved);
+            const icon = achievement.icon || 'fa-trophy';
+            const key = achievement.id ?? achievement.name ?? index;
+            return (
+              <button
+                type='button'
+                key={key}
+                className={`achievement-card ${isDone ? 'done' : ''}`}
+                onClick={() => showAchievement?.(achievement.name)}
+              >
+                <i className={`fas ${icon}`} />
+                <strong>{achievement.name}</strong>
+                <small>{achievement.desc || achievement.description}</small>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      <button
+        type='button'
+        className='secondary full'
+        onClick={() => go('home')}
       >
-        <div className='panel-body'>{content}</div>
-      </Panel>
+        <i className='fas fa-arrow-left' /> {t('Назад', 'Back')}
+      </button>
     </section>
   );
 }

@@ -162,11 +162,22 @@ export function AppProvider({ children }) {
   // `registered` (а не `authenticated`) тянул СРАЗУ все данные — на /login это
   // давало шесть запросов в 404 (profile, biometrics, training, conditions,
   // menstrual-cycles, body-composition) и мусор в консоли браузера.
+  //
+  // На экранах login/register/reset сессию не валидируем вообще: AuthMiddleware
+  // намеренно отдаёт 404 вместо 401, поэтому запрос с /login выглядел как ошибка.
+  // Ориентируемся на реальный pathname, а не на state.screen: он по умолчанию
+  // 'login' и не годится как признак «мы на странице входа».
+  const pathname =
+    typeof window === 'undefined' ? '' : window.location.pathname || '';
+  const authScreen =
+    pathname === '/login' || pathname === '/register' || pathname === '/reset';
+
   useEffect(() => {
+    if (authScreen) return;
     if (state.registered && !state.profileLoaded) {
       void profile.loadProfile();
     }
-  }, [state.registered, state.profileLoaded, profile.loadProfile]);
+  }, [authScreen, state.registered, state.profileLoaded, profile.loadProfile]);
 
   // Данные грузим только после успешной проверки сессии (loadProfile выставит
   // authenticated: true). Если сессия мертва — запросов не будет вообще.
@@ -195,7 +206,6 @@ export function AppProvider({ children }) {
       formatRelativeDate,
       notify,
       update,
-      // Гостевой режим удалён: редактировать может только авторизованный.
       canEdit: state.authenticated !== false,
       ...auth,
       ...navigation,

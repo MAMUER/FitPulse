@@ -187,10 +187,6 @@ function getText(key: TextKey, config: (typeof CONFIGS)[number]) {
   return map[config.lang]?.[key] ?? key;
 }
 
-// ---------------------------------------------------------------------------
-// Реальный пользователь для E2E (гостевой режим удалён). Логин/пароль берутся
-// ТОЛЬКО из SEED_ADMIN_EMAIL / SEED_ADMIN_PASSWORD (в CI — GitHub secrets).
-// Никаких хардкод-креденшелов: если их нет — авторизованные тесты пропускаются.
 const ADMIN_EMAIL = process.env.SEED_ADMIN_EMAIL ?? '';
 const ADMIN_PASSWORD = process.env.SEED_ADMIN_PASSWORD ?? '';
 const HAS_AUTH = Boolean(process.env.BASE_URL && ADMIN_EMAIL && ADMIN_PASSWORD);

@@ -209,19 +209,23 @@ describe('useProfile', () => {
     expect(notify).toHaveBeenCalledWith('Ошибка обновления профиля');
   });
 
-  it('changePassword updates profile', () => {
+  it('changePassword updates profile', async () => {
     setup();
     setValue('oldPass', 'oldpass');
     setValue('newPass', 'newpass');
     setValue('newPass2', 'newpass');
-    result.current.changePassword();
+    api.changePassword.mockResolvedValue({ status: 'ok' });
+
+    await result.current.changePassword();
+
     expect(api.changePassword).toHaveBeenCalledWith(
       'oldpass',
       'newpass',
       'newpass'
     );
+    // Пароль в state не храним — только сбрасываем поле.
     expect(update).toHaveBeenCalledWith({
-      profile: { ...state.profile, password: 'newpass' },
+      profile: { ...state.profile, password: '' },
     });
     expect(notify).toHaveBeenCalledWith('Пароль изменён');
   });
@@ -570,14 +574,19 @@ describe('useProfile', () => {
     expect(update).toHaveBeenCalledWith({ selectedAchievement: null });
   });
 
-  it('changePassword with empty inputs notifies nothing extra', () => {
+  it('changePassword with empty inputs notifies nothing extra', async () => {
     setup();
     for (const id of ['oldPass', 'newPass', 'newPass2']) {
       const el = document.getElementById(id);
       if (el) el.value = '';
     }
-    result.current.changePassword();
-    expect(update).toHaveBeenCalled();
+    // Явный мок: vi.clearAllMocks() не сбрасывает реализации,
+    // а предыдущий тест мог оставить mockImplementation с throw.
+    api.changePassword.mockResolvedValue({ status: 'ok' });
+
+    await result.current.changePassword();
+
+    expect(notify).toHaveBeenCalledWith('Пароль изменён');
   });
 
   it('showDevices pops when empty name', () => {

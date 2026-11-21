@@ -44,12 +44,74 @@ export default function Ai() {
     ],
   ];
 
+  const prettyValue = (value) => {
+    if (value === null || value === undefined) return '—';
+    if (Array.isArray(value)) return value.join(', ');
+    if (typeof value === 'object') return JSON.stringify(value);
+    return String(value);
+  };
+
+  // Рендер структурированного ответа AI. Раньше здесь был <pre>{JSON.stringify(...)}</pre>,
+  // поэтому пользователь видел сырой JSON вместо плана питания.
+  const renderData = (data) => {
+    if (!data || typeof data !== 'object') return null;
+
+    // План питания: { goal_label, total_kcal, meals: [...] }
+    if (Array.isArray(data.meals)) {
+      return (
+        <div className='ai-meals'>
+          {(data.goal_label || data.total_kcal) && (
+            <p className='muted fs-10'>
+              {data.goal_label || ''}
+              {data.total_kcal
+                ? ` · ${data.total_kcal} ${t('ккал', 'kcal')}`
+                : ''}
+              {data.water_ml ? ` · ${data.water_ml} мл` : ''}
+            </p>
+          )}
+          {data.meals.map((meal, index) => (
+            <div className='ai-meal' key={meal.name || index}>
+              <div className='between'>
+                <strong>{meal.name || t('Приём пищи', 'Meal')}</strong>
+                <span className='muted fs-10'>{meal.time || ''}</span>
+              </div>
+              {meal.description && (
+                <p className='muted fs-10'>{meal.description}</p>
+              )}
+              <div className='ai-meal-macros'>
+                <span>
+                  {meal.kcal ?? 0} {t('ккал', 'kcal')}
+                </span>
+                <span>Б {meal.protein_g ?? 0}</span>
+                <span>Ж {meal.fat_g ?? 0}</span>
+                <span>У {meal.carbs_g ?? 0}</span>
+              </div>
+            </div>
+          ))}
+          {data.note && <p className='muted fs-10'>{data.note}</p>}
+        </div>
+      );
+    }
+
+    // Общий случай: список «ключ — значение» вместо JSON-дампа.
+    return (
+      <dl className='ai-kv'>
+        {Object.entries(data).map(([key, value]) => (
+          <div className='ai-kv-row' key={key}>
+            <dt>{key.replace(/_/g, ' ')}</dt>
+            <dd>{prettyValue(value)}</dd>
+          </div>
+        ))}
+      </dl>
+    );
+  };
+
   const renderBlock = (data, title) => {
     if (!data) return null;
     return (
       <div className='ai-block'>
         <div className='ai-block-title'>{title}</div>
-        <pre className='ai-block-pre'>{JSON.stringify(data, null, 2)}</pre>
+        {renderData(data)}
       </div>
     );
   };

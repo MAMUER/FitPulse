@@ -63,8 +63,10 @@ func getEnvOrFile(name string) string {
 		return v
 	}
 	if path := os.Getenv(name + "_FILE"); path != "" {
-		//nolint:gosec // G304: путь берётся из доверенного env (файл из k8s-секрета).
-		if b, err := os.ReadFile(path); err == nil {
+		// #nosec G304,G703 -- путь приходит из доверенного env (файл из k8s-секрета),
+		// а не из пользовательского ввода. gosec не читает //nolint, поэтому подавление
+		// указано на той же строке, что и вызов os.ReadFile.
+		if b, err := os.ReadFile(path); err == nil { // #nosec G304,G703
 			return strings.TrimSpace(string(b))
 		}
 	}

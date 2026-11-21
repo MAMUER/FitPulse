@@ -3628,6 +3628,101 @@ textarea:focus {
   gap: 8px;
 }
 
+/* Плитки статистики в профиле (Серия / Событий / Достижений / Друзей).
+   Класса .stat в CSS не было вообще — браузер рисовал дефолтную кнопку,
+   поэтому в тёмной теме они были белыми, а в светлой — чёрными. */
+.profile-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 10px 8px;
+  color: var(--text);
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  font: inherit;
+  text-align: center;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.stat b {
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.1;
+}
+
+.stat small {
+  color: var(--muted);
+  font-size: 9px;
+}
+
+.stat:hover {
+  border-color: var(--gold);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stat {
+    transition: none;
+  }
+}
+
+/* Карточки структурированных ответов AI (план питания / тренировок).
+   Раньше выводился <pre> с JSON — теперь это нормальный список. */
+.ai-meals {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ai-meal {
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--card);
+}
+
+.ai-meal-macros {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 9px;
+}
+
+.ai-kv {
+  margin: 0;
+}
+
+.ai-kv-row {
+  display: grid;
+  grid-template-columns: minmax(90px, 34%) 1fr;
+  gap: 8px;
+  padding: 5px 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 10px;
+}
+
+.ai-kv-row dt {
+  color: var(--muted);
+  text-transform: capitalize;
+}
+
+.ai-kv-row dd {
+  margin: 0;
+  color: var(--text);
+  word-break: break-word;
+}
+
 .setting {
   width: 100%;
   display: flex;

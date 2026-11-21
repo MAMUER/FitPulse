@@ -12,23 +12,24 @@ vi.mock('../contexts/AppContext', async () => {
   };
 });
 
-const baseContext = (overrides = {}) => ({
-  state: {
-    screen: 'achievements',
-    theme: 'dark',
-    highContrast: false,
-    language: 'ru',
-    achievements: [],
-    achievementsBackend: [],
-    ...overrides.state,
-  },
-  t: (ru, _en) => ru,
-  go: vi.fn(),
-  loadAchievements: vi.fn(() => Promise.resolve()),
-  ...overrides,
-});
+function makeContext(overrides = {}) {
+  return {
+    state: {
+      achievements: [],
+      achievementsBackend: [],
+      streak: 0,
+      maxStreak: 0,
+      ...overrides.state,
+    },
+    t: (ru) => ru,
+    go: vi.fn(),
+    loadAchievements: vi.fn(() => Promise.resolve()),
+    showAchievement: vi.fn(),
+    ...overrides,
+  };
+}
 
-function renderAchievements(context) {
+function renderPage(context) {
   useApp.mockReturnValue(context);
   return render(
     <BrowserRouter>
@@ -39,159 +40,201 @@ function renderAchievements(context) {
   );
 }
 
+async function settle() {
+  await act(async () => {
+    await Promise.resolve();
+  });
+}
+
 describe('Achievements', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it('renders achievements screen', async () => {
-    renderAchievements(baseContext());
+  it('loads achievements on mount and renders the title', async () => {
+    const loadAchievements = vi.fn(() => Promise.resolve());
+    renderPage(makeContext({ loadAchievements }));
+
     expect(screen.getByText('Достижения')).toBeInTheDocument();
-    // The screen loads achievements in an effect; flush it inside act().
-    await act(async () => {});
+    expect(loadAchievements).toHaveBeenCalledTimes(1);
+    await settle();
   });
 
-  it('shows loading state initially', async () => {
-    renderAchievements(baseContext());
+  it('shows a loading marker until the request settles', async () => {
+    renderPage(makeContext());
     expect(screen.getByText('Загрузка...')).toBeInTheDocument();
-    await act(async () => {});
+    await waitFor(() => {
+      expect(screen.queryByText('Загрузка...')).not.toBeInTheDocument();
+    });
   });
 
-  it('shows no achievements when empty after loading completes', async () => {
-    renderAchievements(baseContext());
+  it('shows an empty state when there are no achievements', async () => {
+    renderPage(makeContext());
     await waitFor(() => {
       expect(screen.queryByText('Загрузка...')).not.toBeInTheDocument();
     });
     expect(screen.getByText('Нет достижений')).toBeInTheDocument();
   });
 
-  it('loads achievements on mount', async () => {
-    const loadAchievements = vi.fn(() => Promise.resolve());
-    renderAchievements(baseContext({ loadAchievements }));
-    expect(loadAchievements).toHaveBeenCalledTimes(1);
-    await act(async () => {});
-  });
-
   it('renders achievements from achievementsBackend', async () => {
-    const achievementsBackend = [
-      {
-        id: 1,
-        name: 'Первый шаг',
-        desc: 'Проведите первую тренировку',
-        icon: 'fa-star',
-        done: true,
-      },
-      {
-        id: 2,
-        name: 'Марфетка',
-        description: 'Наберите 100 очков',
-        achieved: false,
-      },
-    ];
-    renderAchievements(baseContext({ state: { achievementsBackend } }));
-    await waitFor(() => {
-      expect(screen.queryByText('Загрузка...')).not.toBeInTheDocument();
-    });
-    expect(screen.getByText('Первый шаг')).toBeInTheDocument();
-    expect(screen.getByText('Марфетка')).toBeInTheDocument();
-    expect(screen.getByText('Проведите первую тренировку')).toBeInTheDocument();
-    expect(screen.getByText('Наберите 100 очков')).toBeInTheDocument();
-  });
-
-  it('falls back to state.achievements when backend is empty', async () => {
-    const achievements = [{ name: 'Тест', desc: 'Описание' }];
-    renderAchievements(
-      baseContext({ state: { achievementsBackend: [], achievements } })
+    renderPage(
+      makeContext({
+        state: {
+          achievementsBackend: [
+            {
+              id: 1,
+              name: 'Первый шаг',
+              desc: 'Проведите первую тренировку',
+              done: true,
+            },
+            { id: 2, name: 'Марафон', description: 'Наберите 100 очков' },
+          ],
+        },
+      })
     );
     await waitFor(() => {
       expect(screen.queryByText('Загрузка...')).not.toBeInTheDocument();
     });
+
+    expect(screen.getByText('Первый шаг')).toBeInTheDocument();
+    expect(screen.getByText('Проведите первую тренировку')).toBeInTheDocument();
+    expect(screen.getByText('Марафон')).toBeInTheDocument();
+    expect(screen.getByText('Наберите 100 очков')).toBeInTheDocument();
+  });
+
+  it('falls back to state.achievements when the backend list is empty', async () => {
+    renderPage(
+      makeContext({
+        state: {
+          achievementsBackend: [],
+          achievements: [{ name: 'Тест', desc: 'Описание' }],
+        },
+      })
+    );
+    await waitFor(() => {
+      expect(screen.queryByText('Загрузка...')).not.toBeInTheDocument();
+    });
+
     expect(screen.getByText('Тест')).toBeInTheDocument();
     expect(screen.getByText('Описание')).toBeInTheDocument();
   });
 
-  it('renders default icon when no icon provided', async () => {
-    const achievementsBackend = [{ id: 1, name: 'Без иконки' }];
-    renderAchievements(baseContext({ state: { achievementsBackend } }));
+  it('marks cards done when done=true or achieved=true', async () => {
+    renderPage(
+      makeContext({
+        state: {
+          achievementsBackend: [
+            { id: 1, name: 'Готово', done: true },
+            { id: 2, name: 'Достигнуто', achieved: true },
+            { id: 3, name: 'Не готово' },
+          ],
+        },
+      })
+    );
     await waitFor(() => {
       expect(screen.queryByText('Загрузка...')).not.toBeInTheDocument();
     });
-    const nameElement = screen.getByText('Без иконки');
-    const card = nameElement.closest('.achievement-card');
-    expect(card.querySelector('.fa-trophy')).toBeInTheDocument();
+
+    expect(document.querySelectorAll('.achievement-card.done')).toHaveLength(2);
   });
 
-  it('renders custom icon when provided', async () => {
-    const achievementsBackend = [
-      { id: 1, name: 'Со звездой', icon: 'fa-star' },
-    ];
-    renderAchievements(baseContext({ state: { achievementsBackend } }));
+  it('uses fa-trophy when no icon is provided and the given icon otherwise', async () => {
+    renderPage(
+      makeContext({
+        state: {
+          achievementsBackend: [
+            { id: 1, name: 'Без иконки' },
+            { id: 2, name: 'Со звездой', icon: 'fa-star' },
+          ],
+        },
+      })
+    );
     await waitFor(() => {
       expect(screen.queryByText('Загрузка...')).not.toBeInTheDocument();
     });
-    const nameElement = screen.getByText('Со звездой');
-    const card = nameElement.closest('.achievement-card');
-    expect(card.querySelector('.fa-star')).toBeInTheDocument();
+
+    const plain = screen.getByText('Без иконки').closest('.achievement-card');
+    expect(plain?.querySelector('.fa-trophy')).toBeInTheDocument();
+
+    const starred = screen.getByText('Со звездой').closest('.achievement-card');
+    expect(starred?.querySelector('.fa-star')).toBeInTheDocument();
   });
 
-  it('applies done class when achievement is done', async () => {
-    const achievementsBackend = [{ id: 1, name: 'Готово', done: true }];
-    renderAchievements(baseContext({ state: { achievementsBackend } }));
+  it('shows summary counters and progress', async () => {
+    renderPage(
+      makeContext({
+        state: {
+          streak: 5,
+          maxStreak: 12,
+          achievementsBackend: [
+            { id: 1, name: 'A', done: true },
+            { id: 2, name: 'B', done: true },
+            { id: 3, name: 'C' },
+            { id: 4, name: 'D' },
+          ],
+        },
+      })
+    );
     await waitFor(() => {
       expect(screen.queryByText('Загрузка...')).not.toBeInTheDocument();
     });
-    const cards = document.querySelectorAll('.achievement-card.done');
-    expect(cards.length).toBe(1);
+
+    expect(screen.getByText('2/4')).toBeInTheDocument();
+    expect(screen.getByText('50%')).toBeInTheDocument();
+    expect(screen.getByText('5')).toBeInTheDocument();
+    expect(screen.getByText('12')).toBeInTheDocument();
   });
 
-  it('applies done class when achievement is achieved', async () => {
-    const achievementsBackend = [{ id: 1, name: 'Достигнуто', achieved: true }];
-    renderAchievements(baseContext({ state: { achievementsBackend } }));
-    await waitFor(() => {
-      expect(screen.queryByText('Загрузка...')).not.toBeInTheDocument();
-    });
-    const cards = document.querySelectorAll('.achievement-card.done');
-    expect(cards.length).toBe(1);
-  });
-
-  it('does not apply done class when not done', async () => {
-    const achievementsBackend = [{ id: 1, name: 'Не готово' }];
-    renderAchievements(baseContext({ state: { achievementsBackend } }));
-    await waitFor(() => {
-      expect(screen.queryByText('Загрузка...')).not.toBeInTheDocument();
-    });
-    const cards = document.querySelectorAll('.achievement-card.done');
-    expect(cards.length).toBe(0);
-  });
-
-  it('uses key fallback when id and name missing', async () => {
-    const achievementsBackend = [{ desc: 'Описание только' }];
-    renderAchievements(baseContext({ state: { achievementsBackend } }));
-    await waitFor(() => {
-      expect(screen.queryByText('Загрузка...')).not.toBeInTheDocument();
-    });
-    expect(screen.getByText('Описание только')).toBeInTheDocument();
-  });
-
-  it('navigates back home', async () => {
+  it('navigates home from the back button', async () => {
     const go = vi.fn();
-    renderAchievements(baseContext({ go }));
+    renderPage(makeContext({ go }));
+    await settle();
+
     screen.getByText('Назад').click();
     expect(go).toHaveBeenCalledWith('home');
-    await act(async () => {});
   });
 
-  it('uses English translations when language is en', async () => {
-    const enContext = baseContext({
-      state: { language: 'en' },
-      t: (_ru, en) => en,
+  it('opens the achievement detail via showAchievement', async () => {
+    const showAchievement = vi.fn();
+    renderPage(
+      makeContext({
+        showAchievement,
+        state: { achievementsBackend: [{ id: 1, name: 'Первый шаг' }] },
+      })
+    );
+    await waitFor(() => {
+      expect(screen.queryByText('Загрузка...')).not.toBeInTheDocument();
     });
-    renderAchievements(enContext);
+
+    screen.getByText('Первый шаг').click();
+    expect(showAchievement).toHaveBeenCalledWith('Первый шаг');
+  });
+
+  it('uses English labels when t() returns the English string', async () => {
+    renderPage(
+      makeContext({
+        t: (_ru, en) => en,
+      })
+    );
     await waitFor(() => {
       expect(screen.queryByText('Loading...')).not.toBeInTheDocument();
     });
+
     expect(screen.getByText('Achievements')).toBeInTheDocument();
-    expect(screen.getByText('Back')).toBeInTheDocument();
     expect(screen.getByText('No achievements')).toBeInTheDocument();
+    expect(screen.getByText('Back')).toBeInTheDocument();
+  });
+
+  it('does not crash when an achievement has neither id nor name', async () => {
+    renderPage(
+      makeContext({
+        state: { achievementsBackend: [{ desc: 'Только описание' }] },
+      })
+    );
+    await waitFor(() => {
+      expect(screen.queryByText('Загрузка...')).not.toBeInTheDocument();
+    });
+
+    expect(screen.getByText('Только описание')).toBeInTheDocument();
   });
 });

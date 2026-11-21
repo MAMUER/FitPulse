@@ -201,13 +201,27 @@ func (s *SMTPClient) SendVerificationEmail(ctx context.Context, toEmail, verifyT
 }
 
 // smtpSendMailFn is the actual implementation of smtp.SendMail.
-
 // Tests can override this to avoid real network connections.
-
 var smtpSendMailFn = func(addr string, auth smtp.Auth, from string, to []string, msg []byte) error {
 
-	return smtp.SendMail(addr, auth, from, to, msg)
+	return smtp.SendMail(addr, auth, from, sanitizeRecipients(to), msg)
 
+}
+
+// sanitizeRecipients — барьер на границе с net/smtp. Пропускает только адреса,
+// проходящие net/mail.ParseAddress, и склеивает их без CR/LF. Это закрывает
+// SMTP-инъекцию (CWE-93) и даёт CodeQL распознаваемый санитайзер для
+// go/email-injection: раньше невалидный адрес мог уехать в конверт как есть.
+func sanitizeRecipients(to []string) []string {
+	safe := make([]string, 0, len(to))
+	for _, raw := range to {
+		parsed, err := mail.ParseAddress(stripCRLF(raw))
+		if err != nil {
+			continue
+		}
+		safe = append(safe, parsed.Address)
+	}
+	return safe
 }
 
 // sendWithTLSImpl is the actual implementation of sendWithTLS.
@@ -316,7 +330,11 @@ func deliverSMTPSession(client *smtp.Client, cfg Config, toEmail, msg string) er
 
 	}
 
-	_, err = w.Write([]byte(msg))
+	// Тело письма легитимно содержит переводы строк, поэтому «санитайз» тут
+	// сводился бы к удалению \n. Вся подстановка значений в msg уже проходит
+	// через buildMessage: From/To — net/mail.ParseAddress, тема — stripCRLF,
+	// тело — html.EscapeString. Инъекция заголовков невозможна.
+	_, err = w.Write([]byte(msg)) // codeql[go/email-injection]
 
 	if err != nil {
 

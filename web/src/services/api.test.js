@@ -14,18 +14,18 @@ beforeEach(() => {
 describe('auth', () => {
   it('login posts credentials and returns data', async () => {
     mocked.mockResolvedValue({ token: 'abc' });
-    await expect(api.login('user@example.com', 'secret1')).resolves.toEqual({
+    await expect(api.login('user@example.com', 'secret12')).resolves.toEqual({
       token: 'abc',
     });
     expect(mocked).toHaveBeenCalledWith('/api/v1/login', {
       method: 'POST',
-      body: JSON.stringify({ email: 'user@example.com', password: 'secret1' }),
+      body: JSON.stringify({ email: 'user@example.com', password: 'secret12' }),
     });
   });
 
   it('login propagates errors', async () => {
     mocked.mockRejectedValue(new Error('Backend 500'));
-    await expect(api.login('user@example.com', 'secret1')).rejects.toThrow(
+    await expect(api.login('user@example.com', 'secret12')).rejects.toThrow(
       'Backend 500'
     );
   });
@@ -41,14 +41,16 @@ describe('auth', () => {
 
   it('register posts and returns data', async () => {
     mocked.mockResolvedValue({ status: 'ok' });
-    await expect(api.register('a@b.com', 'secret1', 'Alice')).resolves.toEqual({
-      status: 'ok',
-    });
+    await expect(api.register('a@b.com', 'secret12', 'Alice')).resolves.toEqual(
+      {
+        status: 'ok',
+      }
+    );
     expect(mocked).toHaveBeenCalledWith('/api/v1/register', {
       method: 'POST',
       body: JSON.stringify({
         email: 'a@b.com',
-        password: 'secret1',
+        password: 'secret12',
         full_name: 'Alice',
         role: 'client',
       }),
@@ -56,26 +58,28 @@ describe('auth', () => {
   });
 
   it('register validates fields', async () => {
-    await expect(api.register('', 'secret1', 'Alice')).rejects.toThrow(
+    await expect(api.register('', 'secret12', 'Alice')).rejects.toThrow(
       'Заполните все поля'
     );
     await expect(api.register('a@b.com', '', 'Alice')).rejects.toThrow(
       'Заполните все поля'
     );
-    await expect(api.register('a@b.com', 'secret1', '')).rejects.toThrow(
+    await expect(api.register('a@b.com', 'secret12', '')).rejects.toThrow(
       'Заполните все поля'
     );
     await expect(api.register('a@b.com', '12345', 'Alice')).rejects.toThrow(
-      'Пароль должен содержать минимум 6 символов'
+      'Пароль должен содержать минимум 8 символов'
     );
     expect(mocked).not.toHaveBeenCalled();
   });
 
-  it('register accepts a six character password', async () => {
+  it('register accepts an eight character password', async () => {
     mocked.mockResolvedValue({ status: 'ok' });
-    await expect(api.register('a@b.com', '123456', 'Alice')).resolves.toEqual({
-      status: 'ok',
-    });
+    await expect(api.register('a@b.com', '12345678', 'Alice')).resolves.toEqual(
+      {
+        status: 'ok',
+      }
+    );
     expect(mocked).toHaveBeenCalledWith(
       '/api/v1/register',
       expect.objectContaining({ method: 'POST' })
@@ -239,20 +243,25 @@ describe('profile', () => {
     });
   });
 
-  it('changePassword validates input', () => {
-    expect(api.changePassword('old', 'newsecret', 'newsecret')).toEqual({
-      oldPass: 'old',
-      newPass: 'newsecret',
+  it('changePassword validates input', async () => {
+    mocked.mockResolvedValue({ status: 'ok' });
+    // Реальный вызов бэкенда: POST /api/v1/auth/change-password.
+    await expect(
+      api.changePassword('old', 'newsecret', 'newsecret')
+    ).resolves.toEqual({ status: 'ok' });
+    expect(mocked).toHaveBeenCalledWith('/api/v1/auth/change-password', {
+      method: 'POST',
+      body: JSON.stringify({ old_password: 'old', new_password: 'newsecret' }),
     });
-    expect(() => api.changePassword('', 'newsecret', 'newsecret')).toThrow(
-      'Введите старый пароль'
+    await expect(
+      api.changePassword('', 'newsecret', 'newsecret')
+    ).rejects.toThrow('Введите старый пароль');
+    await expect(api.changePassword('old', '12345', '12345')).rejects.toThrow(
+      'Пароль должен содержать минимум 8 символов'
     );
-    expect(() => api.changePassword('old', '12345', '12345')).toThrow(
-      'Пароль должен содержать минимум 6 символов'
-    );
-    expect(() => api.changePassword('old', 'newsecret', 'other')).toThrow(
-      'Пароли не совпадают'
-    );
+    await expect(
+      api.changePassword('old', 'newsecret', 'other')
+    ).rejects.toThrow('Пароли не совпадают');
   });
 
   it('deleteAccount clears merged storage and returns true', async () => {

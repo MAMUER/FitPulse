@@ -20,8 +20,8 @@ export async function register(email, password, fullName, role = 'client') {
   if (!email || !password || !fullName) {
     throw new Error('Заполните все поля');
   }
-  if (password.length < 6) {
-    throw new Error('Пароль должен содержать минимум 6 символов');
+  if (password.length < 8) {
+    throw new Error('Пароль должен содержать минимум 8 символов');
   }
   // Возвращаем промис напрямую (как в login), без внутреннего await —
   // иначе SonarJS неверно выводит тип возврата и считает await у вызывающего
@@ -474,17 +474,24 @@ export async function deleteMenstrualCycle(cycleId) {
   return data;
 }
 
-export function changePassword(oldPass, newPass, confirmPass) {
+export async function changePassword(oldPass, newPass, confirmPass) {
   if (!oldPass) {
     throw new Error('Введите старый пароль');
   }
-  if (newPass.length < 6) {
-    throw new Error('Пароль должен содержать минимум 6 символов');
+  // Минимум 8 — синхронно с validator.ValidateRegisterRequest на бэкенде.
+  if (newPass.length < 8) {
+    throw new Error('Пароль должен содержать минимум 8 символов');
   }
   if (newPass !== confirmPass) {
     throw new Error('Пароли не совпадают');
   }
-  return { oldPass, newPass };
+  // Раньше функция ничего не отправляла — возвращала {oldPass,newPass} как заглушку,
+  // поэтому кнопка «Изменить пароль» не делала ничего. Реальный эндпоинт:
+  // POST /api/v1/auth/change-password (проверяет текущий пароль и отзывает refresh-токены).
+  return backendRequest('/api/v1/auth/change-password', {
+    method: 'POST',
+    body: JSON.stringify({ old_password: oldPass, new_password: newPass }),
+  });
 }
 
 export async function deleteAccount() {

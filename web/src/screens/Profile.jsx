@@ -27,10 +27,9 @@ export default function Profile() {
     deleteAccount,
     uploadPhoto,
     removePhoto,
-    editProfile,
+    saveProfile,
     showDevices,
     showRestrictions,
-    nutritionSettings,
     searchUsers,
     sendFriendRequest,
     loadFriendRequests,
@@ -43,6 +42,28 @@ export default function Profile() {
   const [passwordOpen, setPasswordOpen] = useState(false);
   const [friendModalOpen, setFriendModalOpen] = useState(false);
   const [friendSearch, setFriendSearch] = useState('');
+  const [editOpen, setEditOpen] = useState(false);
+  const [editForm, setEditForm] = useState({ name: '', gender: '', age: '' });
+
+  const openEditProfile = () => {
+    setEditForm({
+      name: state.profile?.name || '',
+      gender: state.profile?.gender || '',
+      age: state.profile?.age ? String(state.profile.age) : '',
+    });
+    setEditOpen(true);
+  };
+
+  const handleSaveProfile = async () => {
+    setLoading(true);
+    const ok = await saveProfile({
+      full_name: editForm.name,
+      gender: editForm.gender,
+      age: Number(editForm.age) || 0,
+    });
+    setLoading(false);
+    if (ok) setEditOpen(false);
+  };
 
   useEffect(() => {
     loadProfile();
@@ -97,9 +118,14 @@ export default function Profile() {
     if (deleteAccount()) go('login');
   };
 
-  const handleSavePassword = () => {
-    changePassword();
-    setPasswordOpen(false);
+  const handleSavePassword = async () => {
+    setLoading(true);
+    const ok = await changePassword();
+    setLoading(false);
+    // Закрываем модалку только при успехе, иначе пользователь не видит ошибку.
+    if (ok) {
+      setPasswordOpen(false);
+    }
   };
 
   return (
@@ -133,38 +159,33 @@ export default function Profile() {
               {state.profile?.status || t('Активен', 'Active')} ·{' '}
               {state.activeDays || 0} {t('активных дней', 'active days')}
             </div>
-            {canEdit && (
-              <div className='profile-photo-actions'>
-                <label className='upload-btn'>
-                  <i className='fas fa-camera' />{' '}
-                  {state.profileImage
-                    ? t('Изменить фото', 'Change photo')
-                    : t('Добавить фото', 'Add photo')}
-                  <input type='file' accept='image/*' onChange={uploadPhoto} />
-                </label>
-                {state.profileImage && (
-                  <button
-                    type='button'
-                    className='upload-btn danger'
-                    onClick={removePhoto}
-                  >
-                    <i className='fas fa-trash' />{' '}
-                    {t('Удалить фото', 'Remove photo')}
-                  </button>
-                )}
-              </div>
-            )}
+            {/* Фото доступно всегда: раньше кнопка пряталась за canEdit и её не было видно. */}
+            <div className='profile-photo-actions'>
+              <label className='upload-btn'>
+                <i className='fas fa-camera' />{' '}
+                {state.profileImage
+                  ? t('Изменить фото', 'Change photo')
+                  : t('Добавить фото', 'Add photo')}
+                <input type='file' accept='image/*' onChange={uploadPhoto} />
+              </label>
+              {state.profileImage && (
+                <button
+                  type='button'
+                  className='upload-btn danger'
+                  onClick={removePhoto}
+                >
+                  <i className='fas fa-trash' />{' '}
+                  {t('Удалить фото', 'Remove photo')}
+                </button>
+              )}
+            </div>
           </div>
         </div>
         <div className='profile-stats'>
           <button
             type='button'
             className='stat'
-            onClick={() =>
-              document
-                .getElementById('achievements')
-                ?.scrollIntoView({ behavior: 'smooth' })
-            }
+            onClick={() => go('achievements')}
           >
             <b>{streak}</b>
             <small>{t('Серия', 'Streak')}</small>
@@ -176,11 +197,7 @@ export default function Profile() {
           <button
             type='button'
             className='stat'
-            onClick={() =>
-              document
-                .getElementById('achievements')
-                ?.scrollIntoView({ behavior: 'smooth' })
-            }
+            onClick={() => go('achievements')}
           >
             <b>
               {completedAchievements}/{achievements.length}
@@ -380,7 +397,11 @@ export default function Profile() {
           </span>
           <i className='fas fa-chevron-right' />
         </button>
-        <button type='button' className='setting' onClick={nutritionSettings}>
+        <button
+          type='button'
+          className='setting'
+          onClick={() => go('nutrition')}
+        >
           <i className='fas fa-utensils' />
           <span>
             {t('Питание', 'Nutrition')}
@@ -393,13 +414,11 @@ export default function Profile() {
           </span>
           <i className='fas fa-chevron-right' />
         </button>
-        <button type='button' className='setting' onClick={editProfile}>
+        <button type='button' className='setting' onClick={openEditProfile}>
           <i className='fas fa-user-edit' />
           <span>
             {t('Редактировать профиль', 'Edit profile')}
-            <small>
-              {t('Имя, пол, email, телефон', 'Name, gender, email, phone')}
-            </small>
+            <small>{t('Имя, пол, возраст', 'Name, gender, age')}</small>
           </span>
           <i className='fas fa-chevron-right' />
         </button>
@@ -549,6 +568,76 @@ export default function Profile() {
               type='button'
               className='primary full'
               onClick={handleSavePassword}
+            >
+              {t('Сохранить', 'Save')}
+            </button>
+          </section>
+        </Modal>
+      )}
+
+      {editOpen && (
+        <Modal
+          className='fp-profile-modal'
+          label={t('Редактировать профиль', 'Edit profile')}
+          onClose={() => setEditOpen(false)}
+        >
+          <section className='fp-profile-box'>
+            <div className='between'>
+              <h2>{t('Редактировать профиль', 'Edit profile')}</h2>
+              <button
+                type='button'
+                className='icon'
+                aria-label={t('Закрыть', 'Close')}
+                onClick={() => setEditOpen(false)}
+              >
+                ×
+              </button>
+            </div>
+            <label className='form-label'>
+              {t('Имя', 'Name')}
+              <input
+                value={editForm.name}
+                onChange={(e) =>
+                  setEditForm({ ...editForm, name: e.target.value })
+                }
+              />
+            </label>
+            <label className='form-label'>
+              {t('Пол', 'Gender')}
+              <select
+                value={editForm.gender}
+                onChange={(e) =>
+                  setEditForm({ ...editForm, gender: e.target.value })
+                }
+              >
+                <option value=''>{t('Не указан', 'Not specified')}</option>
+                <option value='male'>{t('Мужской', 'Male')}</option>
+                <option value='female'>{t('Женский', 'Female')}</option>
+                <option value='other'>{t('Другой', 'Other')}</option>
+              </select>
+            </label>
+            <label className='form-label'>
+              {t('Возраст', 'Age')}
+              <input
+                type='number'
+                min={0}
+                max={150}
+                value={editForm.age}
+                onChange={(e) =>
+                  setEditForm({ ...editForm, age: e.target.value })
+                }
+              />
+            </label>
+            <p className='muted fs-10'>
+              {t(
+                'Email используется для входа и меняется через поддержку.',
+                'Email is used to sign in and is changed via support.'
+              )}
+            </p>
+            <button
+              type='button'
+              className='primary full'
+              onClick={handleSaveProfile}
             >
               {t('Сохранить', 'Save')}
             </button>

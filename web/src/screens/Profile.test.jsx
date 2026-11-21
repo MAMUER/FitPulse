@@ -191,8 +191,11 @@ describe('Profile', () => {
     expect(stat.querySelector('b').textContent).toBe('3');
   });
 
-  it('saves the password and closes the modal', () => {
+  it('saves the password and closes the modal', async () => {
     const context = baseContext();
+    // changePassword теперь асинхронный (реальный запрос к бэкенду) и
+    // возвращает true при успехе — модалка закрывается только тогда.
+    context.changePassword = vi.fn(() => Promise.resolve(true));
     renderProfile(context);
 
     fireEvent.click(
@@ -204,8 +207,10 @@ describe('Profile', () => {
       screen.getByRole('button', { name: 'Сохранить', exact: true })
     );
 
-    expect(context.changePassword).toHaveBeenCalled();
-    expect(screen.queryByRole('dialog', { name: 'Смена пароля' })).toBeNull();
+    await waitFor(() => {
+      expect(context.changePassword).toHaveBeenCalled();
+      expect(screen.queryByRole('dialog', { name: 'Смена пароля' })).toBeNull();
+    });
   });
 
   it('closes the password modal with the close button', () => {

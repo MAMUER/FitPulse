@@ -93,6 +93,13 @@ export function useAuth({ state, update, notify }) {
     try {
       const data = await api.register(email, pass, fullName);
       if (data?.status !== 'ok') {
+        // Бэкенд отдаёт 409 с текстом «user already exists», а gateway пробрасывает
+        // его как plain-text. Показываем человеку понятную причину, а не общую ошибку.
+        const raw = typeof data?._raw === 'string' ? data._raw : '';
+        if (/already exists/i.test(raw)) {
+          notify('Пользователь с такой почтой уже зарегистрирован');
+          return;
+        }
         notify(data?.message || 'Ошибка регистрации');
         return;
       }
@@ -183,7 +190,6 @@ export function useAuth({ state, update, notify }) {
   }, [state.profile, state.resetEmail, update, notify]);
 
   const continueAsGuest = useCallback(() => {
-    // Гостевой режим удалён: гость не может войти, только регистрация/вход.
     void navigate('/login');
   }, [navigate]);
 

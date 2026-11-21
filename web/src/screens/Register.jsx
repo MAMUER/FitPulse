@@ -1,10 +1,26 @@
+import { useState } from 'react';
 import AuthLayout from '../components/AuthLayout';
 import Captcha from '../components/Captcha';
 import { useApp } from '../contexts/AppContext';
 import { setCaptchaToken } from '../utils/backendRequest';
 
+// Глазик: absolute-позиционирование, чтобы не зависеть от CSS.
+const eyeButtonStyle = {
+  position: 'absolute',
+  right: 8,
+  top: '50%',
+  transform: 'translateY(-50%)',
+  background: 'none',
+  border: 'none',
+  cursor: 'pointer',
+  color: 'inherit',
+  padding: 4,
+};
+
 export default function Register() {
   const { t, doRegister, socialLogin, go, openLegal } = useApp();
+  const [showPass, setShowPass] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
 
   return (
     <AuthLayout>
@@ -28,23 +44,59 @@ export default function Register() {
       </div>
       <div className='field'>
         <label htmlFor='regPassword'>{t('Пароль', 'Password')}</label>
-        <input
-          id='regPassword'
-          type='password'
-          autoComplete='new-password'
-          placeholder={t('Минимум 6 символов', 'At least 6 characters')}
-        />
+        <div style={{ position: 'relative' }}>
+          <input
+            id='regPassword'
+            type={showPass ? 'text' : 'password'}
+            autoComplete='new-password'
+            placeholder={t('Минимум 8 символов', 'At least 8 characters')}
+            style={{ paddingRight: 40 }}
+          />
+          <button
+            type='button'
+            onClick={() => setShowPass((v) => !v)}
+            aria-label={
+              showPass
+                ? t('Скрыть пароль', 'Hide password')
+                : t('Показать пароль', 'Show password')
+            }
+            style={eyeButtonStyle}
+          >
+            <i className={`fas ${showPass ? 'fa-eye-slash' : 'fa-eye'}`} />
+          </button>
+        </div>
+        <small className='pw-hint'>
+          {t(
+            'Минимум 8 символов. Буквы, цифры и спецсимволы повышают надёжность.',
+            'At least 8 characters. Letters, digits and symbols make it stronger.'
+          )}
+        </small>
       </div>
       <div className='field'>
         <label htmlFor='regConfirm'>
           {t('Подтверждение пароля', 'Confirm password')}
         </label>
-        <input
-          id='regConfirm'
-          type='password'
-          autoComplete='new-password'
-          placeholder={t('Повторите пароль', 'Repeat password')}
-        />
+        <div style={{ position: 'relative' }}>
+          <input
+            id='regConfirm'
+            type={showConfirm ? 'text' : 'password'}
+            autoComplete='new-password'
+            placeholder={t('Повторите пароль', 'Repeat password')}
+            style={{ paddingRight: 40 }}
+          />
+          <button
+            type='button'
+            onClick={() => setShowConfirm((v) => !v)}
+            aria-label={
+              showConfirm
+                ? t('Скрыть пароль', 'Hide password')
+                : t('Показать пароль', 'Show password')
+            }
+            style={eyeButtonStyle}
+          >
+            <i className={`fas ${showConfirm ? 'fa-eye-slash' : 'fa-eye'}`} />
+          </button>
+        </div>
       </div>
       <label className='consent-row'>
         <input id='regConsent' type='checkbox' />{' '}

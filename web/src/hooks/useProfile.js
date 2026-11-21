@@ -39,18 +39,20 @@ export function useProfile({ state, update, notify }) {
     }
   }, [state.profile, update, notify]);
 
-  const changePassword = useCallback(() => {
+  const changePassword = useCallback(async () => {
     const oldPass = document.getElementById('oldPass')?.value || '';
     const np = document.getElementById('newPass')?.value || '';
     const np2 = document.getElementById('newPass2')?.value || '';
     try {
-      api.changePassword(oldPass, np, np2);
+      await api.changePassword(oldPass, np, np2);
     } catch (e) {
-      notify(e.message);
-      return;
+      notify(e?.message || 'Не удалось сменить пароль');
+      return false;
     }
-    update({ profile: { ...state.profile, password: np } });
+    // Пароль в state не храним — после смены старые сессии отозваны на бэкенде.
+    update({ profile: { ...state.profile, password: '' } });
     notify('Пароль изменён');
+    return true;
   }, [state.profile, update, notify]);
 
   const deleteAccount = useCallback(() => {

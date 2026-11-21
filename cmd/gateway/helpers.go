@@ -20,6 +20,8 @@ const (
 	serviceTrainingUnavailable = "Сервис тренировок временно недоступен"
 	encodeResponseError        = "Ошибка формирования ответа"
 	mlServiceUnavailable       = "ML-сервис временно недоступен"
+	errDatabaseUnavailable     = "База данных недоступна"
+	errDatabaseError           = "Ошибка базы данных"
 )
 
 // ========== Helper Functions ==========

@@ -1644,6 +1644,17 @@ jobs:
             kubectl get events -n fitness-platform-production --sort-by=.lastTimestamp | tail -50 || true
             exit 1
           fi
+      - name: Wait for application deployments to be ready
+        run: |
+          set -euo pipefail
+          # UAT-тесты дёргают не только /health шлюза: генерация плана идёт в
+          # ml-generator, а провайдеры интеграций — в biometric-service. Раньше джоба
+          # ждала только шлюз, поэтому /api/v1/training/generate отдавал 503
+          # («Сервис тренировок временно недоступен»), а /integrations/providers — 502.
+          for deploy in user-service biometric-service training-service gateway \
+                        ml-generator open-wearables open-wearables-frontend; do
+            kubectl -n fitness-platform-production rollout status "deployment/$deploy" --timeout=240s
+          done
       - name: Run UAT tests
         env:
           BASE_URL: ${{ steps.target.outputs.target }}
@@ -1908,7 +1919,12 @@ jobs:
           # (kube-bench job), и деплой/скан останавливался без второй попытки.
           ./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" 'rm -rf /tmp/kube-bench /tmp/kube-bench-cfg'
           ./scripts/ssh-retry.sh scp /usr/local/bin/kube-bench "${VPS_USER}@${VPS_HOST}:/tmp/kube-bench"
-          ./scripts/ssh-retry.sh scp -r /usr/local/kube-bench/cfg "${VPS_USER}@${VPS_HOST}:/tmp/kube-bench-cfg"
+          # Каталог cfg гоняем одним tar-потоком, а не `scp -r`: на нестабильном
+          # линке scp каталога рвался три раза подряд (Connection reset by peer),
+          # а ретраи не помогали. Одна ssh-сессия с tar надёжнее.
+          tar -C /usr/local/kube-bench -czf - cfg \
+            | ./scripts/ssh-retry.sh ssh "${VPS_USER}@${VPS_HOST}" \
+              'rm -rf /tmp/kube-bench-cfg && mkdir -p /tmp/kube-bench-cfg && tar -C /tmp/kube-bench-cfg -xzf -'
       - name: Run kube-bench on k3s node via SSH
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}

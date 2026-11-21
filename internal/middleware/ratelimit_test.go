@@ -22,7 +22,8 @@ func TestRateLimit(t *testing.T) {
 	req := httptest.NewRequestWithContext(context.Background(), "GET", "/", nil)
 	req.RemoteAddr = "192.0.2.1:12345"
 
-	for i := 0; i < 50; i++ {
+	// burst = 200: 200 запросов проходят, 201-й получает 429.
+	for i := 0; i < 200; i++ {
 		rr := httptest.NewRecorder()
 		handler.ServeHTTP(rr, req)
 		assert.Equal(t, http.StatusOK, rr.Code)

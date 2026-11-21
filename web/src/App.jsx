@@ -3,6 +3,7 @@ import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import Modal from './components/Modal';
 import Toast from './components/Toast';
 import { useApp } from './contexts/AppContext';
+import Achievements from './screens/Achievements';
 import Ai from './screens/AI';
 import Body from './screens/Body';
 import Calendar from './screens/Calendar';
@@ -103,7 +104,7 @@ function TabBar() {
 }
 
 export default function App() {
-  const { state, t, closeMetric, closeAchievement, update, notify } = useApp();
+  const { state, t, closeMetric, closeAchievement, update } = useApp();
   const { pathname } = useLocation();
 
   // Держим state.screen в синхроне с реальным маршрутом. Иначе при переходе
@@ -115,22 +116,6 @@ export default function App() {
       update?.({ screen });
     }
   }, [pathname, state.screen, update]);
-
-  // Гостю один раз за сессию показываем, почему действия записи недоступны.
-  useEffect(() => {
-    if (
-      state.authenticated === false &&
-      !sessionStorage.getItem('fp-guest-notified')
-    ) {
-      notify(
-        t(
-          'Вы в гостевом режиме: войдите, чтобы сохранять тренировки, питание и данные.',
-          'Guest mode: sign in to save workouts, nutrition and data.'
-        )
-      );
-      sessionStorage.setItem('fp-guest-notified', '1');
-    }
-  }, [state.authenticated, notify, t]);
 
   const authScreens = new Set(['login', 'register', 'reset']);
   const chromeScreens = new Set([
@@ -144,6 +129,7 @@ export default function App() {
     '/body',
     '/menstrual',
     '/profile',
+    '/achievements',
   ]);
   const showAppChrome = chromeScreens.has(pathname);
 
@@ -174,6 +160,7 @@ export default function App() {
         <Route path='/body' element={<Body />} />
         <Route path='/menstrual' element={<Menstrual />} />
         <Route path='/profile' element={<Profile />} />
+        <Route path='/achievements' element={<Achievements />} />
         <Route path='/legal' element={<Legal />} />
         <Route path='/privacy' element={<Legal />} />
         <Route path='/terms' element={<Legal />} />

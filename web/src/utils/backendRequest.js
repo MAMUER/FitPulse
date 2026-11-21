@@ -76,10 +76,13 @@ function backendError(status) {
 }
 
 async function backendRequest(path, options = {}) {
-  // Protected routes hide themselves behind 404 when the access token is
-  // missing or expired, so callers that know the route exists can opt into
-  // treating 404 like 401: refresh the session and retry once.
-  const { retryOnNotFound = false, ...requestOptions } = options;
+  // Защищённые маршруты скрываются за 404, когда access-token отсутствует или
+  // истёк (так AuthMiddleware не раскрывает существование эндпоинтов). Поэтому
+  // для любых /api/v1/* 404 трактуется как «сессия умерла»: один раз обновляем
+  // токен и повторяем запрос. Раньше это было opt-in (retryOnNotFound), из-за
+  // чего календарь/блюда/профиль падали с «ошибка загрузки» после 15 минут.
+  const { retryOnNotFound, ...requestOptions } = options;
+  const refreshOn404 = retryOnNotFound ?? path.startsWith('/api/v1/');
   const url = buildUrl(path);
   const buildRequestInit = () => ({
     ...requestOptions,
@@ -93,7 +96,7 @@ async function backendRequest(path, options = {}) {
 
   const res = await fetch(url, buildRequestInit());
   const shouldRefresh =
-    res.status === 401 || (retryOnNotFound && res.status === 404);
+    res.status === 401 || (refreshOn404 && res.status === 404);
   if (shouldRefresh && path !== '/api/v1/auth/refresh') {
     const refreshed = await backendRequest('/api/v1/auth/refresh', {
       method: 'POST',

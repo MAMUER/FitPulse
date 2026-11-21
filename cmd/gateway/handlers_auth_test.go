@@ -3066,8 +3066,9 @@ func TestAuth_YandexCallbackHandler_SuccessPath(t *testing.T) {
 	req := httptest.NewRequestWithContext(context.Background(), "GET", "/api/v1/auth/yandex/callback?state=abc&code=xyz", nil)
 	req.AddCookie(&http.Cookie{Name: yandexOAuthStateCookie, Value: "abc", Secure: true, HttpOnly: true})
 	g.yandexCallbackHandler(w, req)
-	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Contains(t, w.Body.String(), "user_id")
+	// После успешного OAuth отдаём 302 на приложение, а не JSON с user_id.
+	assert.Equal(t, http.StatusFound, w.Code)
+	assert.Equal(t, "/", w.Header().Get("Location"))
 }
 
 func TestAuth_YandexCallbackHandler_TOTPEnabledPath(t *testing.T) {

@@ -187,7 +187,13 @@ func captchaVerified(validator CaptchaValidator, r *http.Request, ip string) boo
 	return validator.ValidateCaptcha(r.Header.Get("X-Captcha-Token"), ip)
 }
 
-// RateLimit enforces per-IP rate limiting (10 r/s, burst 50)
+// RateLimit enforces per-IP rate limiting (50 r/s, burst 200).
+//
+// Лимит поднят с 10 r/s (burst 50): приложение за один рендер страницы шлёт
+// ~10 запросов (profile, friends, friends/requests, achievements, 2fa/status,
+// biometrics) плюс ретраи, а за Tailscale Funnel ВСЕ пользователи приходят с
+// одного egress-IP — старый лимит валил легитимные запросы и давал 429 на каждой
+// странице. Основной контроль для аутентифицированного трафика — UserRateLimit.
 func RateLimit(log *zap.Logger) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -198,7 +204,7 @@ func RateLimit(log *zap.Logger) func(http.Handler) http.Handler {
 			ip := getClientIP(r)
 			v, ok := RateLimiterInstance.visitors.Load(ip)
 			if !ok {
-				limiter := rate.NewLimiter(10, 50)
+				limiter := rate.NewLimiter(50, 200)
 				RateLimiterInstance.visitors.Store(ip, &visitor{limiter: limiter, lastSeen: time.Now()})
 				v, _ = RateLimiterInstance.visitors.Load(ip)
 			}

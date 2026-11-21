@@ -1403,6 +1403,9 @@ func (g *gateway) registerAccountRoutes(r chi.Router) {
 
 	r.Delete(profilePath, g.deleteProfileHandler)
 
+	// Смена пароля (проверка текущего пароля + отзыв refresh-токенов).
+	r.Post("/api/v1/auth/change-password", g.changePasswordHandler)
+
 	// Полное удаление аккаунта (все данные пользователя).
 	r.Delete("/api/v1/account", g.deleteAccountHandler)
 
