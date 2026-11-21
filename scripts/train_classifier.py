@@ -19,14 +19,19 @@ from pathlib import Path
 import joblib
 import numpy as np
 import pandas as pd
-from skl2onnx import convert_sklearn
-from skl2onnx.common.data_types import FloatTensorType
 from sklearn.ensemble import HistGradientBoostingClassifier
+from sklearn.impute import SimpleImputer
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score, classification_report
 from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import SimpleImputer
+
+try:  # ONNX-экспорт не нужен Go-инференсу (он читает JSON-веса)
+    from skl2onnx import convert_sklearn
+    from skl2onnx.common.data_types import FloatTensorType
+except ImportError:  # pragma: no cover - зависит от окружения
+    convert_sklearn = None
+    FloatTensorType = None
 
 CLASSES = [
     "recovery",
@@ -98,8 +103,9 @@ def load_dataset(path: Path) -> tuple[np.ndarray, np.ndarray, list[str]]:
     return x, y, feature_columns
 
 
-def export_go_weights(model, output_path: Path) -> None:
+def export_go_weights(model, output_path: Path, feature_columns: list[str]) -> None:
     coef = model.named_steps["clf"].coef_
+    intercept = model.named_steps["clf"].intercept_
     labels = list(range(len(CLASSES)))
 
     weights = []
@@ -110,11 +116,30 @@ def export_go_weights(model, output_path: Path) -> None:
     weights_data = {
         "labels": labels,
         "weights": weights,
+        "intercepts": [float(v) for v in intercept],
         "multi_class": 1,
+        "feature_keys": feature_columns,
+        "classes": CLASSES,
     }
 
+    # Параметры min-max сохраняются в models/classifier_scaler.json при
+    # подготовке датасета. Go применяет их перед инференсом; без них модель
+    # получает сырые значения и выдаёт один класс.
+    scaler_path = output_path.parent / "classifier_scaler.json"
+    if scaler_path.exists():
+        with open(scaler_path) as f:
+            scaler = json.load(f)
+        weights_data["feature_min"] = [
+            float(scaler.get(col, {}).get("min", 0.0)) for col in feature_columns
+        ]
+        weights_data["feature_max"] = [
+            float(scaler.get(col, {}).get("max", 1.0)) for col in feature_columns
+        ]
+    else:
+        print(f"WARNING: {scaler_path} не найден — веса экспортированы без нормализации")
+
     with open(output_path, "w") as f:
-        json.dump(weights_data, f)
+        json.dump(weights_data, f, indent=2)
 
     print(f"Go weights exported to {output_path}")
 
@@ -283,6 +308,10 @@ def export_fallback_onnx(x_train, y_train, feature_columns, args):
     )
     fallback_model.fit(x_sample, y_sample)
 
+    if convert_sklearn is None or FloatTensorType is None:
+        print("skl2onnx не установлен — ONNX-экспорт пропущен (Go использует JSON-веса)")
+        return fallback_model
+
     initial_types = [("input", FloatTensorType([1, len(feature_columns)]))]
     onnx_model = convert_sklearn(
         fallback_model,
@@ -331,7 +360,7 @@ def main() -> None:
     fallback_model = export_fallback_onnx(x_train, y_train, feature_columns, args)
 
     go_weights_path = args.output.parent / "classifier_weights.json"
-    export_go_weights(fallback_model, go_weights_path)
+    export_go_weights(fallback_model, go_weights_path, feature_columns)
 
     metrics_data.update(
         {

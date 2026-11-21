@@ -6,9 +6,11 @@ from __future__ import annotations
 import hashlib
 import json
 import pickle
+import time
 import zipfile
 from collections import Counter
 from pathlib import Path
+from typing import Callable, NamedTuple
 
 import numpy as np
 import pandas as pd
@@ -17,6 +19,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 RAW_ROOT = PROJECT_ROOT / "datasets" / "raw"
 PROCESSED_ROOT = PROJECT_ROOT / "datasets" / "processed"
 OUTPUT_FILE = PROCESSED_ROOT / "classifier_dataset.csv"
+SCALER_PATH = PROJECT_ROOT / "models" / "classifier_scaler.json"
 
 FEATURE_COLUMNS = [
     "heart_rate",
@@ -135,23 +138,61 @@ def read_ibi_series(path: Path, max_rows: int | None = None) -> pd.Series | None
 # ------------------------------------------------------------------
 # Labeling
 # ------------------------------------------------------------------
-def rule_based_label(row: pd.Series) -> str:
-    hr = float(row.get("heart_rate", 0) or 0)
-    hrv = float(row.get("hrv", 0) or 0)
-    spo2 = float(row.get("spo2", 100) or 100)
-    temp = float(row.get("temperature", 37) or 37)
-    sleep = float(row.get("sleep_hours", 7) or 7)
+class Metrics(NamedTuple):
+    """Физиологические признаки одной записи."""
 
-    labels = [
-        ("illness", temp >= 38.0 or spo2 <= 93.0),
-        ("recovery", hr < 60 and hrv > 70 and sleep >= 7),
-        ("overtraining", hrv < 25 or sleep < 5),
-        ("power_hiit", hr >= 160 and hrv >= 45),
-        ("endurance_threshold", hr >= 140 and hrv >= 35),
-        ("endurance_basic", hr >= 110),
-    ]
-    for label, condition in labels:
-        if condition:
+    hr: float
+    hrv: float
+    spo2: float
+    temp: float
+    sleep: float
+
+
+def _is_illness(m: Metrics) -> bool:
+    return m.temp >= 38.0 or m.spo2 <= 93.0
+
+
+def _is_recovery(m: Metrics) -> bool:
+    return m.hr < 60 and m.hrv > 70 and m.sleep >= 7
+
+
+def _is_overtraining(m: Metrics) -> bool:
+    return m.hrv < 25 or m.sleep < 5
+
+
+def _is_power_hiit(m: Metrics) -> bool:
+    return m.hr >= 160 and m.hrv >= 45
+
+
+def _is_endurance_threshold(m: Metrics) -> bool:
+    return m.hr >= 140 and m.hrv >= 35
+
+
+def _is_endurance_basic(m: Metrics) -> bool:
+    return m.hr >= 110
+
+
+# Порядок важен: первое сработавшее правило определяет класс.
+LABEL_RULES = (
+    ("illness", _is_illness),
+    ("recovery", _is_recovery),
+    ("overtraining", _is_overtraining),
+    ("power_hiit", _is_power_hiit),
+    ("endurance_threshold", _is_endurance_threshold),
+    ("endurance_basic", _is_endurance_basic),
+)
+
+
+def rule_based_label(row: pd.Series) -> str:
+    metrics = Metrics(
+        hr=float(row.get("heart_rate", 0) or 0),
+        hrv=float(row.get("hrv", 0) or 0),
+        spo2=float(row.get("spo2", 100) or 100),
+        temp=float(row.get("temperature", 37) or 37),
+        sleep=float(row.get("sleep_hours", 7) or 7),
+    )
+    for label, predicate in LABEL_RULES:
+        if predicate(metrics):
             return label
     return "unknown"
 
@@ -199,6 +240,8 @@ def process_bidmc() -> pd.DataFrame:
     records: list[dict[str, float | None]] = []
     files_used = 0
     for subject_idx in range(1, 54):
+        if subject_idx % 10 == 0:
+            print(f"  BIDMC: субъектов {subject_idx}/53", flush=True)
         subject = f"{subject_idx:02d}"
         numerics_path = dataset_dir / f"bidmc_{subject}_Numerics.csv"
         df = safe_read_csv(numerics_path, low_memory=False)
@@ -334,6 +377,8 @@ def process_e4_like_dir(
         if not df.empty:
             records.append(df)
         count += 1
+        if count % 100 == 0:
+            print(f"  {dataset_dir.name}: сессий {count}", flush=True)
         if count >= max_sessions:
             break
     print(f"{dataset_dir.name}: sessions={count}, rows={sum(len(r) for r in records)}")
@@ -351,6 +396,7 @@ def _extract_hr_from_bvp(bvp, fs: float = 32.0) -> tuple[float | None, float | N
     bvp_arr = np.asarray(bvp).flatten()
     if len(bvp_arr) == 0:
         return None, None
+
     try:
         from scipy.signal import find_peaks
 
@@ -361,37 +407,78 @@ def _extract_hr_from_bvp(bvp, fs: float = 32.0) -> tuple[float | None, float | N
         if len(peaks) <= 1:
             return None, None
         rr = np.diff(peaks) / fs
-        hr = 60.0 / np.mean(rr)
-        hr_val = float(hr) if 20 < hr < 220 else None
         sdnn = np.std(rr) * 1000.0
         hrv_val = float(sdnn) if 5 < sdnn < 500 else None
-        return hr_val, hrv_val
+        return _hr_from_rr_intervals(rr), hrv_val
     except Exception:
         return None, None
 
 
-def _extract_hr_from_ecg(ecg, fs: float = 700.0) -> float | None:
-    hr_val = None
-    if ecg is not None and hasattr(ecg, "mean"):
-        ecg_arr = np.asarray(ecg).flatten()
-        if len(ecg_arr) > 1000:
-            try:
-                from scipy.signal import find_peaks
+def _hr_from_rr_intervals(rr, lo: float = 20.0, hi: float = 220.0) -> float | None:
+    """Переводит RR-интервалы (в секундах) в ЧСС."""
+    if rr is None or len(rr) == 0:
+        return None
+    hr = 60.0 / float(np.mean(rr))
+    return float(hr) if lo < hr < hi else None
 
-                ecg_detrend = ecg_arr - np.mean(ecg_arr)
-                peaks, _ = find_peaks(
-                    ecg_detrend,
-                    height=np.std(ecg_detrend) * 0.8,
-                    distance=int(fs * 0.3),
-                )
-                if len(peaks) > 1:
-                    rr = np.diff(peaks) / fs
-                    hr = 60.0 / np.mean(rr)
-                    if 20 < hr < 220:
-                        hr_val = float(hr)
-            except Exception:
-                pass
-    return hr_val
+
+def _extract_hr_from_ecg(ecg, fs: float = 700.0) -> float | None:
+    if ecg is None or not hasattr(ecg, "mean"):
+        return None
+    ecg_arr = np.asarray(ecg).flatten()
+    if len(ecg_arr) <= 1000:
+        return None
+
+    try:
+        from scipy.signal import find_peaks
+
+        ecg_detrend = ecg_arr - np.mean(ecg_arr)
+        peaks, _ = find_peaks(
+            ecg_detrend,
+            height=np.std(ecg_detrend) * 0.8,
+            distance=int(fs * 0.3),
+        )
+        if len(peaks) <= 1:
+            return None
+        return _hr_from_rr_intervals(np.diff(peaks) / fs)
+    except Exception:
+        return None
+
+
+def _wesad_record(data: dict) -> dict[str, float | None] | None:
+    """Извлекает одну запись из выгрузки WESAD."""
+    wrist = data.get("signal", {}).get("wrist", {})
+    chest = data.get("signal", {}).get("chest", {})
+    if not wrist and not chest:
+        return None
+
+    temp = wrist.get("TEMP")
+    temp_val = (
+        to_float(np.nanmean(temp))
+        if temp is not None and hasattr(temp, "mean")
+        else None
+    )
+
+    bvp = wrist.get("BVP")
+    hr_val, hrv_val = _extract_hr_from_bvp(bvp, fs=32.0)
+
+    ecg = chest.get("ECG")
+    if hr_val is None:
+        hr_val = _extract_hr_from_ecg(ecg, fs=700.0)
+
+    eda = chest.get("EDA")
+    if eda is not None and hasattr(eda, "mean") and hrv_val is None:
+        hrv_val = to_float(np.nanmean(eda))
+
+    return {
+        "heart_rate": hr_val,
+        "hrv": hrv_val,
+        "spo2": None,
+        "temperature": temp_val,
+        "systolic_pressure": None,
+        "diastolic_pressure": None,
+        "sleep_hours": None,
+    }
 
 
 def process_wesad() -> pd.DataFrame:
@@ -401,7 +488,10 @@ def process_wesad() -> pd.DataFrame:
         return pd.DataFrame()
 
     records: list[dict[str, float | None]] = []
-    for pkl_file in dataset_dir.glob("S*.pkl"):
+    pkl_files = sorted(dataset_dir.glob("S*.pkl"))
+    for index, pkl_file in enumerate(pkl_files, start=1):
+        if index % 10 == 0:
+            print(f"  WESAD: файлов {index}/{len(pkl_files)}", flush=True)
         try:
             with pkl_file.open("rb") as f:
                 data = pickle.load(f, encoding="latin-1")
@@ -409,40 +499,10 @@ def process_wesad() -> pd.DataFrame:
             print(f"WESAD {pkl_file.name}: pickle failed: {e}")
             continue
 
-        wrist = data.get("signal", {}).get("wrist", {})
-        chest = data.get("signal", {}).get("chest", {})
-        if not wrist and not chest:
-            continue
+        record = _wesad_record(data)
+        if record is not None:
+            records.append(record)
 
-        temp = wrist.get("TEMP")
-        temp_val = (
-            to_float(np.nanmean(temp))
-            if temp is not None and hasattr(temp, "mean")
-            else None
-        )
-
-        bvp = wrist.get("BVP")
-        hr_val, hrv_val = _extract_hr_from_bvp(bvp, fs=32.0)
-
-        ecg = chest.get("ECG")
-        if hr_val is None:
-            hr_val = _extract_hr_from_ecg(ecg, fs=700.0)
-
-        eda = chest.get("EDA")
-        if eda is not None and hasattr(eda, "mean") and hrv_val is None:
-            hrv_val = to_float(np.nanmean(eda))
-
-        records.append(
-            {
-                "heart_rate": hr_val,
-                "hrv": hrv_val,
-                "spo2": None,
-                "temperature": temp_val,
-                "systolic_pressure": None,
-                "diastolic_pressure": None,
-                "sleep_hours": None,
-            }
-        )
     print(f"WESAD: subjects={len(records)}")
     return pd.DataFrame(records)
 
@@ -534,6 +594,28 @@ def _process_wesd_participant(
     return df if not df.empty else None
 
 
+def _iter_wesd_root(
+    root: Path,
+    max_participants: int,
+    max_rows_per_file: int | None,
+    records: list[pd.DataFrame],
+) -> int:
+    """Обходит один корень WESAD и возвращает число обработанных участников."""
+    count = 0
+    for participant_dir in root.rglob("*"):
+        if not participant_dir.is_dir():
+            continue
+        df = _process_wesd_participant(participant_dir, max_rows_per_file)
+        if df is not None:
+            records.append(df)
+        count += 1
+        if count % 25 == 0:
+            print(f"  WESD: участников {count}", flush=True)
+        if count >= max_participants:
+            break
+    return count
+
+
 def _iter_wesd_participants(
     search_roots: list[Path],
     max_participants: int,
@@ -542,15 +624,7 @@ def _iter_wesd_participants(
     records: list[pd.DataFrame] = []
     count = 0
     for root in search_roots:
-        for participant_dir in root.rglob("*"):
-            if not participant_dir.is_dir():
-                continue
-            df = _process_wesd_participant(participant_dir, max_rows_per_file)
-            if df is not None:
-                records.append(df)
-            count += 1
-            if count >= max_participants:
-                break
+        count += _iter_wesd_root(root, max_participants, max_rows_per_file, records)
         if count >= max_participants:
             break
     return records, count
@@ -626,6 +700,22 @@ def _process_stress_nurse_session(
     return df if not df.empty else None
 
 
+def _stress_nurse_participant(
+    participant_dir: Path, max_rows_per_file: int | None
+) -> list[pd.DataFrame]:
+    """Собирает сессии одного участника (распакованные или zip-архивы)."""
+    session_dirs = _find_stress_nurse_sessions(participant_dir)
+    if not session_dirs:
+        session_dirs = _extract_stress_nurse_zips(participant_dir)
+
+    records: list[pd.DataFrame] = []
+    for session_dir in session_dirs:
+        df = _process_stress_nurse_session(session_dir, max_rows_per_file)
+        if df is not None:
+            records.append(df)
+    return records
+
+
 def process_stress_nurses(
     max_participants: int = 50, max_rows_per_file: int | None = None
 ) -> pd.DataFrame:
@@ -640,15 +730,10 @@ def process_stress_nurses(
         if not participant_dir.is_dir():
             continue
 
-        session_dirs = _find_stress_nurse_sessions(participant_dir)
-        if not session_dirs:
-            session_dirs = _extract_stress_nurse_zips(participant_dir)
-
-        for session_dir in session_dirs:
-            df = _process_stress_nurse_session(session_dir, max_rows_per_file)
-            if df is not None:
-                records.append(df)
+        records.extend(_stress_nurse_participant(participant_dir, max_rows_per_file))
         count += 1
+        if count % 25 == 0:
+            print(f"  stress_nurses: участников {count}", flush=True)
         if count >= max_participants:
             break
     print(f"stress_nurses: participants={count}, rows={sum(len(r) for r in records)}")
@@ -689,6 +774,8 @@ def process_in_gauge_en_gage(
         session_records = _iter_in_gauge_sessions(participant_dir, max_rows_per_file)
         records.extend(session_records)
         count += len(session_records)
+        if count and count % 100 == 0:
+            print(f"  in-gauge: сессий {count}", flush=True)
         if count >= max_participants:
             break
     print(f"in-gauge_en-gage: sessions={count}, rows={sum(len(r) for r in records)}")
@@ -855,6 +942,28 @@ def _process_ppg_dalia_e4(e4_dir: Path) -> list[dict[str, float | None]]:
     return records
 
 
+def _ppg_dalia_subject(subject_dir: Path) -> list[dict[str, float | None]]:
+    """Собирает записи одного субъекта PPG_DaLiA (pkl + E4)."""
+    records: list[dict[str, float | None]] = []
+    pkl = subject_dir / f"{subject_dir.name}.pkl"
+    if pkl.exists():
+        try:
+            with pkl.open("rb") as f:
+                data = pickle.load(f, encoding="latin-1")
+        except Exception as e:
+            print(f"PPG_DaLiA {subject_dir.name}: pickle failed: {e}")
+            data = {}
+
+        row = _process_ppg_dalia_pkl(data)
+        if row is not None:
+            records.append(row)
+
+    e4_dir = subject_dir / f"{subject_dir.name}_E4_extracted"
+    if e4_dir.exists():
+        records.extend(_process_ppg_dalia_e4(e4_dir))
+    return records
+
+
 def process_ppg_dalia(max_subjects: int = 15) -> pd.DataFrame:
     dataset_dir = RAW_ROOT / "PPG_DaLiA"
     if not dataset_dir.exists():
@@ -862,25 +971,13 @@ def process_ppg_dalia(max_subjects: int = 15) -> pd.DataFrame:
         return pd.DataFrame()
 
     records: list[dict[str, float | None]] = []
-    for subject_dir in sorted(dataset_dir.iterdir())[:max_subjects]:
+    subjects = sorted(dataset_dir.iterdir())[:max_subjects]
+    for subject_index, subject_dir in enumerate(subjects, start=1):
         if not subject_dir.is_dir():
             continue
-        pkl = subject_dir / f"{subject_dir.name}.pkl"
-        if pkl.exists():
-            try:
-                with pkl.open("rb") as f:
-                    data = pickle.load(f, encoding="latin-1")
-            except Exception as e:
-                print(f"PPG_DaLiA {subject_dir.name}: pickle failed: {e}")
-                data = {}
-
-            row = _process_ppg_dalia_pkl(data)
-            if row is not None:
-                records.append(row)
-
-        e4_dir = subject_dir / f"{subject_dir.name}_E4_extracted"
-        if e4_dir.exists():
-            records.extend(_process_ppg_dalia_e4(e4_dir))
+        if subject_index % 5 == 0:
+            print(f"  PPG_DaLiA: субъектов {subject_index}/{len(subjects)}", flush=True)
+        records.extend(_ppg_dalia_subject(subject_dir))
 
     print(f"PPG_DaLiA: subjects={len(records)}")
     return pd.DataFrame(records)
@@ -1175,6 +1272,8 @@ def process_weee(
             _collect_weee_participant_records(participant_dir, max_rows_per_file)
         )
         count += 1
+        if count % 100 == 0:
+            print(f"  WEEE: участников {count}", flush=True)
         if count >= max_sessions:
             break
     print(f"WEEE: sessions={count}, rows={sum(len(r) for r in records)}")
@@ -1196,11 +1295,58 @@ def _normalize_column(df: pd.DataFrame, col: str) -> pd.DataFrame:
     return df
 
 
-def normalize_features(df: pd.DataFrame) -> pd.DataFrame:
+def normalize_features(
+    df: pd.DataFrame, scaler_path: Path | None = SCALER_PATH
+) -> pd.DataFrame:
+    """Min-max нормализация + сохранение параметров масштабирования.
+
+    Параметры min/max ОБЯЗАТЕЛЬНО сохраняются: Go-инференс применяет ту же
+    нормализацию (models/classifier_weights.json → feature_min/feature_max).
+    Без этого модель получает сырые ЧСС/SpO2 и выдаёт один и тот же класс.
+    """
     df = df.copy()
+    scaler: dict[str, dict[str, float]] = {}
     for col in FEATURE_COLUMNS:
-        df = _normalize_column(df, col)
+        if col not in df.columns:
+            df[col] = np.nan
+        col_min = df[col].min()
+        col_max = df[col].max()
+        if pd.notna(col_min) and pd.notna(col_max) and col_max > col_min:
+            df[col] = (df[col] - col_min) / (col_max - col_min)
+            scaler[col] = {"min": float(col_min), "max": float(col_max)}
+        else:
+            scaler[col] = {"min": 0.0, "max": 1.0}
+
+    if scaler_path is not None:
+        scaler_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(scaler_path, "w") as f:
+            json.dump(scaler, f, indent=2)
+        print(f"Scaler saved to {scaler_path}")
     return df
+
+
+def vectorized_labels(df: pd.DataFrame) -> pd.Series:
+    """Векторизованный аналог rule_based_label (порядок правил сохранён)."""
+    def col(name: str) -> pd.Series:
+        if name in df.columns:
+            return pd.to_numeric(df[name], errors="coerce")
+        return pd.Series(np.nan, index=df.index)
+
+    hr = col("heart_rate")
+    hrv = col("hrv")
+    spo2 = col("spo2")
+    temp = col("temperature")
+    sleep = col("sleep_hours")
+
+    labels = pd.Series("unknown", index=df.index, dtype=object)
+    # Присваиваем в обратном порядке: последнее совпадение = высший приоритет.
+    labels[hr >= 110] = "endurance_basic"
+    labels[(hr >= 140) & (hrv >= 35)] = "endurance_threshold"
+    labels[(hr >= 160) & (hrv >= 45)] = "power_hiit"
+    labels[(hrv < 25) | (sleep < 5)] = "overtraining"
+    labels[(hr < 60) & (hrv > 70) & (sleep >= 7)] = "recovery"
+    labels[(temp >= 38.0) | (spo2 <= 93.0)] = "illness"
+    return labels
 
 
 def apply_label_overrides(df: pd.DataFrame) -> pd.DataFrame:
@@ -1225,54 +1371,71 @@ def main() -> None:
 
     summary = []
 
-    processors = [
-        ("bidmc", process_bidmc()),
-        (
-            "E4SelfLearning_ADARP",
-            process_e4_like_dir(RAW_ROOT / "ADARP", max_sessions=9999),
-        ),
-        (
-            "E4SelfLearning_big-ideas",
-            process_e4_like_dir(RAW_ROOT / "big-ideas", max_sessions=9999),
-        ),
-        ("in-gauge_en-gage", process_in_gauge_en_gage(max_participants=9999)),
-        ("PPG_DaLiA", process_ppg_dalia(max_subjects=999)),
-        ("SPD", process_e4_like_dir(RAW_ROOT / "SPD", max_sessions=9999)),
-        ("stress_nurses", process_stress_nurses(max_participants=9999)),
-        ("Toadstool", process_e4_like_dir(RAW_ROOT / "Toadstool", max_sessions=9999)),
-        ("ue4w", process_e4_like_dir(RAW_ROOT / "ue4w", max_sessions=9999)),
-        ("WEEE", process_weee(max_sessions=9999)),
-        ("WESAD", process_wesad()),
-        ("WESAD_labels", process_wesad_labels(max_subjects=999)),
-        ("WESD", process_wesd(max_participants=9999)),
+    # Ленивые процессоры: каждый запускается по очереди, чтобы в консоли был
+    # виден прогресс (раньше все 13 датасетов считались до первого вывода,
+    # и скрипт выглядел «зависшим»).
+    processors: list[tuple[str, Callable[[], pd.DataFrame]]] = [
+        ("bidmc", process_bidmc),
+        ("E4SelfLearning_ADARP", lambda: process_e4_like_dir(RAW_ROOT / "ADARP", max_sessions=9999)),
+        ("E4SelfLearning_big-ideas", lambda: process_e4_like_dir(RAW_ROOT / "big-ideas", max_sessions=9999)),
+        ("in-gauge_en-gage", lambda: process_in_gauge_en_gage(max_participants=9999)),
+        ("PPG_DaLiA", lambda: process_ppg_dalia(max_subjects=999)),
+        ("SPD", lambda: process_e4_like_dir(RAW_ROOT / "SPD", max_sessions=9999)),
+        ("stress_nurses", lambda: process_stress_nurses(max_participants=9999)),
+        ("Toadstool", lambda: process_e4_like_dir(RAW_ROOT / "Toadstool", max_sessions=9999)),
+        ("ue4w", lambda: process_e4_like_dir(RAW_ROOT / "ue4w", max_sessions=9999)),
+        ("WEEE", lambda: process_weee(max_sessions=9999)),
+        ("WESAD", process_wesad),
+        ("WESAD_labels", lambda: process_wesad_labels(max_subjects=999)),
+        ("WESD", lambda: process_wesd(max_participants=9999)),
     ]
 
-    for name, df in processors:
-        if df is None or df.empty:
+    total = len(processors)
+    print(f"Обработка {total} датасетов. Корень: {RAW_ROOT}", flush=True)
+    started = time.time()
+
+    for index, (name, processor) in enumerate(processors, start=1):
+        print(f"[{index}/{total}] {name} ...", flush=True)
+        t0 = time.time()
+        try:
+            df = processor()
+        except Exception as exc:  # один сбойный датасет не должен ронять всё
+            print(f"[{index}/{total}] {name}: ОШИБКА {exc}", flush=True)
             continue
-        summary.append(df)
+        elapsed = time.time() - t0
+        rows = 0 if df is None else len(df)
+        print(f"[{index}/{total}] {name}: {rows} строк за {elapsed:.1f}с", flush=True)
+        if df is not None and not df.empty:
+            summary.append(df)
+
+    print(f"Датасеты обработаны за {time.time() - started:.1f}с", flush=True)
 
     if not summary:
         raise RuntimeError("No raw datasets processed")
 
     df = pd.concat(summary, ignore_index=True)
-    print(f"Combined rows before cleanup: {len(df)}")
+    print(f"Combined rows before cleanup: {len(df)}", flush=True)
 
     df = df.dropna(subset=FEATURE_COLUMNS, how="all").reset_index(drop=True)
     df = df.drop_duplicates(subset=FEATURE_COLUMNS, keep="first").reset_index(drop=True)
-    print(f"Rows after dropping all-NaN and duplicates: {len(df)}")
+    print(f"Rows after dropping all-NaN and duplicates: {len(df)}", flush=True)
 
     if "_label_override" in df.columns:
         df = apply_label_overrides(df)
     else:
-        df["label"] = df.apply(rule_based_label, axis=1)
+        # Векторизованная разметка: df.apply(axis=1) на 12+ млн строк работает
+        # часами, а numpy-условия — секунды.
+        df["label"] = vectorized_labels(df)
 
-    df = normalize_features(df)
+    # Нормализация выполняется в scripts/prepare_classifier_dataset.py
+    # (единственный владелец min-max), здесь сохраняем сырые значения.
+    # Иначе повторная нормализация сжимала бы признаки второй раз.
     df = df.reset_index(drop=True)
 
     PROCESSED_ROOT.mkdir(parents=True, exist_ok=True)
+    print(f"Запись {OUTPUT_FILE} ...", flush=True)
     df.to_csv(OUTPUT_FILE, index=False)
-    print(f"\nDataset saved to {OUTPUT_FILE}")
+    print(f"\nDataset saved to {OUTPUT_FILE}", flush=True)
     print(f"Total samples: {len(df)}")
     print("Class distribution:")
     print(df["label"].value_counts().to_string())

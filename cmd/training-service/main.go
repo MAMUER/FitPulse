@@ -30,6 +30,7 @@ import (
 	"github.com/MAMUER/project/internal/config"
 	"github.com/MAMUER/project/internal/db"
 	"github.com/MAMUER/project/internal/domain/entity"
+	"github.com/MAMUER/project/internal/domain/port"
 	"github.com/MAMUER/project/internal/domain/service"
 	grpctls "github.com/MAMUER/project/internal/grpc"
 	"github.com/MAMUER/project/internal/logger"
@@ -38,7 +39,7 @@ import (
 	"github.com/MAMUER/project/internal/planner"
 	"github.com/MAMUER/project/internal/queue"
 	"github.com/MAMUER/project/internal/repository/pgx"
-	_ "github.com/MAMUER/project/internal/repository/postgres" // registers PostgreSQL driver
+	pgrepo "github.com/MAMUER/project/internal/repository/postgres" // registers PostgreSQL driver
 	"github.com/MAMUER/project/internal/sanitize"
 	"github.com/MAMUER/project/internal/server"
 	"github.com/MAMUER/project/internal/telemetry"
@@ -76,13 +77,15 @@ func mapClassToTrainingGoal(classificationClass string) string {
 
 type trainingServer struct {
 	pb.UnimplementedTrainingServiceServer
-	db          *sql.DB
-	trainingSvc service.TrainingService
-	log         *logger.Logger
-	rabbitQueue queue.Publisher
-	surveyRepo  *pgx.SurveyRepositoryPGX
-	bioRepo     *pgx.BiometricRepositoryPGX
-	ganURL      string
+	db            *sql.DB
+	trainingSvc   service.TrainingService
+	log           *logger.Logger
+	rabbitQueue   queue.Publisher
+	surveyRepo    *pgx.SurveyRepositoryPGX
+	bioRepo       *pgx.BiometricRepositoryPGX
+	healthRepo    port.UserHealthConditionRepository
+	menstrualRepo port.UserMenstrualRepository
+	ganURL        string
 }
 
 func (s *trainingServer) GeneratePlan(ctx context.Context, req *pb.GeneratePlanRequest) (*pb.GeneratePlanResponse, error) {
@@ -180,6 +183,10 @@ func (s *trainingServer) generatePlanData(
 	// (condition = класс + демография).
 	ganParams := s.resolveGANParams(ctx, req.UserId, classificationClass)
 
+	// Персонализация по всем данным пользователя: возраст, вес, рост, цель,
+	// менструальная фаза, ограничения, аллергии, стресс, сон, биометрия.
+	personalization := s.buildPersonalization(ctx, req.UserId, survey, biometrics)
+
 	constraints := planner.PlanConstraints{
 		DurationWeeks: int(req.DurationWeeks),
 		AvailableDays: availableDays,
@@ -188,10 +195,12 @@ func (s *trainingServer) generatePlanData(
 	if ganParams.GenerationMethod == "gan" && len(ganParams.RawVector) > 0 {
 		// GAN-вектор реально формирует план: интенсивность, длительность, частота,
 		// подходы, повторения, отдых и выбор упражнений из пула класса.
+		// Персонализация домножает вектор до декодирования.
 		plan, weeks, err := planner.GeneratePlanFromGAN(
 			classificationClass,
 			ganParams.RawVector,
 			constraints,
+			personalization,
 		)
 		if err != nil {
 			s.log.Error("Не удалось сгенерировать план через GAN", zap.Error(err))
@@ -206,6 +215,7 @@ func (s *trainingServer) generatePlanData(
 		survey,
 		biometrics,
 		constraints,
+		personalization,
 	)
 	if err != nil {
 		s.log.Error("Не удалось сгенерировать план через planner", zap.Error(err))
@@ -292,6 +302,135 @@ func (s *trainingServer) loadSurveyForUser(ctx context.Context, userID string) (
 		return map[string]interface{}{}, false, nil, nil
 	}
 	return s.surveyRepo.LoadSurvey(ctx, userID)
+}
+
+// buildPersonalization собирает все особенности пользователя для генерации
+// плана: антропометрию, цель, менструальную фазу, ограничения по здоровью,
+// аллергии, стресс, сон и биометрию с устройства.
+func (s *trainingServer) buildPersonalization(
+	ctx context.Context,
+	userID string,
+	survey map[string]interface{},
+	biometrics *planner.Biometrics,
+) planner.PersonalizationInput {
+	in := planner.PersonalizationFromUser(userEntityFromProfile(s.loadUserProfile(ctx, userID)), survey, biometrics)
+	in = s.applyMenstrualPhase(ctx, userID, in)
+	in = s.applyHealthRestrictions(ctx, userID, in)
+	return in
+}
+
+// userEntityFromProfile переводит упрощённый профиль в доменную сущность.
+func userEntityFromProfile(prof userProfile) *entity.User {
+	return &entity.User{
+		Age:      int32(prof.Age),
+		Gender:   genderFromCode(prof.Gender),
+		HeightCm: int32(prof.Height),
+		WeightKg: prof.Weight,
+		Goals:    []string{goalFromCode(prof.Goal)},
+	}
+}
+
+// applyMenstrualPhase добавляет фазу цикла для женщин.
+func (s *trainingServer) applyMenstrualPhase(
+	ctx context.Context,
+	userID string,
+	in planner.PersonalizationInput,
+) planner.PersonalizationInput {
+	if s.menstrualRepo == nil || !isFemaleGender(in.Gender) {
+		return in
+	}
+
+	cycles, err := s.menstrualRepo.ListCycles(ctx, userID)
+	if err != nil || len(cycles) == 0 {
+		s.log.Info("Персонализация: менструальный цикл учтён",
+			zap.String("user_id", sanitize.LogString(userID)),
+			zap.String("phase", in.MenstrualPhase),
+		)
+		return in
+	}
+
+	latest := latestCycle(cycles)
+	if phase, flow := planner.MenstrualPhaseFromCycle(latest.CycleStartDate, time.Now()); phase != "" {
+		in.MenstrualPhase = phase
+		in.FlowIntensity = flow
+	}
+	s.log.Info("Персонализация: менструальный цикл учтён",
+		zap.String("user_id", sanitize.LogString(userID)),
+		zap.String("phase", in.MenstrualPhase),
+	)
+	return in
+}
+
+// latestCycle возвращает запись с самой поздней датой начала.
+func latestCycle(cycles []*port.UserMenstrualCycle) *port.UserMenstrualCycle {
+	latest := cycles[0]
+	for _, cycle := range cycles[1:] {
+		if cycle.CycleStartDate > latest.CycleStartDate {
+			latest = cycle
+		}
+	}
+	return latest
+}
+
+// applyHealthRestrictions добавляет ограничения по здоровью из профиля.
+func (s *trainingServer) applyHealthRestrictions(
+	ctx context.Context,
+	userID string,
+	in planner.PersonalizationInput,
+) planner.PersonalizationInput {
+	if s.healthRepo == nil {
+		return in
+	}
+	conditions, err := s.healthRepo.List(ctx, userID)
+	if err != nil {
+		return in
+	}
+	for _, condition := range conditions {
+		if condition == nil || !condition.IsActive {
+			continue
+		}
+		if name := strings.TrimSpace(condition.ConditionName); name != "" {
+			in.Restrictions = append(in.Restrictions, name)
+		}
+		if kind := strings.TrimSpace(condition.ConditionType); kind != "" {
+			in.Restrictions = append(in.Restrictions, kind)
+		}
+	}
+	return in
+}
+
+// genderFromCode переводит числовой гендер профиля (0 female, 1 male) в строку.
+func genderFromCode(code float64) string {
+	if code == 0 {
+		return "female"
+	}
+	return "male"
+}
+
+// goalFromCode переводит числовую цель профиля в строку.
+func goalFromCode(code float64) string {
+	switch int(code) {
+	case 0:
+		return "weight_loss"
+	case 1:
+		return "endurance"
+	case 2:
+		return "strength"
+	case 3:
+		return "general_health"
+	default:
+		return "general_health"
+	}
+}
+
+// isFemaleGender проверяет гендер без жёсткой зависимости от языка.
+func isFemaleGender(gender string) bool {
+	switch strings.ToLower(strings.TrimSpace(gender)) {
+	case "female", "f", "жен", "женский":
+		return true
+	default:
+		return false
+	}
 }
 
 func (s *trainingServer) loadBiometricsForUser(ctx context.Context, userID string) *planner.Biometrics {
@@ -1425,12 +1564,14 @@ func setupGRPCServer(log *logger.Logger, db *sql.DB, trainingSvc service.Trainin
 	), telemetry.ServerHandlerOption()}
 	s, healthServer := grpctls.NewServerWithHealth(serverOpts...)
 	ts := &trainingServer{
-		db:          db,
-		trainingSvc: trainingSvc,
-		log:         log,
-		rabbitQueue: rabbitQueue,
-		surveyRepo:  surveyRepo,
-		bioRepo:     bioRepo,
+		db:            db,
+		trainingSvc:   trainingSvc,
+		log:           log,
+		rabbitQueue:   rabbitQueue,
+		surveyRepo:    surveyRepo,
+		bioRepo:       bioRepo,
+		healthRepo:    pgrepo.NewUserHealthConditionRepository(db),
+		menstrualRepo: pgrepo.NewUserMenstrualRepository(db),
 	}
 	pb.RegisterTrainingServiceServer(s, ts)
 

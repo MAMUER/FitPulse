@@ -110,7 +110,7 @@ create_secrets() {
 		--dry-run=client -o yaml | kubectl apply -f -
 	rm -f /tmp/jwt_private.pem /tmp/jwt_public.pem /tmp/totp.key
 
-	for svc in user-service biometric-service training-service; do
+	for svc in user-service biometric-service training-service classifier; do
 		kubectl create secret generic "${svc}-db-credentials" -n "$NAMESPACE" \
 			--from-literal=POSTGRES_USER="$POSTGRES_USER" \
 			--from-literal=POSTGRES_PASSWORD="$POSTGRES_PASSWORD" \

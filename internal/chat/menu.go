@@ -198,9 +198,5 @@ func MenuSummary(menu DayMenu) string {
 // menu, it returns a generated DayMenu (and a summary answer); otherwise it
 // falls back to the rule-based FAQ.
 func Respond(question string) (answer string, menu *DayMenu) {
-	if IsMenuRequest(question) {
-		m := BuildDayMenu(DetectGoal(question))
-		return MenuSummary(m), &m
-	}
-	return FindAnswer(question), nil
+	return RespondWithProfile(question, DietProfile{})
 }

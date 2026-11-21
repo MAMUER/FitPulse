@@ -125,6 +125,15 @@ func TestRealInMemoryDeltaStore_SetDeltaWithConcurrentAccess(t *testing.T) {
 	assert.Len(t, delta, 2)
 }
 
+func testFeatures() map[string]float64 {
+	return map[string]float64{
+		"heart_rate":  1.0,
+		"hrv":         2.0,
+		"spo2":        3.0,
+		"temperature": 4.0,
+	}
+}
+
 func TestPersonalDeltaClassifier_NilClassifier(t *testing.T) {
 	store := newMockDeltaStore(4)
 	pc := &PersonalDeltaClassifier{
@@ -136,7 +145,7 @@ func TestPersonalDeltaClassifier_NilClassifier(t *testing.T) {
 	assert.Error(t, err)
 	assert.Equal(t, "classifier not initialized", err.Error())
 
-	_, err = pc.UpdateDelta("user-1", 0, 1.0, []float64{1.0}, 0.01)
+	_, err = pc.UpdateDelta("user-1", 0, 1.0, map[string]float64{"heart_rate": 1.0}, 0.01)
 	assert.Error(t, err)
 	assert.Equal(t, "classifier not initialized", err.Error())
 }
@@ -183,13 +192,13 @@ func TestDeltaUpdateRequest_Fields(t *testing.T) {
 		UserID:       "user-1",
 		ClassIndex:   0,
 		TargetValue:  1.0,
-		Features:     []float64{0.5, 0.3},
+		Features:     map[string]float64{"heart_rate": 0.5, "hrv": 0.3},
 		LearningRate: 0.01,
 	}
 	assert.Equal(t, "user-1", req.UserID)
 	assert.Equal(t, 0, req.ClassIndex)
 	assert.Equal(t, 1.0, req.TargetValue)
-	assert.Equal(t, []float64{0.5, 0.3}, req.Features)
+	assert.Equal(t, map[string]float64{"heart_rate": 0.5, "hrv": 0.3}, req.Features)
 	assert.Equal(t, 0.01, req.LearningRate)
 }
 
@@ -287,7 +296,7 @@ func TestPersonalDeltaClassifier_UpdateDelta(t *testing.T) {
 	store := newMockDeltaStore(8)
 	pc := NewPersonalDeltaClassifier(classifier, store)
 
-	delta, err := pc.UpdateDelta("user-1", 0, 1.0, []float64{1.0, 2.0, 3.0, 4.0}, 0.01)
+	delta, err := pc.UpdateDelta("user-1", 0, 1.0, testFeatures(), 0.01)
 	assert.NoError(t, err)
 	assert.Len(t, delta, 8)
 }
@@ -297,7 +306,7 @@ func TestPersonalDeltaClassifier_UpdateDelta_InvalidClassIndex(t *testing.T) {
 	store := newMockDeltaStore(8)
 	pc := NewPersonalDeltaClassifier(classifier, store)
 
-	_, err := pc.UpdateDelta("user-1", 5, 1.0, []float64{1.0, 2.0, 3.0, 4.0}, 0.01)
+	_, err := pc.UpdateDelta("user-1", 5, 1.0, testFeatures(), 0.01)
 	assert.Error(t, err)
 	assert.Equal(t, "invalid class index", err.Error())
 }
@@ -307,7 +316,7 @@ func TestPersonalDeltaClassifier_UpdateDelta_InvalidFeaturesLength(t *testing.T)
 	store := newMockDeltaStore(8)
 	pc := NewPersonalDeltaClassifier(classifier, store)
 
-	_, err := pc.UpdateDelta("user-1", 0, 1.0, []float64{1.0, 2.0, 3.0}, 0.01)
+	_, err := pc.UpdateDelta("user-1", 0, 1.0, map[string]float64{"heart_rate": 1.0, "hrv": 2.0, "spo2": 3.0}, 0.01)
 	assert.Error(t, err)
 	assert.Equal(t, "invalid features length", err.Error())
 }
@@ -317,7 +326,7 @@ func TestPersonalDeltaClassifier_UpdateDelta_LearningRateDefault(t *testing.T) {
 	store := newMockDeltaStore(8)
 	pc := NewPersonalDeltaClassifier(classifier, store)
 
-	delta, err := pc.UpdateDelta("user-1", 0, 1.0, []float64{1.0, 2.0, 3.0, 4.0}, 0)
+	delta, err := pc.UpdateDelta("user-1", 0, 1.0, testFeatures(), 0)
 	assert.NoError(t, err)
 	assert.Len(t, delta, 8)
 }
@@ -328,7 +337,7 @@ func TestPersonalDeltaClassifier_UpdateDelta_ClampsDelta(t *testing.T) {
 	pc := NewPersonalDeltaClassifier(classifier, store)
 
 	// High learning rate should produce delta values that get clamped to [-5, 5]
-	_, err := pc.UpdateDelta("user-1", 0, 1.0, []float64{100.0, 100.0, 100.0, 100.0}, 10.0)
+	_, err := pc.UpdateDelta("user-1", 0, 1.0, testFeatures(), 10.0)
 	assert.NoError(t, err)
 
 	delta, _ := store.GetDelta("user-1")
@@ -405,7 +414,7 @@ func TestPersonalDeltaClassifier_UpdateDelta_WrongDeltaLen(t *testing.T) {
 	store := newMockDeltaStore(1)
 	pc := NewPersonalDeltaClassifier(classifier, store)
 
-	delta, err := pc.UpdateDelta("user-1", 0, 1.0, []float64{1.0, 2.0, 3.0, 4.0}, 0.01)
+	delta, err := pc.UpdateDelta("user-1", 0, 1.0, testFeatures(), 0.01)
 	assert.NoError(t, err)
 	assert.Len(t, delta, 8)
 }
@@ -424,7 +433,7 @@ func TestPersonalDeltaClassifier_UpdateDelta_ClippingPos(t *testing.T) {
 	store := newMockDeltaStore(8)
 	pc := NewPersonalDeltaClassifier(classifier, store)
 
-	delta, err := pc.UpdateDelta("user-1", 0, 1.0, []float64{100.0, 100.0, 100.0, 100.0}, 100.0)
+	delta, err := pc.UpdateDelta("user-1", 0, 1.0, testFeatures(), 100.0)
 	assert.NoError(t, err)
 	for j := 0; j < 4; j++ {
 		assert.Equal(t, 5.0, delta[j])
@@ -436,7 +445,7 @@ func TestPersonalDeltaClassifier_UpdateDelta_ClippingNeg(t *testing.T) {
 	store := newMockDeltaStore(8)
 	pc := NewPersonalDeltaClassifier(classifier, store)
 
-	delta, err := pc.UpdateDelta("user-1", 0, 0.0, []float64{100.0, 100.0, 100.0, 100.0}, 100.0)
+	delta, err := pc.UpdateDelta("user-1", 0, 0.0, testFeatures(), 100.0)
 	assert.NoError(t, err)
 	for j := 0; j < 4; j++ {
 		assert.Equal(t, -5.0, delta[j])

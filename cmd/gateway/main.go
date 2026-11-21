@@ -41,7 +41,6 @@ import (
 	"github.com/MAMUER/project/internal/resilience"
 	"github.com/MAMUER/project/internal/sanitize"
 	"github.com/MAMUER/project/internal/telemetry"
-	"github.com/MAMUER/project/internal/withings"
 )
 
 type gateway struct {
@@ -78,8 +77,6 @@ type gateway struct {
 	errorTotal *prometheus.CounterVec
 
 	yandexOAuthConfig *oauth2.Config
-
-	withingsClient *withings.WithingsClient
 
 	emailSender emailpkg.EmailSender
 
@@ -345,14 +342,6 @@ func loadGatewayConfig(log *logger.Logger) gatewayConfig {
 
 		yandexClientSecret: config.GetEnv("YANDEX_CLIENT_SECRET"),
 
-		withingsClientID: config.GetEnv("WITHINGS_CLIENT_ID"),
-
-		withingsClientSecret: config.GetEnv("WITHINGS_CLIENT_SECRET"),
-
-		withingsRedirectURL: "",
-
-		withingsAPIBaseURL: config.GetEnv("WITHINGS_API_BASE_URL", "https://wbsapi.withings.net"),
-
 		emailSender: emailpkg.NewSMTPClient(emailpkg.LoadConfig()),
 
 		corsOrigins: strings.Split(config.GetEnv("CORS_ALLOWED_ORIGINS", "*"), ","),
@@ -375,8 +364,6 @@ func loadGatewayConfig(log *logger.Logger) gatewayConfig {
 	cfg.publicHost = extractPublicHost(cfg.appBaseURL)
 
 	cfg.yandexOAuthConfig = buildYandexOAuthConfig(log, cfg)
-
-	cfg.withingsClient = buildWithingsClient(log, cfg)
 
 	return cfg
 
@@ -442,49 +429,6 @@ func buildYandexOAuthConfig(log *logger.Logger, cfg gatewayConfig) *oauth2.Confi
 
 }
 
-func buildWithingsClient(log *logger.Logger, cfg gatewayConfig) *withings.WithingsClient {
-
-	if cfg.withingsClientID == "" || cfg.withingsClientSecret == "" {
-
-		log.Warn("Withings integration not configured: WITHINGS_CLIENT_ID or WITHINGS_CLIENT_SECRET missing")
-
-		return nil
-
-	}
-
-	redirectURL := config.GetEnv("WITHINGS_REDIRECT_URL")
-
-	if redirectURL == "" && cfg.appBaseURL != "" {
-
-		redirectURL = cfg.appBaseURL + "/api/v1/integrations/withings/callback"
-
-	}
-
-	apiBaseURL := config.GetEnv("WITHINGS_API_BASE_URL")
-
-	if apiBaseURL == "" {
-
-		apiBaseURL = "https://wbsapi.withings.net"
-
-	}
-
-	log.Info("Withings integration configured", zap.String("redirect_url", sanitize.LogString(redirectURL)), zap.String("api_base_url", sanitize.LogString(apiBaseURL)))
-
-	return withings.NewClient(&withings.Config{
-
-		ClientID: cfg.withingsClientID,
-
-		ClientSecret: cfg.withingsClientSecret,
-
-		RedirectURL: redirectURL,
-
-		APIBaseURL: apiBaseURL,
-
-		Scopes: withings.DefaultScopes(),
-	}, log.Logger)
-
-}
-
 func valkeyAddress() string {
 
 	valkeyHost := config.GetEnv("VALKEY_HOST", "valkey")
@@ -524,21 +468,11 @@ type gatewayConfig struct {
 
 	yandexClientSecret string
 
-	withingsClientID string
-
-	withingsClientSecret string
-
-	withingsRedirectURL string
-
-	withingsAPIBaseURL string
-
 	emailSender emailpkg.EmailSender
 
 	mlAsync bool
 
 	yandexOAuthConfig *oauth2.Config
-
-	withingsClient *withings.WithingsClient
 
 	corsOrigins []string
 
@@ -896,8 +830,6 @@ func buildGateway(opts gatewayBuildOptions) *gateway {
 		errorTotal: opts.metrics.errorTotal,
 
 		yandexOAuthConfig: opts.cfg.yandexOAuthConfig,
-
-		withingsClient: opts.cfg.withingsClient,
 
 		emailSender: opts.cfg.emailSender,
 
@@ -1308,10 +1240,6 @@ func (g *gateway) registerPublicRoutes(r chi.Router) {
 
 	r.Get("/api/v1/auth/yandex/callback", g.yandexCallbackHandler)
 
-	r.Get("/api/v1/integrations/withings/auth", g.withingsLoginHandler)
-
-	r.Get("/api/v1/integrations/withings/callback", g.withingsCallbackHandler)
-
 	r.Get("/health", g.healthHandler)
 
 	// Metrics endpoint
@@ -1560,10 +1488,6 @@ func (g *gateway) registerMealCalendarRoutes(r chi.Router) {
 
 // registerIntegrationRoutes регистрирует маршруты интеграций с внешними сервисами.
 func (g *gateway) registerIntegrationRoutes(r chi.Router) {
-
-	// Integrations
-
-	r.Post("/api/v1/integrations/withings/sync", g.withingsSyncHandler)
 
 	// Open Wearables integration management (requires auth)
 

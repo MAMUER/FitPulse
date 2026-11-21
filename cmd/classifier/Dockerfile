@@ -18,6 +18,9 @@ RUN --mount=type=cache,target=/go/pkg/mod \
 COPY cmd/classifier/ ./cmd/classifier/
 COPY internal/ ./internal/
 COPY api/ ./api/
+# Веса ML-модели. Без них NewONNXClassifier падает и classifier молча
+# переходит на rule-based fallback — ML-слой в проде не работает.
+COPY models/ ./models/
 
 RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
@@ -40,6 +43,7 @@ RUN apk upgrade --no-cache && \
 WORKDIR /app
 
 COPY --from=builder --chown=appuser:appgroup /app/bin/classifier .
+COPY --from=builder --chown=appuser:appgroup /app/models ./models
 
 USER ${APP_UID}
 

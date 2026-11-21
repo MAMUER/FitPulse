@@ -50,11 +50,6 @@ yandex_id:
   client_secret: ""
   redirect_url: "https://fitpulse.tail6f5dca.ts.net/api/v1/auth/yandex/callback"
 
-withings:
-  client_id: ""
-  client_secret: ""
-  redirect_url: "https://fitpulse.tail6f5dca.ts.net/api/v1/integrations/withings/callback"
-  api_base_url: "https://wbsapi.withings.net"
 
 captcha:
   provider: "none"

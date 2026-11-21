@@ -56,6 +56,15 @@ spec:
       volumes:
         - name: tmp
           emptyDir: {}
+        - name: secrets
+          secret:
+            secretName: app-secrets
+            items:
+              - key: POSTGRES_DB
+                path: POSTGRES_DB
+        - name: db-credentials
+          secret:
+            secretName: classifier-db-credentials
       containers:
         - name: classifier
           # checkov:skip=CKV_K8S_43: CI-built image; digest resolved in deployment pipeline
@@ -79,12 +88,40 @@ spec:
           volumeMounts:
             - name: tmp
               mountPath: /tmp
+            - name: secrets
+              mountPath: /etc/secrets
+              readOnly: true
+            - name: db-credentials
+              mountPath: /etc/db-credentials
+              readOnly: true
           env:
             - name: CLASSIFIER_PORT
               valueFrom:
                 configMapKeyRef:
                   name: app-config
                   key: CLASSIFIER_PORT
+            # Персистентное хранение персональных дельт Δ_u.
+            - name: DB_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: DB_HOST
+            - name: DB_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: DB_PORT
+            - name: POSTGRES_USER_FILE
+              value: "/etc/db-credentials/POSTGRES_USER"
+            - name: POSTGRES_PASSWORD_FILE
+              value: "/etc/db-credentials/POSTGRES_PASSWORD"
+            - name: POSTGRES_DB_FILE
+              value: "/etc/secrets/POSTGRES_DB"
+            - name: DB_SSLMODE
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: DB_SSLMODE
             - name: OTEL_EXPORTER_OTLP_ENDPOINT
               value: "opentelemetry-collector.monitoring.svc.cluster.local:4317"
             - name: OTEL_SERVICE_NAME

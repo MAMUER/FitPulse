@@ -815,3 +815,13 @@ CREATE TABLE IF NOT EXISTS reports (
 );
 
 CREATE INDEX IF NOT EXISTS idx_reports_reported ON reports(reported_user_id, created_at DESC);
+
+-- ===================== Classifier personal deltas =====================
+-- Персональные дельты Delta_u (Sokolov et al.): обновляются из подтверждений
+-- пользователя (/api/v1/ml/feedback -> classifier /classify/delta) и
+-- сохраняются между рестартами пода.
+CREATE TABLE IF NOT EXISTS classifier_deltas (
+    user_id    TEXT PRIMARY KEY,
+    delta      JSONB NOT NULL,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);

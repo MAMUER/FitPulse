@@ -4,6 +4,8 @@ kind: Kustomization
 resources:
   - allow-backends-ingress.yaml
   - allow-backends-to-infrastructure.yaml
+  - allow-classifier-to-postgres.yaml
+  - allow-device-aggregator-to-biometric.yaml
   - allow-email-worker-smtp-egress.yaml
   - allow-backup-to-minio.yaml
   - allow-backup-to-postgres.yaml

@@ -1,0 +1,32 @@
+{
+  "timestamp": "2026-11-21T22:07:18.400234Z",
+  "val_accuracy": 0.998609731876862,
+  "val_samples": 20140,
+  "test_accuracy": 0.9986098699235428,
+  "test_samples": 10071,
+  "train_samples": 70489,
+  "features": [
+    "heart_rate",
+    "hrv",
+    "spo2",
+    "temperature"
+  ],
+  "classes": [
+    "recovery",
+    "endurance_basic",
+    "endurance_threshold",
+    "power_hiit",
+    "overtraining",
+    "illness",
+    "unknown"
+  ],
+  "class_distribution": {
+    "recovery": 75,
+    "endurance_basic": 20000,
+    "endurance_threshold": 20000,
+    "power_hiit": 20000,
+    "overtraining": 20000,
+    "illness": 625,
+    "unknown": 20000
+  }
+}

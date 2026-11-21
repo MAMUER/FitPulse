@@ -1,12 +1,26 @@
 package main
 
 import (
+	"database/sql"
 	"testing"
 
 	sqlmock "github.com/DATA-DOG/go-sqlmock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+// newDeviceTestDB создаёт mock-БД для тестов device-клиента.
+func newDeviceTestDB(t *testing.T) (*sql.DB, sqlmock.Sqlmock) {
+	t.Helper()
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		if cErr := db.Close(); cErr != nil {
+			t.Logf("db close error: %v", cErr)
+		}
+	})
+	return db, mock
+}
 
 func TestNewGatewayDeviceClient(t *testing.T) {
 	db, _, err := sqlmock.New()
@@ -25,7 +39,7 @@ func TestNewGatewayDeviceClient(t *testing.T) {
 
 func TestGatewayDeviceClientCreateOrUpdateDevice(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
-		db, mock := withingsNewDB(t)
+		db, mock := newDeviceTestDB(t)
 		mock.ExpectExec("INSERT INTO devices").
 			WithArgs(sqlmock.AnyArg(), "user-1", "scale", "My Scale", sqlmock.AnyArg()).
 			WillReturnResult(sqlmock.NewResult(0, 1))
@@ -39,7 +53,7 @@ func TestGatewayDeviceClientCreateOrUpdateDevice(t *testing.T) {
 	})
 
 	t.Run("database error", func(t *testing.T) {
-		db, mock := withingsNewDB(t)
+		db, mock := newDeviceTestDB(t)
 		mock.ExpectExec("INSERT INTO devices").WillReturnError(assert.AnError)
 
 		id, err := newGatewayDeviceClient(db).CreateOrUpdateDevice(t.Context(), "user-1", "scale", "My Scale", "{}")
@@ -52,7 +66,7 @@ func TestGatewayDeviceClientCreateOrUpdateDevice(t *testing.T) {
 
 func TestGatewayDeviceClientGetByType(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
-		db, mock := withingsNewDB(t)
+		db, mock := newDeviceTestDB(t)
 		rows := sqlmock.NewRows([]string{"id", "user_id", "device_type", "device_name", "token", "is_connected", "last_sync"}).
 			AddRow("dev-1", "user-1", "scale", "My Scale", `{"access_token":"tok"}`, true, nil)
 		mock.ExpectQuery("SELECT id, user_id, device_type").
@@ -73,7 +87,7 @@ func TestGatewayDeviceClientGetByType(t *testing.T) {
 	})
 
 	t.Run("no rows returns not found", func(t *testing.T) {
-		db, mock := withingsNewDB(t)
+		db, mock := newDeviceTestDB(t)
 		empty := sqlmock.NewRows([]string{"id", "user_id", "device_type", "device_name", "token", "is_connected", "last_sync"})
 		mock.ExpectQuery("SELECT id, user_id, device_type").WillReturnRows(empty)
 
@@ -85,7 +99,7 @@ func TestGatewayDeviceClientGetByType(t *testing.T) {
 	})
 
 	t.Run("database error", func(t *testing.T) {
-		db, mock := withingsNewDB(t)
+		db, mock := newDeviceTestDB(t)
 		mock.ExpectQuery("SELECT id, user_id, device_type").WillReturnError(assert.AnError)
 
 		device, err := newGatewayDeviceClient(db).GetByType(t.Context(), "user-1", "scale")
@@ -98,7 +112,7 @@ func TestGatewayDeviceClientGetByType(t *testing.T) {
 
 func TestGatewayDeviceClientUpdateLastSync(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
-		db, mock := withingsNewDB(t)
+		db, mock := newDeviceTestDB(t)
 		mock.ExpectExec("UPDATE devices SET last_sync").
 			WithArgs("dev-1").
 			WillReturnResult(sqlmock.NewResult(0, 1))
@@ -110,7 +124,7 @@ func TestGatewayDeviceClientUpdateLastSync(t *testing.T) {
 	})
 
 	t.Run("database error", func(t *testing.T) {
-		db, mock := withingsNewDB(t)
+		db, mock := newDeviceTestDB(t)
 		mock.ExpectExec("UPDATE devices SET last_sync").WillReturnError(assert.AnError)
 
 		err := newGatewayDeviceClient(db).UpdateLastSync(t.Context(), "dev-1")

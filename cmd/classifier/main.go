@@ -5,6 +5,7 @@ import (
 	"errors"
 	"math"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -30,7 +31,7 @@ const (
 	trainingClassCount    = 7
 	contentTypeJSON       = "application/json"
 	headerContentType     = "Content-Type"
-	mlSwitchThreshold     = 0.85
+	mlSwitchThreshold     = 0.25
 	modelRuleBased        = "rule-based"
 	modelML               = "ml"
 	errMethodNotSupported = "Метод не поддерживается"
@@ -181,6 +182,7 @@ type classifyResponse struct {
 	Description       string             `json:"description,omitempty"`
 	HrRange           string             `json:"hr_range,omitempty"`
 	PersonalizedNotes *string            `json:"personalized_notes,omitempty"`
+	Model             string             `json:"model,omitempty"`
 }
 
 type healthResponse struct {
@@ -192,13 +194,17 @@ type healthResponse struct {
 
 func (s *classifierServer) healthHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set(headerContentType, contentTypeJSON)
+	// Фактическое состояние: раньше здесь всегда стояло true, поэтому
+	// scripts/ml-e2e.py не мог обнаружить отсутствие модели в образе.
+	modelLoaded := s.onnxClassifier != nil
+	scalerLoaded := modelLoaded && len(s.onnxClassifier.featureMin) > 0
 	if err := json.NewEncoder(w).Encode(healthResponse{
 		Status:       "healthy",
-		ModelLoaded:  true,
-		ScalerLoaded: true,
+		ModelLoaded:  modelLoaded,
+		ScalerLoaded: scalerLoaded,
 		AsyncEnabled: false,
 	}); err != nil {
-		s.log.Error("Failed to encode health response", zap.Error(err))
+		w.WriteHeader(http.StatusInternalServerError)
 	}
 }
 
@@ -220,19 +226,40 @@ func (s *classifierServer) modelInfoHandler(w http.ResponseWriter, r *http.Reque
 	w.Header().Set(headerContentType, contentTypeJSON)
 	modelName := "rule-based-classifier"
 	totalParams := 0
+	featureKeys := []string{}
+	scalerSaved := false
 	if s.onnxClassifier != nil {
 		modelName = "onnx-linear-classifier"
 		totalParams = len(s.onnxClassifier.Weights)
+		featureKeys = s.onnxClassifier.FeatureKeys()
+		scalerSaved = len(s.onnxClassifier.featureMin) > 0
 	}
 	if err := json.NewEncoder(w).Encode(map[string]interface{}{
 		"model_name":       modelName,
-		"input_shape":      []int{1, 7},
+		"input_shape":      []int{1, len(featureKeys)},
 		"output_shape":     []int{1, trainingClassCount},
 		"total_params":     totalParams,
+		"feature_keys":     featureKeys,
+		"scaler_saved":     scalerSaved,
 		"training_classes": trainingClasses,
 		"loaded_at":        time.Now().UTC().Format(time.RFC3339),
 	}); err != nil {
 		s.log.Error("Failed to encode model info response", zap.Error(err))
+	}
+}
+
+// buildClassifierFeatures формирует карту признаков для ML-модели.
+// Ключи совпадают с feature_keys из models/classifier_weights.json; лишние
+// модель игнорирует, отсутствующие считаются нулевыми.
+func (s *classifierServer) buildClassifierFeatures(data physiologicalData) map[string]float64 {
+	return map[string]float64{
+		"heart_rate":         data.HeartRate,
+		"hrv":                data.HeartRateVariability,
+		"spo2":               data.SpO2,
+		"temperature":        data.Temperature,
+		"systolic_pressure":  data.BloodPressureSystolic,
+		"diastolic_pressure": data.BloodPressureDiastolic,
+		"sleep_hours":        data.SleepHours,
 	}
 }
 
@@ -277,12 +304,7 @@ func (s *classifierServer) classifyHandler(w http.ResponseWriter, r *http.Reques
 	var modelUsed string
 
 	if s.onnxClassifier != nil {
-		features := map[string]float64{
-			"heart_rate":  data.HeartRate,
-			"hrv":         data.HeartRateVariability,
-			"spo2":        data.SpO2,
-			"temperature": data.Temperature,
-		}
+		features := s.buildClassifierFeatures(data)
 		mlClass, mlConfidence, err := s.classifyWithDelta(features, req.UserID)
 		if err == nil && mlConfidence >= mlSwitchThreshold {
 			predictedClass = mlClass
@@ -316,6 +338,7 @@ func (s *classifierServer) classifyHandler(w http.ResponseWriter, r *http.Reques
 		Description:       classInfo.Description,
 		HrRange:           classInfo.HrRange,
 		PersonalizedNotes: personalizedNotes,
+		Model:             modelUsed,
 	}
 
 	metrics.ClassificationConfidence.WithLabelValues(modelUsed, classInfo.Name).Set(confidence)
@@ -795,13 +818,31 @@ func main() {
 
 	config.InitViper("classifier")
 
+	// Сервисный режим: сформировать эталонный датасет для обучения линейной
+	// аппроксимации (используется scripts/train_classifier_linear.py).
+	if dumpPath := dumpDatasetFlag(os.Args[1:]); dumpPath != "" {
+		if err := dumpDistilledDataset(dumpPath, 1500); err != nil {
+			log.Error("Не удалось сформировать датасет", zap.Error(err))
+			os.Exit(1)
+		}
+		return
+	}
+
 	s := &classifierServer{log: log}
 	if clf, err := NewONNXClassifier(DefaultONNXWeightsPath()); err == nil {
 		s.onnxClassifier = clf
 		log.Info("ONNX-классификатор загружен", zap.String("weights", sanitize.LogString(DefaultONNXWeightsPath())))
-		deltaStore := NewInMemoryDeltaStore(len(clf.Weights))
-		s.personalClassifier = NewPersonalDeltaClassifier(clf, deltaStore)
 		log.Info("Персональный классификатор с дельтами инициализирован", zap.Int("delta_size", len(clf.Weights)))
+
+		// Персональные дельты переживают рестарт пода только при наличии БД.
+		if database := connectClassifierDB(); database != nil {
+			s.personalClassifier = NewPersonalDeltaClassifier(clf, NewPostgresDeltaStore(database))
+			log.Info("Персональные дельты сохраняются в PostgreSQL")
+		} else {
+			deltaStore := NewInMemoryDeltaStore(len(clf.Weights))
+			s.personalClassifier = NewPersonalDeltaClassifier(clf, deltaStore)
+			log.Warn("POSTGRES не настроен: персональные дельты хранятся в RAM и теряются при рестарде")
+		}
 	} else {
 		log.Warn("ONNX-классификатор не загружен, используется rule-based fallback", zap.Error(err))
 	}

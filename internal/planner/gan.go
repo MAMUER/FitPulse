@@ -137,11 +137,19 @@ func GeneratePlanFromGAN(
 	classification string,
 	ganVector []float64,
 	constraints PlanConstraints,
+	extras ...PersonalizationInput,
 ) (*entity.TrainingPlan, []*entity.PlanWeek, error) {
 	tpl, ok := templates.GetTemplate(classification)
 	if !ok {
 		classification = "endurance_basic"
 		tpl, _ = templates.GetTemplate(classification)
+	}
+
+	// Персонализация: возраст, ИМТ, менструальная фаза, ограничения,
+	// аллергии (для плана), стресс, сон и биометрия с устройства.
+	personalizationNotes := []string{}
+	if len(extras) > 0 {
+		ganVector, personalizationNotes = PersonalizeVector(ganVector, extras[0])
 	}
 
 	params := DecodeGANVector(ganVector)
@@ -216,6 +224,7 @@ func GeneratePlanFromGAN(
 			"gan_reps":          params.Reps,
 			"gan_rest":          params.RestSeconds,
 			"gan_exercises":     len(selected),
+			"personalization":   personalizationNotes,
 		},
 	}
 	return plan, weeks, nil

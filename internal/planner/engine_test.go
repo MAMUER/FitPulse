@@ -64,42 +64,43 @@ func TestGeneratePlanFromTemplate_ExercisesGenerated(t *testing.T) {
 }
 
 func TestApplyModifiers_AgeOver60(t *testing.T) {
-	user := &entity.User{Age: 65, HeightCm: 170, WeightKg: 70}
-	intensity := applyModifiers(0.5, user, nil, nil)
-	assert.Equal(t, 0.4, intensity, 0.01)
+	adj := Personalize(PersonalizationInput{Age: 65, HeightCm: 170, WeightKg: 70})
+	assert.InDelta(t, 0.4, applyModifiers(0.5, adj), 0.01)
 }
 
 func TestApplyModifiers_BMIOver35(t *testing.T) {
-	user := &entity.User{Age: 30, HeightCm: 170, WeightKg: 110}
-	intensity := applyModifiers(0.5, user, nil, nil)
-	assert.Equal(t, 0.35, intensity, 0.01)
+	adj := Personalize(PersonalizationInput{Age: 30, HeightCm: 170, WeightKg: 110})
+	assert.InDelta(t, 0.35, applyModifiers(0.5, adj), 0.01)
 }
 
-func TestApplyModifiers_Menstruation(t *testing.T) {
-	user := &entity.User{Age: 30, HeightCm: 170, WeightKg: 70}
-	survey := map[string]interface{}{"menstruation": true}
-	intensity := applyModifiers(0.5, user, survey, nil)
-	assert.Equal(t, 0.425, intensity, 0.01)
+func TestApplyModifiers_MenstrualPhase(t *testing.T) {
+	adj := Personalize(PersonalizationInput{
+		Age: 30, HeightCm: 170, WeightKg: 70, Gender: "female", MenstrualPhase: "menstruation",
+	})
+	assert.InDelta(t, 0.4, applyModifiers(0.5, adj), 0.01)
 }
 
 func TestApplyModifiers_LowHRV(t *testing.T) {
-	user := &entity.User{Age: 30, HeightCm: 170, WeightKg: 70}
-	biometrics := &Biometrics{HRV: 10, HeartRate: 80}
-	intensity := applyModifiers(0.8, user, nil, biometrics)
-	assert.Equal(t, 0.4, intensity, 0.01)
+	adj := Personalize(PersonalizationInput{
+		Age: 30, HeightCm: 170, WeightKg: 70,
+		Biometrics: &Biometrics{HRV: 10, HeartRate: 80},
+	})
+	assert.InDelta(t, 0.4, applyModifiers(0.8, adj), 0.01)
 }
 
 func TestApplyModifiers_LowSleep(t *testing.T) {
-	user := &entity.User{Age: 30, HeightCm: 170, WeightKg: 70}
-	biometrics := &Biometrics{HRV: 50, SleepHours: 4}
-	intensity := applyModifiers(0.5, user, nil, biometrics)
-	assert.Equal(t, 0.35, intensity, 0.01)
+	adj := Personalize(PersonalizationInput{
+		Age: 30, HeightCm: 170, WeightKg: 70, SleepHours: 4,
+	})
+	assert.InDelta(t, 0.35, applyModifiers(0.5, adj), 0.01)
 }
 
 func TestApplyModifiers_ClampedBetween01(t *testing.T) {
-	user := &entity.User{Age: 30, HeightCm: 170, WeightKg: 70}
-	biometrics := &Biometrics{HRV: 5, SleepHours: 3}
-	intensity := applyModifiers(0.1, user, nil, biometrics)
+	adj := Personalize(PersonalizationInput{
+		Age: 30, HeightCm: 170, WeightKg: 70, SleepHours: 3,
+		Biometrics: &Biometrics{HRV: 5},
+	})
+	intensity := applyModifiers(0.1, adj)
 	assert.GreaterOrEqual(t, intensity, 0.1)
 	assert.LessOrEqual(t, intensity, 1.0)
 }

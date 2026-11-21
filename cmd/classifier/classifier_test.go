@@ -33,8 +33,11 @@ func TestHealthHandler(t *testing.T) {
 	err := json.NewDecoder(w.Body).Decode(&resp)
 	assert.NoError(t, err)
 	assert.Equal(t, "healthy", resp.Status)
-	assert.True(t, resp.ModelLoaded)
-	assert.True(t, resp.ScalerLoaded)
+	// Сервер без загруженной модели обязан сообщать model_loaded=false:
+	// раньше здесь всегда стояло true, и отсутствие весов в образе было
+	// незаметно ни для /health, ни для ml-e2e.
+	assert.False(t, resp.ModelLoaded)
+	assert.False(t, resp.ScalerLoaded)
 	assert.False(t, resp.AsyncEnabled)
 }
 

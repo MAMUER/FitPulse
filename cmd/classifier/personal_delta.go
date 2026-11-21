@@ -8,11 +8,11 @@ import (
 
 // DeltaUpdateRequest содержит обратную связь пользователя для обновления персональной дельты.
 type DeltaUpdateRequest struct {
-	UserID       string    `json:"user_id"`
-	ClassIndex   int       `json:"class_index"`
-	TargetValue  float64   `json:"target_value"`
-	Features     []float64 `json:"features"`
-	LearningRate float64   `json:"learning_rate"`
+	UserID       string             `json:"user_id"`
+	ClassIndex   int                `json:"class_index"`
+	TargetValue  float64            `json:"target_value"`
+	Features     map[string]float64 `json:"features"`
+	LearningRate float64            `json:"learning_rate"`
 }
 
 // DeltaUpdateResponse ответ после обновления дельты.
@@ -119,6 +119,9 @@ func (p *PersonalDeltaClassifier) PredictWithDelta(features map[string]float64, 
 	for cls := 0; cls < numClasses; cls++ {
 		offset := cls * numFeatures
 		sum := 0.0
+		if cls < len(p.classifier.Intercepts) {
+			sum = p.classifier.Intercepts[cls]
+		}
 		for j := 0; j < numFeatures; j++ {
 			w := p.classifier.Weights[offset+j]
 			d := delta[offset+j]
@@ -128,12 +131,12 @@ func (p *PersonalDeltaClassifier) PredictWithDelta(features map[string]float64, 
 	}
 
 	best := p.classifier.findBestClass(scores)
-	confidence := p.classifier.sigmoidConfidence(scores[best])
+	confidence := p.classifier.confidence(scores)
 
 	return p.classifier.Labels[best], confidence, nil
 }
 
-func (p *PersonalDeltaClassifier) UpdateDelta(userID string, classIndex int, targetValue float64, features []float64, learningRate float64) ([]float64, error) {
+func (p *PersonalDeltaClassifier) UpdateDelta(userID string, classIndex int, targetValue float64, features map[string]float64, learningRate float64) ([]float64, error) {
 	if p.classifier == nil {
 		return nil, errors.New("classifier not initialized")
 	}
@@ -144,31 +147,70 @@ func (p *PersonalDeltaClassifier) UpdateDelta(userID string, classIndex int, tar
 	if classIndex < 0 || classIndex >= numClasses {
 		return nil, errors.New("invalid class index")
 	}
-	if len(features) != numFeatures {
-		return nil, errors.New("invalid features length")
+	if err := validateFeatureKeys(p.classifier.featureKeys, features); err != nil {
+		return nil, err
 	}
 	if learningRate <= 0 {
 		learningRate = 0.01
 	}
 
-	delta, _ := p.store.GetDelta(userID)
-	if len(delta) != numClasses*numFeatures {
-		delta = make([]float64, numClasses*numFeatures)
-	}
-
-	currentScore := 0.0
+	x := p.classifier.extractFeatures(features)
+	delta := p.deltaForUser(userID, numClasses*numFeatures)
 	offset := classIndex * numFeatures
-	for j := 0; j < numFeatures; j++ {
-		currentScore += p.classifier.Weights[offset+j] * features[j]
-	}
-	currentPrediction := p.classifier.sigmoidConfidence(currentScore)
 
+	currentPrediction := p.classifier.sigmoidConfidence(
+		p.classScore(classIndex, delta, x),
+	)
 	errorTerm := targetValue - currentPrediction
-	for j := 0; j < numFeatures; j++ {
-		delta[offset+j] += learningRate * errorTerm * features[j]
-	}
+	applyGradient(delta, offset, x, learningRate*errorTerm)
+	clampDelta(delta, offset, numFeatures)
 
-	maxDelta := 5.0
+	p.store.SetDelta(userID, delta)
+	return delta, nil
+}
+
+// validateFeatureKeys требует наличия всех признаков модели.
+func validateFeatureKeys(keys []string, features map[string]float64) error {
+	for _, key := range keys {
+		if _, ok := features[key]; !ok {
+			return errors.New("invalid features length")
+		}
+	}
+	return nil
+}
+
+// deltaForUser возвращает дельту пользователя или нулевой вектор нужного размера.
+func (p *PersonalDeltaClassifier) deltaForUser(userID string, size int) []float64 {
+	delta, _ := p.store.GetDelta(userID)
+	if len(delta) != size {
+		delta = make([]float64, size)
+	}
+	return delta
+}
+
+// classScore считает оценку класса с учётом базовых весов, интерсепта и дельты.
+func (p *PersonalDeltaClassifier) classScore(classIndex int, delta, x []float64) float64 {
+	offset := classIndex * len(x)
+	score := 0.0
+	if classIndex < len(p.classifier.Intercepts) {
+		score = p.classifier.Intercepts[classIndex]
+	}
+	for j := range x {
+		score += (p.classifier.Weights[offset+j] + delta[offset+j]) * x[j]
+	}
+	return score
+}
+
+// applyGradient обновляет дельту целевого класса.
+func applyGradient(delta []float64, offset int, x []float64, step float64) {
+	for j := range x {
+		delta[offset+j] += step * x[j]
+	}
+}
+
+// clampDelta ограничивает дельту диапазоном [-5, 5].
+func clampDelta(delta []float64, offset, numFeatures int) {
+	const maxDelta = 5.0
 	for j := 0; j < numFeatures; j++ {
 		if delta[offset+j] > maxDelta {
 			delta[offset+j] = maxDelta
@@ -177,10 +219,6 @@ func (p *PersonalDeltaClassifier) UpdateDelta(userID string, classIndex int, tar
 			delta[offset+j] = -maxDelta
 		}
 	}
-
-	p.store.SetDelta(userID, delta)
-
-	return delta, nil
 }
 
 func (p *PersonalDeltaClassifier) DeltaNorm(userID string) float64 {

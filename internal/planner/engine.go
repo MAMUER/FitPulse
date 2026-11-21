@@ -38,6 +38,7 @@ func GeneratePlanFromTemplate(
 	survey map[string]interface{},
 	biometrics *Biometrics,
 	constraints PlanConstraints,
+	extras ...PersonalizationInput,
 ) (*entity.TrainingPlan, []*entity.PlanWeek, error) {
 	tpl, ok := templates.GetTemplate(classification)
 	if !ok {
@@ -45,7 +46,12 @@ func GeneratePlanFromTemplate(
 		tpl, _ = templates.GetTemplate(classification)
 	}
 
-	intensity := applyModifiers(tpl.IntensityRange[0], user, survey, biometrics)
+	personalization := PersonalizationFromUser(user, survey, biometrics)
+	if len(extras) > 0 {
+		personalization = extras[0]
+	}
+	adj := Personalize(personalization)
+	intensity := applyModifiers(tpl.IntensityRange[0], adj)
 	duration := tpl.DurationRange[1]
 	if constraints.DurationWeeks > 0 {
 		duration = constraints.DurationWeeks * 7
@@ -98,42 +104,20 @@ func GeneratePlanFromTemplate(
 		DurationWeeks:  constraints.DurationWeeks,
 		AvailableDays:  availableDays,
 		PlanData: map[string]interface{}{
-			"name":      tpl.NameRu,
-			"class":     classification,
-			"weeks":     len(weeks),
-			"intensity": intensity,
+			"name":            tpl.NameRu,
+			"class":           classification,
+			"weeks":           len(weeks),
+			"intensity":       intensity,
+			"personalization": adj.Notes,
 		},
 	}
 	return plan, weeks, nil
 }
 
-func applyModifiers(baseIntensity float64, user *entity.User, survey map[string]interface{}, biometrics *Biometrics) float64 {
-	intensity := baseIntensity
-
-	if user.Age > 60 {
-		intensity *= 0.8
+func applyModifiers(baseIntensity float64, adj Adjustment) float64 {
+	intensity := baseIntensity * adj.IntensityFactor
+	if adj.IntensityCap > 0 && intensity > adj.IntensityCap {
+		intensity = adj.IntensityCap
 	}
-
-	bmi := float64(user.WeightKg) / math.Pow(float64(user.HeightCm)/100, 2)
-
-	if bmi > 35 {
-		intensity *= 0.7
-	}
-
-	if survey != nil {
-		if menstruation, ok := survey["menstruation"].(bool); ok && menstruation {
-			intensity *= 0.85
-		}
-	}
-
-	if biometrics != nil {
-		if biometrics.HRV < 20 {
-			intensity = math.Min(intensity, 0.4)
-		}
-		if biometrics.SleepHours > 0 && biometrics.SleepHours < 5 {
-			intensity *= 0.7
-		}
-	}
-
 	return math.Max(0.1, math.Min(1.0, intensity))
 }

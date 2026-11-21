@@ -41,9 +41,12 @@ func TestOpenWearablesWebhookHandler(t *testing.T) {
 		r := httptest.NewRequest(http.MethodPost, "/api/v1/integrations/open-wearables/webhook", bytes.NewReader(body))
 		openWearablesWebhookHandler(w, r)
 		assert.Equal(t, http.StatusOK, w.Code)
-		var resp map[string]string
+		var resp map[string]interface{}
 		assert.NoError(t, json.NewDecoder(w.Body).Decode(&resp))
 		assert.Equal(t, "accepted", resp["status"])
+		// В тестовом окружении biometric-service недоступен, поэтому
+		// forwarded=false — сам вебхук всё равно принят.
+		assert.Equal(t, false, resp["forwarded"])
 	})
 }
 

@@ -101,6 +101,14 @@ spec:
               value: "valkey:6379"
             - name: VALKEY_PASSWORD_FILE
               value: "/etc/secrets/VALKEY_PASSWORD"
+            # Куда пересылать вебхуки (biometric-service сохраняет метрики).
+            - name: BIOMETRIC_SERVICE_URL
+              value: "http://biometric-service:8085"
+            - name: OPEN_WEARABLES_WEBHOOK_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: OPEN_WEARABLES_WEBHOOK_SECRET
           livenessProbe:
             httpGet:
               path: /health

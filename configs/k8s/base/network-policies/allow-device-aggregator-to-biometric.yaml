@@ -1,0 +1,30 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-device-aggregator-to-biometric
+  namespace: fitness-platform-production
+spec:
+  podSelector:
+    matchLabels:
+      app: device-aggregator
+  policyTypes:
+    - Egress
+  egress:
+    # Агрегатор пересылает вебхуки в biometric-service, который сохраняет
+    # метрики в biometric_data.
+    - to:
+        - podSelector:
+            matchLabels:
+              app: biometric-service
+      ports:
+        - protocol: TCP
+          port: 8085
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
