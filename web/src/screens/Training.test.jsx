@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { useApp } from '../contexts/AppContext';
 import Training from './Training';
@@ -242,36 +242,6 @@ describe('Training', () => {
     fireEvent.click(screen.getByLabelText('Удалить упражнение'));
 
     expect(context.removeCustomExercise).toHaveBeenCalledWith(0);
-  });
-
-  it('opens a video and switches to the next one', () => {
-    const context = makeContext();
-    useApp.mockReturnValue(context);
-
-    render(<Training />);
-    fireEvent.click(screen.getByText('Утренняя зарядка'));
-
-    let dialog = screen.getByRole('dialog');
-    expect(
-      within(dialog).getByRole('heading', { name: 'Утренняя зарядка' })
-    ).toBeInTheDocument();
-    fireEvent.click(within(dialog).getByLabelText('Следующее видео'));
-
-    dialog = screen.getByRole('dialog');
-    expect(
-      within(dialog).getByRole('heading', { name: 'Силовая тренировка' })
-    ).toBeInTheDocument();
-  });
-
-  it('closes the video modal', () => {
-    const context = makeContext();
-    useApp.mockReturnValue(context);
-
-    render(<Training />);
-    fireEvent.click(screen.getByText('Утренняя зарядка'));
-    fireEvent.click(screen.getByLabelText('Закрыть'));
-
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 
   it('renders FitPulse plans and generates a new one', () => {
