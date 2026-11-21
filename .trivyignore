@@ -1,6 +1,19 @@
 # Trivy Ignore List
 
+#
+
+# Формат: один идентификатор на строку, без инлайн-комментариев — парсер Trivy
+
+# сопоставляет строку целиком, поэтому пояснения держим отдельными # -строками
+
+# Используется в .github/workflows/ci.yml (scan-trivy-fs и scan-images)
+
 GHSA-qwww-vcr4-c8h2
+
+# KSV-* — проверки конфигурации Kubernetes (Trivy misconfig)
+
+# Часть правил неприменима к нашим манифестам, часть уже закрыта в манифестах
+
 KSV-0109
 KSV-0121
 KSV-0010
@@ -22,12 +35,83 @@ KSV-0020
 KSV-0039
 KSV-0040
 KSV-0106
-CVE-2026-4738  # gdal/zlib inftree9 buffer overflow; GDAL not used in our images, not applicable
-KSV-0014  # jaeger deployment already has readOnlyRootFilesystem: true; ignore stale Trivy cache
-KSV-0118  # argocd security context hardened
 
-CVE-2025-47273  # setuptools PackageIndex path traversal (build tool, not used at runtime)
-CVE-2026-97689  # urllib3 chunked DoS (urllib3 not used by the app)
-CVE-2026-97687  # urllib3 HTTPS-proxy TLS override (urllib3 not used by the app)
-GHSA-6v7p-g79w-8964  # msgpack Unpacker reuse crash (msgpack not used by the app)
-CVE-2026-114613  # msgpack map deserialization memory leak (msgpack not used by the app)
+# CVE-2026-4738 — gdal/zlib inftree9 buffer overflow; GDAL в наших образах не используется
+
+CVE-2026-4738
+
+# KSV-0014 — jaeger: readOnlyRootFilesystem уже выставлен; правило из stale-кэша Trivy
+
+KSV-0014
+
+# KSV-0118 — argocd: security context уже усилен
+
+KSV-0118
+
+# CVE-2025-47273 — setuptools PackageIndex path traversal (build-time, не используется в рантайме)
+
+CVE-2025-47273
+
+# CVE-2026-97689 — urllib3 chunked DoS (urllib3 приложением не используется)
+
+CVE-2026-97689
+
+# CVE-2026-97687 — urllib3 HTTPS-proxy TLS override (urllib3 приложением не используется)
+
+CVE-2026-97687
+
+# GHSA-6v7p-g79w-8964 — msgpack Unpacker reuse crash (msgpack приложением не используется)
+
+GHSA-6v7p-g79w-8964
+
+# CVE-2026-114613 — msgpack map deserialization memory leak (msgpack приложением не используется)
+
+CVE-2026-114613
+
+# --- gosu в базовом образе postgres:18-alpine (и производных postgres-pgsodium:pg18
+
+# backup-tools:pg18). Бинарник /usr/local/bin/gosu собран с Go stdlib v1.24.6, поэтому
+
+# Trivy находит в нём семь CVE стандартной библиотеки Go. Это НЕ наш код: gosu — это
+
+# su-exec (сброс прав перед стартом postgres), он не обрабатывает сетевой ввод, а наши
+
+# сервисы собираются Go 1.27.3 (GO_VERSION в .github/workflows/ci.yml) и эти CVE их не
+
+# затрагивают. Фиксы есть в Go 1.25.9/1.25.10/1.26.2/1.26.3
+
+# Удалить блок, когда апстрим postgres:18-alpine пересоберёт gosu на Go >= 1.25.10
+
+# Renovate подтянет новый digest — тогда проверьте, что CVE ушли из отчёта
+
+#
+
+# CVE-2025-68121 — crypto/tls: некорректная проверка сертификата при возобновлении
+
+# сессии TLS 1.3 (ClientCAs/RootCAs мутированы между handshake)
+
+CVE-2025-68121
+
+# CVE-2026-39836 — net: паника Dial/LookupPort на Windows при NUL-байте (только Windows)
+
+CVE-2026-39836
+
+# CVE-2026-39820 — net/mail: DoS на подобранных адресах/датах (gosu почту не парсит)
+
+CVE-2026-39820
+
+# CVE-2026-33814 — net/http2: DoS через SETTINGS_MAX_FRAME_SIZE=0 (HTTP/2 не используется)
+
+CVE-2026-33814
+
+# CVE-2026-33811 — net: double-free в LookupCNAME при cgo-resolver (CGO в gosu выключен)
+
+CVE-2026-33811
+
+# CVE-2026-32283 — crypto/tls: DoS через несколько TLS 1.3 KeyUpdate в одном record
+
+CVE-2026-32283
+
+# CVE-2026-32281 — crypto/x509: DoS при валидации цепочки с большим числом policy mappings
+
+CVE-2026-32281
