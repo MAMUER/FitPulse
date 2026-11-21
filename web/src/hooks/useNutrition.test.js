@@ -8,6 +8,9 @@ vi.mock('../services/api', () => ({
   loadMeals: vi.fn(),
   createMeal: vi.fn(),
   removeMeal: vi.fn(),
+  updateMeal: vi.fn(),
+  loadDishes: vi.fn(),
+  addDish: vi.fn(),
 }));
 
 function makeState(overrides = {}) {
@@ -304,5 +307,140 @@ describe('useNutrition', () => {
     });
     expect(ok).toBe(false);
     expect(notify).toHaveBeenCalledWith('Ошибка удаления блюда');
+  });
+});
+
+describe('useNutrition — update, dishes catalog and goals', () => {
+  it('loadMeals accepts a bare array payload', async () => {
+    setup();
+    api.loadMeals.mockResolvedValue([{ id: 1, name: 'Овсянка' }]);
+    await act(async () => {
+      await result.current.loadMeals();
+    });
+    expect(update).toHaveBeenCalledWith({
+      mealsList: [{ id: 1, name: 'Овсянка' }],
+    });
+  });
+
+  it('loadMeals accepts the { meals } payload', async () => {
+    setup();
+    api.loadMeals.mockResolvedValue({ status: 'ok', meals: [{ id: 2 }] });
+    await act(async () => {
+      await result.current.loadMeals();
+    });
+    expect(update).toHaveBeenCalledWith({ mealsList: [{ id: 2 }] });
+  });
+
+  it('loadMeals ignores payloads without a list', async () => {
+    setup();
+    api.loadMeals.mockResolvedValue({ status: 'ok' });
+    await act(async () => {
+      await result.current.loadMeals();
+    });
+    expect(update).not.toHaveBeenCalled();
+  });
+
+  it('updateMeal notifies and refreshes on success', async () => {
+    setup();
+    api.updateMeal.mockResolvedValue({});
+    api.loadMeals.mockResolvedValue({ meals: [] });
+    let ok = false;
+    await act(async () => {
+      ok = await result.current.updateMeal('m1', { name: 'Обед' });
+    });
+    expect(ok).toBe(true);
+    expect(api.updateMeal).toHaveBeenCalledWith('m1', { name: 'Обед' });
+    expect(notify).toHaveBeenCalledWith('Запись обновлена');
+  });
+
+  it('updateMeal reports failures', async () => {
+    setup();
+    api.updateMeal.mockRejectedValue(new Error('offline'));
+    let ok = true;
+    await act(async () => {
+      ok = await result.current.updateMeal('m1', { name: 'Обед' });
+    });
+    expect(ok).toBe(false);
+    expect(notify).toHaveBeenCalledWith('Ошибка обновления записи');
+  });
+
+  it('loadDishes clears the catalog for guests', async () => {
+    setup();
+    setup({ guest: true });
+    await act(async () => {
+      await result.current.loadDishes('breakfast', 'овс');
+    });
+    expect(update).toHaveBeenCalledWith({ dishes: [] });
+    expect(api.loadDishes).not.toHaveBeenCalled();
+  });
+
+  it('loadDishes stores the catalog', async () => {
+    setup();
+    api.loadDishes.mockResolvedValue({ dishes: [{ id: 'd1' }] });
+    await act(async () => {
+      await result.current.loadDishes('breakfast', 'овс');
+    });
+    expect(api.loadDishes).toHaveBeenCalledWith('breakfast', 'овс');
+    expect(update).toHaveBeenCalledWith({ dishes: [{ id: 'd1' }] });
+  });
+
+  it('loadDishes ignores errors and payloads without dishes', async () => {
+    setup();
+    api.loadDishes.mockResolvedValue({});
+    await act(async () => {
+      await result.current.loadDishes();
+    });
+    expect(update).not.toHaveBeenCalled();
+
+    api.loadDishes.mockRejectedValue(new Error('offline'));
+    await act(async () => {
+      await result.current.loadDishes();
+    });
+    expect(update).not.toHaveBeenCalled();
+  });
+
+  it('addDishToCatalog refuses for guests', async () => {
+    setup();
+    setup({ guest: true });
+    let ok = true;
+    await act(async () => {
+      ok = await result.current.addDishToCatalog({ name: 'Борщ' });
+    });
+    expect(ok).toBe(false);
+    expect(notify).toHaveBeenCalledWith('Войдите, чтобы добавлять свои блюда');
+    expect(api.addDish).not.toHaveBeenCalled();
+  });
+
+  it('addDishToCatalog adds and refreshes', async () => {
+    setup();
+    api.addDish.mockResolvedValue({});
+    api.loadDishes.mockResolvedValue({ dishes: [] });
+    let ok = false;
+    await act(async () => {
+      ok = await result.current.addDishToCatalog({ name: 'Борщ' });
+    });
+    expect(ok).toBe(true);
+    expect(api.addDish).toHaveBeenCalledWith({ name: 'Борщ' });
+    expect(notify).toHaveBeenCalledWith('Блюдо добавлено в ваш каталог');
+  });
+
+  it('addDishToCatalog reports failures', async () => {
+    setup();
+    api.addDish.mockRejectedValue(new Error('offline'));
+    let ok = true;
+    await act(async () => {
+      ok = await result.current.addDishToCatalog({ name: 'Борщ' });
+    });
+    expect(ok).toBe(false);
+    expect(notify).toHaveBeenCalledWith('Ошибка добавления блюда');
+  });
+
+  it('saveNutritionGoals stores goals and notifies', () => {
+    setup();
+    act(() => {
+      result.current.saveNutritionGoals({ kcal: 2000 });
+    });
+    expect(update).toHaveBeenCalledWith({ nutritionGoals: { kcal: 2000 } });
+    expect(notify).toHaveBeenCalledWith('Цели питания сохранены');
   });
 });

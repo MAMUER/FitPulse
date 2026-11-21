@@ -8,6 +8,16 @@ vi.mock('../services/api', () => ({
   changePassword: vi.fn(),
   deleteAccount: vi.fn(),
   loadProfile: vi.fn(),
+  loadFriends: vi.fn(),
+  addFriend: vi.fn(),
+  removeFriend: vi.fn(),
+  loadLeaderboard: vi.fn(),
+  syncLeaderboard: vi.fn(),
+  searchUsers: vi.fn(),
+  sendFriendRequest: vi.fn(),
+  loadFriendRequests: vi.fn(),
+  respondFriendRequest: vi.fn(),
+  reportUser: vi.fn(),
 }));
 
 function makeState(overrides = {}) {
@@ -805,5 +815,231 @@ describe('useProfile', () => {
     result.current.showAchievement('Первая цель');
 
     expect(update).not.toHaveBeenCalled();
+  });
+});
+
+describe('useProfile — social, leaderboard and reports', () => {
+  it('loadFriends stores friends', async () => {
+    api.loadFriends.mockResolvedValue({ friends: [{ id: 'f1' }] });
+    await act(async () => {
+      await result.current.loadFriends();
+    });
+    expect(update).toHaveBeenCalledWith({ friends: [{ id: 'f1' }] });
+  });
+
+  it('loadFriends ignores backend errors', async () => {
+    api.loadFriends.mockRejectedValue(new Error('offline'));
+    await act(async () => {
+      await result.current.loadFriends();
+    });
+    expect(update).not.toHaveBeenCalled();
+  });
+
+  it('addFriend validates the name', async () => {
+    let ok = true;
+    await act(async () => {
+      ok = await result.current.addFriend('   ');
+    });
+    expect(ok).toBe(false);
+    expect(notify).toHaveBeenCalledWith('Введите имя друга');
+    expect(api.addFriend).not.toHaveBeenCalled();
+  });
+
+  it('addFriend posts, notifies and reloads', async () => {
+    api.addFriend.mockResolvedValue({});
+    api.loadFriends.mockResolvedValue({ friends: [] });
+    let ok = false;
+    await act(async () => {
+      ok = await result.current.addFriend('Иван');
+    });
+    expect(ok).toBe(true);
+    expect(api.addFriend).toHaveBeenCalledWith('Иван', '', 'offline');
+    expect(notify).toHaveBeenCalledWith('Друг добавлен');
+    expect(api.loadFriends).toHaveBeenCalled();
+  });
+
+  it('addFriend handles errors', async () => {
+    api.addFriend.mockRejectedValue(new Error('offline'));
+    let ok = true;
+    await act(async () => {
+      ok = await result.current.addFriend('Иван');
+    });
+    expect(ok).toBe(false);
+    expect(notify).toHaveBeenCalledWith('Не удалось добавить друга');
+  });
+
+  it('removeFriendById notifies and reloads', async () => {
+    api.removeFriend.mockResolvedValue({});
+    api.loadFriends.mockResolvedValue({ friends: [] });
+    await act(async () => {
+      await result.current.removeFriendById('f1');
+    });
+    expect(api.removeFriend).toHaveBeenCalledWith('f1');
+    expect(notify).toHaveBeenCalledWith('Друг удалён');
+  });
+
+  it('removeFriendById handles errors', async () => {
+    api.removeFriend.mockRejectedValue(new Error('offline'));
+    await act(async () => {
+      await result.current.removeFriendById('f1');
+    });
+    expect(notify).toHaveBeenCalledWith('Не удалось удалить друга');
+  });
+
+  it('loadLeaderboard stores the leaderboard', async () => {
+    api.loadLeaderboard.mockResolvedValue({ leaderboard: [{ id: 'u1' }] });
+    await act(async () => {
+      await result.current.loadLeaderboard();
+    });
+    expect(update).toHaveBeenCalledWith({ leaderboard: [{ id: 'u1' }] });
+  });
+
+  it('loadLeaderboard ignores malformed payloads', async () => {
+    api.loadLeaderboard.mockResolvedValue({});
+    await act(async () => {
+      await result.current.loadLeaderboard();
+    });
+    expect(update).not.toHaveBeenCalled();
+  });
+
+  it('loadLeaderboard ignores errors', async () => {
+    api.loadLeaderboard.mockRejectedValue(new Error('offline'));
+    await act(async () => {
+      await result.current.loadLeaderboard();
+    });
+    expect(update).not.toHaveBeenCalled();
+  });
+
+  it('syncLeaderboard sends stats then reloads', async () => {
+    api.syncLeaderboard.mockResolvedValue({});
+    api.loadLeaderboard.mockResolvedValue({ leaderboard: [] });
+    await act(async () => {
+      await result.current.syncLeaderboard();
+    });
+    expect(api.syncLeaderboard).toHaveBeenCalledWith({
+      display_name: 'Михаил',
+      points: 0,
+      xp: 0,
+      workouts: 0,
+    });
+    expect(api.loadLeaderboard).toHaveBeenCalled();
+  });
+
+  it('syncLeaderboard swallows errors', async () => {
+    api.syncLeaderboard.mockRejectedValue(new Error('offline'));
+    await act(async () => {
+      await result.current.syncLeaderboard();
+    });
+    expect(api.loadLeaderboard).not.toHaveBeenCalled();
+  });
+
+  it('searchUsers clears results for a short query', async () => {
+    await act(async () => {
+      await result.current.searchUsers('a');
+    });
+    expect(update).toHaveBeenCalledWith({ userSearchResults: [] });
+    expect(api.searchUsers).not.toHaveBeenCalled();
+  });
+
+  it('searchUsers stores the users list', async () => {
+    api.searchUsers.mockResolvedValue({ users: [{ id: 'u1' }] });
+    await act(async () => {
+      await result.current.searchUsers('иван');
+    });
+    expect(update).toHaveBeenCalledWith({ userSearchResults: [{ id: 'u1' }] });
+  });
+
+  it('searchUsers clears results on error', async () => {
+    api.searchUsers.mockRejectedValue(new Error('offline'));
+    await act(async () => {
+      await result.current.searchUsers('иван');
+    });
+    expect(update).toHaveBeenCalledWith({ userSearchResults: [] });
+  });
+
+  it('sendFriendRequest notifies on success', async () => {
+    api.sendFriendRequest.mockResolvedValue({});
+    let ok = false;
+    await act(async () => {
+      ok = await result.current.sendFriendRequest('u2');
+    });
+    expect(ok).toBe(true);
+    expect(notify).toHaveBeenCalledWith('Заявка отправлена');
+  });
+
+  it('sendFriendRequest notifies on failure', async () => {
+    api.sendFriendRequest.mockRejectedValue(new Error('offline'));
+    let ok = true;
+    await act(async () => {
+      ok = await result.current.sendFriendRequest('u2');
+    });
+    expect(ok).toBe(false);
+    expect(notify).toHaveBeenCalledWith('Не удалось отправить заявку');
+  });
+
+  it('loadFriendRequests stores requests', async () => {
+    api.loadFriendRequests.mockResolvedValue({ requests: [{ id: 'r1' }] });
+    await act(async () => {
+      await result.current.loadFriendRequests();
+    });
+    expect(update).toHaveBeenCalledWith({ friendRequests: [{ id: 'r1' }] });
+  });
+
+  it('loadFriendRequests ignores errors', async () => {
+    api.loadFriendRequests.mockRejectedValue(new Error('offline'));
+    await act(async () => {
+      await result.current.loadFriendRequests();
+    });
+    expect(update).not.toHaveBeenCalled();
+  });
+
+  it('respondFriendRequest accepts and refreshes lists', async () => {
+    api.respondFriendRequest.mockResolvedValue({});
+    api.loadFriendRequests.mockResolvedValue({ requests: [] });
+    api.loadFriends.mockResolvedValue({ friends: [] });
+    await act(async () => {
+      await result.current.respondFriendRequest('r1', 'accept');
+    });
+    expect(notify).toHaveBeenCalledWith('Заявка принята');
+    expect(api.loadFriendRequests).toHaveBeenCalled();
+    expect(api.loadFriends).toHaveBeenCalled();
+  });
+
+  it('respondFriendRequest declines', async () => {
+    api.respondFriendRequest.mockResolvedValue({});
+    api.loadFriendRequests.mockResolvedValue({ requests: [] });
+    api.loadFriends.mockResolvedValue({ friends: [] });
+    await act(async () => {
+      await result.current.respondFriendRequest('r1', 'decline');
+    });
+    expect(notify).toHaveBeenCalledWith('Заявка отклонена');
+  });
+
+  it('respondFriendRequest handles errors', async () => {
+    api.respondFriendRequest.mockRejectedValue(new Error('offline'));
+    await act(async () => {
+      await result.current.respondFriendRequest('r1', 'accept');
+    });
+    expect(notify).toHaveBeenCalledWith('Не удалось обработать заявку');
+  });
+
+  it('reportUser notifies on success', async () => {
+    api.reportUser.mockResolvedValue({});
+    let ok = false;
+    await act(async () => {
+      ok = await result.current.reportUser('u1');
+    });
+    expect(ok).toBe(true);
+    expect(notify).toHaveBeenCalledWith('Жалоба отправлена');
+  });
+
+  it('reportUser notifies on failure', async () => {
+    api.reportUser.mockRejectedValue(new Error('offline'));
+    let ok = true;
+    await act(async () => {
+      ok = await result.current.reportUser('u1');
+    });
+    expect(ok).toBe(false);
+    expect(notify).toHaveBeenCalledWith('Не удалось отправить жалобу');
   });
 });

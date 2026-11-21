@@ -569,3 +569,162 @@ describe('ai, survey and integrations', () => {
     );
   });
 });
+
+describe('social, leaderboard and reports', () => {
+  it('loadFriends returns data', async () => {
+    mocked.mockResolvedValue([{ id: 'f1' }]);
+    await expect(api.loadFriends()).resolves.toEqual([{ id: 'f1' }]);
+    expect(mocked).toHaveBeenCalledWith('/api/v1/friends');
+  });
+
+  it('addFriend posts name, user id and status', async () => {
+    await api.addFriend('Иван', 'u2', 'online');
+    expect(mocked).toHaveBeenCalledWith('/api/v1/friends', {
+      method: 'POST',
+      body: JSON.stringify({
+        friend_name: 'Иван',
+        friend_user_id: 'u2',
+        status: 'online',
+      }),
+    });
+  });
+
+  it('addFriend defaults to offline status and empty id', async () => {
+    await api.addFriend('Иван');
+    expect(mocked).toHaveBeenCalledWith('/api/v1/friends', {
+      method: 'POST',
+      body: JSON.stringify({
+        friend_name: 'Иван',
+        friend_user_id: '',
+        status: 'offline',
+      }),
+    });
+  });
+
+  it('removeFriend deletes by id', async () => {
+    await api.removeFriend('f1');
+    expect(mocked).toHaveBeenCalledWith('/api/v1/friends/f1', {
+      method: 'DELETE',
+    });
+  });
+
+  it('loadLeaderboard returns data', async () => {
+    await api.loadLeaderboard();
+    expect(mocked).toHaveBeenCalledWith('/api/v1/leaderboard');
+  });
+
+  it('syncLeaderboard puts stats', async () => {
+    await api.syncLeaderboard({
+      display_name: 'A',
+      points: 10,
+      xp: 5,
+      workouts: 2,
+    });
+    expect(mocked).toHaveBeenCalledWith('/api/v1/leaderboard/me', {
+      method: 'PUT',
+      body: JSON.stringify({
+        display_name: 'A',
+        points: 10,
+        xp: 5,
+        workouts: 2,
+      }),
+    });
+  });
+
+  it('searchUsers encodes the query', async () => {
+    await api.searchUsers('иван');
+    expect(mocked).toHaveBeenCalledWith(
+      `/api/v1/users/search?q=${encodeURIComponent('иван')}`
+    );
+  });
+
+  it('searchUsers tolerates an empty query', async () => {
+    await api.searchUsers();
+    expect(mocked).toHaveBeenCalledWith('/api/v1/users/search?q=');
+  });
+
+  it('sendFriendRequest posts target id', async () => {
+    await api.sendFriendRequest('u2');
+    expect(mocked).toHaveBeenCalledWith('/api/v1/friends/request', {
+      method: 'POST',
+      body: JSON.stringify({ to_user_id: 'u2' }),
+    });
+  });
+
+  it('loadFriendRequests returns data', async () => {
+    await api.loadFriendRequests();
+    expect(mocked).toHaveBeenCalledWith('/api/v1/friends/requests');
+  });
+
+  it('respondFriendRequest posts action', async () => {
+    await api.respondFriendRequest('r1', 'accept');
+    expect(mocked).toHaveBeenCalledWith('/api/v1/friends/requests/r1/accept', {
+      method: 'POST',
+    });
+  });
+
+  it('reportUser sends a default reason', async () => {
+    await api.reportUser('u9');
+    expect(mocked).toHaveBeenCalledWith('/api/v1/report', {
+      method: 'POST',
+      body: JSON.stringify({
+        reported_user_id: 'u9',
+        reason: 'Жалоба на фото',
+      }),
+    });
+  });
+
+  it('reportUser keeps a custom reason', async () => {
+    await api.reportUser('u9', 'Спам');
+    expect(mocked).toHaveBeenCalledWith('/api/v1/report', {
+      method: 'POST',
+      body: JSON.stringify({ reported_user_id: 'u9', reason: 'Спам' }),
+    });
+  });
+});
+
+describe('dishes and meals', () => {
+  it('loadDishes builds no query string without filters', async () => {
+    await api.loadDishes();
+    expect(mocked).toHaveBeenCalledWith('/api/v1/dishes');
+  });
+
+  it('loadDishes encodes slot and q', async () => {
+    await api.loadDishes('breakfast', 'овсянка');
+    expect(mocked).toHaveBeenCalledWith(
+      `/api/v1/dishes?slot=${encodeURIComponent('breakfast')}&q=${encodeURIComponent('овсянка')}`
+    );
+  });
+
+  it('addDish fills defaults', async () => {
+    await api.addDish({ name: 'Овсянка' });
+    expect(mocked).toHaveBeenCalledWith('/api/v1/dishes', {
+      method: 'POST',
+      body: JSON.stringify({
+        name: 'Овсянка',
+        meal_slot: 'any',
+        kcal: 0,
+        protein_g: 0,
+        fat_g: 0,
+        carbs_g: 0,
+        image_url: '',
+      }),
+    });
+  });
+
+  it('updateMeal puts name, calories and time', async () => {
+    await api.updateMeal('m1', { name: 'Обед', calories: 500, time: '13:00' });
+    expect(mocked).toHaveBeenCalledWith('/api/v1/nutrition/meals/m1', {
+      method: 'PUT',
+      body: JSON.stringify({ name: 'Обед', calories: 500, time: '13:00' }),
+    });
+  });
+
+  it('updateMeal defaults calories and time', async () => {
+    await api.updateMeal('m1', { name: 'Обед' });
+    expect(mocked).toHaveBeenCalledWith('/api/v1/nutrition/meals/m1', {
+      method: 'PUT',
+      body: JSON.stringify({ name: 'Обед', calories: 0, time: '' }),
+    });
+  });
+});

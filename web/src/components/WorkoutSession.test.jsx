@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import WorkoutSession from './WorkoutSession';
 
@@ -79,5 +79,81 @@ describe('WorkoutSession', () => {
 
     expect(screen.getByText('Empty')).toBeInTheDocument();
     expect(screen.getByText('Завершить тренировку')).toBeInTheDocument();
+  });
+
+  it('advances from rest to the next exercise via the Next button', () => {
+    renderSession({
+      title: 'W',
+      exercises: [
+        ['A', 'x'],
+        ['B', 'y'],
+      ],
+    });
+
+    fireEvent.click(screen.getByText('Далее')); // work -> rest
+    expect(screen.getByText('отдых')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText('Далее')); // rest -> следующее упражнение
+    expect(screen.getByText('работа')).toBeInTheDocument();
+    expect(screen.getByText('B')).toBeInTheDocument();
+  });
+
+  it('auto-advances work -> rest -> next exercise when the timer expires', () => {
+    vi.useFakeTimers();
+    try {
+      const { onFinish } = renderSession({
+        title: 'W',
+        exercises: [
+          ['A', 'x'],
+          ['B', 'y'],
+        ],
+      });
+
+      // Каждый тик перезапускает таймер от текущего момента, поэтому идём
+      // по одной секунде: advanceTimersByTime(45_000) даст только один тик.
+      const tick = (seconds) => {
+        for (let i = 0; i < seconds; i += 1) {
+          act(() => {
+            vi.advanceTimersByTime(1000);
+          });
+        }
+      };
+
+      tick(45); // работа истекла — включается отдых
+      expect(screen.getByText('отдых')).toBeInTheDocument();
+
+      tick(20); // отдых истёк — следующее упражнение
+      expect(screen.getByText('работа')).toBeInTheDocument();
+      expect(screen.getByText('B')).toBeInTheDocument();
+      expect(onFinish).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('auto-finishes when the last rest phase expires', () => {
+    vi.useFakeTimers();
+    try {
+      const { onFinish, onClose } = renderSession({
+        title: 'W',
+        exercises: [['A', 'x']],
+      });
+
+      const tick = (seconds) => {
+        for (let i = 0; i < seconds; i += 1) {
+          act(() => {
+            vi.advanceTimersByTime(1000);
+          });
+        }
+      };
+
+      tick(45); // work -> rest
+      tick(20); // rest -> finish
+
+      expect(onFinish).toHaveBeenCalled();
+      expect(onClose).toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
