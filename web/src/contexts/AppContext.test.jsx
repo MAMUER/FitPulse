@@ -98,7 +98,7 @@ describe('AppContext', () => {
     expect(screen.getByText('notify')).toBeInTheDocument();
   });
 
-  it('triggers data loading when registered and not profileLoaded', () => {
+  it('only probes the session when registered and not profileLoaded', () => {
     const loadProfile = vi.fn();
     const loadBiometrics = vi.fn();
     const loadTrainingPlans = vi.fn();
@@ -120,6 +120,42 @@ describe('AppContext', () => {
     vi.mocked(useTraining).mockReturnValue({ loadTrainingPlans });
     renderWithProvider();
     expect(loadProfile).toHaveBeenCalled();
+    // Данные не грузим, пока сессия не подтверждена: иначе /login делает
+    // шесть запросов в 404 и засоряет консоль браузера.
+    expect(loadBiometrics).not.toHaveBeenCalled();
+    expect(loadTrainingPlans).not.toHaveBeenCalled();
+    expect(loadConditions).not.toHaveBeenCalled();
+    expect(loadMenstrualCycles).not.toHaveBeenCalled();
+    expect(loadBodyComposition).not.toHaveBeenCalled();
+  });
+
+  it('loads data once the session is authenticated', () => {
+    const loadProfile = vi.fn();
+    const loadBiometrics = vi.fn();
+    const loadTrainingPlans = vi.fn();
+    const loadConditions = vi.fn();
+    const loadMenstrualCycles = vi.fn();
+    const loadBodyComposition = vi.fn();
+    vi.mocked(loadState).mockReturnValue({
+      registered: true,
+      profileLoaded: true,
+      authenticated: true,
+    });
+    vi.mocked(useProfile).mockReturnValue({ loadProfile });
+    vi.mocked(useHealth).mockReturnValue({
+      loadBiometrics,
+      loadTrainingPlans,
+      loadConditions,
+      loadMenstrualCycles,
+      loadBodyComposition,
+    });
+    vi.mocked(useTraining).mockReturnValue({ loadTrainingPlans });
+    renderWithProvider();
+    expect(loadBiometrics).toHaveBeenCalled();
+    expect(loadTrainingPlans).toHaveBeenCalled();
+    expect(loadConditions).toHaveBeenCalled();
+    expect(loadMenstrualCycles).toHaveBeenCalled();
+    expect(loadBodyComposition).toHaveBeenCalled();
   });
 
   it('useApp throws outside AppProvider', () => {

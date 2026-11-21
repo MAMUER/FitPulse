@@ -158,19 +158,27 @@ export function AppProvider({ children }) {
   const ai = useAI({ state, update, notify });
   const settings = useSettings({ state, update, notify });
 
+  // Bootstrap: ровно один запрос проверки сессии. Раньше этот же useEffect по
+  // `registered` (а не `authenticated`) тянул СРАЗУ все данные — на /login это
+  // давало шесть запросов в 404 (profile, biometrics, training, conditions,
+  // menstrual-cycles, body-composition) и мусор в консоли браузера.
   useEffect(() => {
     if (state.registered && !state.profileLoaded) {
       void profile.loadProfile();
-      void health.loadBiometrics();
-      void training.loadTrainingPlans();
-      void health.loadConditions();
-      void health.loadMenstrualCycles();
-      void health.loadBodyComposition();
     }
+  }, [state.registered, state.profileLoaded, profile.loadProfile]);
+
+  // Данные грузим только после успешной проверки сессии (loadProfile выставит
+  // authenticated: true). Если сессия мертва — запросов не будет вообще.
+  useEffect(() => {
+    if (!state.authenticated) return;
+    void health.loadBiometrics();
+    void training.loadTrainingPlans();
+    void health.loadConditions();
+    void health.loadMenstrualCycles();
+    void health.loadBodyComposition();
   }, [
-    state.registered,
-    state.profileLoaded,
-    profile.loadProfile,
+    state.authenticated,
     health.loadBiometrics,
     training.loadTrainingPlans,
     health.loadConditions,

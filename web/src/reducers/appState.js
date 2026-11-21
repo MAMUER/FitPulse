@@ -432,6 +432,10 @@ export function getInitialState() {
       surveyCompleted: saved.surveyCompleted || false,
       surveyDeferred: saved.surveyDeferred || false,
       registered: saved.registered || false,
+      // Раньше здесь не было authenticated, хотя registered/guest восстанавливались.
+      // В итоге после перезагрузки приложение всегда считало себя неавторизованным
+      // и каждый раз стучалось в /api/v1/profile (и в остальные эндпоинты) в 404.
+      authenticated: saved.authenticated || false,
       guest: saved.guest || false,
       region: saved.region || 'RU',
       storySeen: saved.storySeen || {},
