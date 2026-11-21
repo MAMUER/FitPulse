@@ -190,14 +190,22 @@ export function useAuth({ state, update, notify }) {
   const socialLogin = useCallback(
     (provider) => {
       // OAuth-провайдеры (Yandex) требуют настроенного на бэкенде приложения
-      // (YANDEX_CLIENT_ID/SECRET) и публичного HTTPS-домена. Пока не настроено —
-      // показываем понятное сообщение вместо перехода на страницу с ошибкой
-      // «Yandex OAuth not configured».
-      notify(
-        provider === 'yandex'
-          ? 'Вход через Яндекс пока не настроен на этом сервере.'
-          : 'Этот способ входа пока не настроен.'
-      );
+      // (YANDEX_CLIENT_ID/SECRET) и публичного HTTPS-домена (APP_BASE_URL →
+      // YANDEX_REDIRECT_URL). Бэкенд ведёт весь OAuth-флоу сам, поэтому фронт
+      // просто уходит на его endpoint, а не показывает плашку «не настроено».
+      let redirect = '';
+      try {
+        const result = api.socialLogin(provider);
+        redirect = result?.redirect ?? '';
+      } catch (error) {
+        notify(error?.message || 'Этот способ входа пока не настроен.');
+        return;
+      }
+      if (!redirect) {
+        notify('Этот способ входа пока не настроен.');
+        return;
+      }
+      window.location.assign(redirect);
     },
     [notify]
   );

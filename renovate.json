@@ -1,12 +1,16 @@
 {
   "extends": [
-    "config:base"
+    "config:recommended"
   ],
   "enabledManagers": [
     "regex",
     "pip_requirements",
     "dockerfile",
-    "kubernetes"
+    "kubernetes",
+    "github-actions",
+    "gomod",
+    "npm",
+    "nodenv"
   ],
   "customManagers": [
     {
@@ -209,6 +213,15 @@
         "golang"
       ],
       "groupName": "Go toolchain",
+      "automerge": false,
+      "minimumReleaseAge": "7 days"
+    },
+    {
+      "matchManagers": [
+        "github-actions"
+      ],
+      "groupName": "GitHub Actions (SHA pins)",
+      "description": "Обновляет SHA-пины actions и комментарии с версией. Без этого блока Renovate не трогает github-actions, а Dependabot обновляет только тег, оставляя SHA устаревшим.",
       "automerge": false,
       "minimumReleaseAge": "7 days"
     },

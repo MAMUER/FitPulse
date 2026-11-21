@@ -329,7 +329,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: Set up Go
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
+        uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
@@ -416,7 +416,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - name: Dependency Review
-        uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294
+        uses: actions/dependency-review-action@bbc44d14a204704ccc493733616cd1e93a0321ec
         with:
           base-ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
           head-ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.event.after }}
@@ -443,7 +443,7 @@ jobs:
       - name: Run Kubescape scan
         run: bash scripts/ci/security.sh run_kubescape
       - name: Upload Kubescape results
-        uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066
+        uses: github/codeql-action/upload-sarif@1bd86f2fdb4b86187fa4059f16f31a3202acc9ea
         if: always() && hashFiles('sarif-results/kubescape-results.sarif') != ''
         with:
           sarif_file: sarif-results/kubescape-results.sarif
@@ -465,7 +465,7 @@ jobs:
       - name: Run Semgrep scan
         run: bash scripts/ci/security.sh run_semgrep
       - name: Upload Semgrep SARIF
-        uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066
+        uses: github/codeql-action/upload-sarif@1bd86f2fdb4b86187fa4059f16f31a3202acc9ea
         with:
           sarif_file: sarif-results/semgrep-results.sarif
           category: semgrep
@@ -482,7 +482,7 @@ jobs:
       - run: git config --global init.defaultBranch main
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - name: Set up Go
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
+        uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
@@ -510,7 +510,7 @@ jobs:
         run: bash scripts/ci/security.sh run_checkov
       - name: Upload Checkov SARIF
         if: always() && hashFiles('sarif-results/checkov-results.sarif') != ''
-        uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066
+        uses: github/codeql-action/upload-sarif@1bd86f2fdb4b86187fa4059f16f31a3202acc9ea
         with:
           sarif_file: sarif-results/checkov-results.sarif
           category: checkov
@@ -549,7 +549,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: Set up Go
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
+        uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
@@ -574,7 +574,7 @@ jobs:
       - run: git config --global init.defaultBranch main
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - name: Set up Go
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
+        uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
@@ -595,7 +595,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: Set up Go
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
+        uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
@@ -631,7 +631,7 @@ jobs:
       - run: git config --global init.defaultBranch main
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - name: Set up Go
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
+        uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
@@ -654,7 +654,7 @@ jobs:
       - run: git config --global init.defaultBranch main
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - name: Set up Go
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
+        uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
@@ -664,7 +664,7 @@ jobs:
         run: bash scripts/ci/security.sh run_gosec
       - name: Upload gosec results
         if: always() && hashFiles('sarif-results/gosec.sarif') != ''
-        uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066
+        uses: github/codeql-action/upload-sarif@1bd86f2fdb4b86187fa4059f16f31a3202acc9ea
         with:
           sarif_file: sarif-results/gosec.sarif
           category: gosec
@@ -682,7 +682,7 @@ jobs:
       - run: git config --global init.defaultBranch main
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - name: Set up Go
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
+        uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
@@ -747,7 +747,7 @@ jobs:
           TRIVY_SKIP_VERSION_CHECK: true
       - name: Upload Trivy results
         if: always() && hashFiles('sarif-results/trivy-fs.sarif') != ''
-        uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066
+        uses: github/codeql-action/upload-sarif@1bd86f2fdb4b86187fa4059f16f31a3202acc9ea
         with:
           sarif_file: sarif-results/trivy-fs.sarif
           category: trivy-fs
@@ -772,7 +772,7 @@ jobs:
         run: bash scripts/ci/security.sh run_gitleaks
       - name: Upload Gitleaks results
         if: always() && hashFiles('sarif-results/gitleaks.sarif') != ''
-        uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066
+        uses: github/codeql-action/upload-sarif@1bd86f2fdb4b86187fa4059f16f31a3202acc9ea
         with:
           sarif_file: sarif-results/gitleaks.sarif
           category: gitleaks
@@ -846,7 +846,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - name: Initialize CodeQL
         if: ${{ matrix.language == 'actions' || needs.detect-changes.outputs.go == 'true' }}
-        uses: github/codeql-action/init@33d7b85da1a04171e211befe2c739303b9a4c066
+        uses: github/codeql-action/init@1bd86f2fdb4b86187fa4059f16f31a3202acc9ea
         with:
           languages: ${{ matrix.language }}
           build-mode: ${{ matrix.build-mode }}
@@ -854,7 +854,7 @@ jobs:
           queries: security-extended,security-and-quality
       - name: Perform CodeQL Analysis
         if: ${{ matrix.language == 'actions' || needs.detect-changes.outputs.go == 'true' }}
-        uses: github/codeql-action/analyze@33d7b85da1a04171e211befe2c739303b9a4c066
+        uses: github/codeql-action/analyze@1bd86f2fdb4b86187fa4059f16f31a3202acc9ea
         with:
           category: "/language:${{matrix.language}}"
           output: sarif-results
@@ -864,7 +864,7 @@ jobs:
         run: bash scripts/ci/ci-helpers.sh show_codeql_diagnostics
       - name: Upload SARIF
         if: always() && hashFiles('sarif-results/**') != ''
-        uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066
+        uses: github/codeql-action/upload-sarif@1bd86f2fdb4b86187fa4059f16f31a3202acc9ea
         with:
           sarif_file: sarif-results
           category: codeql-${{ matrix.language }}
@@ -886,7 +886,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: Set up Go
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
+        uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
@@ -907,7 +907,7 @@ jobs:
         continue-on-error: true
         run: bash "$GITHUB_WORKSPACE/scripts/ci/ci-helpers.sh" run_coverage
       - name: SonarCloud Scan
-        uses: sonarsource/sonarqube-scan-action@e805d875275f728fac1885b413934be6d7c63f65
+        uses: sonarsource/sonarqube-scan-action@59202af334b4ba7b5db01b701b8e79f8b3bef0f4
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         with:
@@ -941,7 +941,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: Set up Go
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
+        uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
@@ -1113,7 +1113,7 @@ jobs:
           TRIVY_SKIP_VERSION_CHECK: true
       - name: Upload Trivy SARIF
         if: always() && hashFiles('trivy-image.sarif') != ''
-        uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066
+        uses: github/codeql-action/upload-sarif@1bd86f2fdb4b86187fa4059f16f31a3202acc9ea
         with:
           sarif_file: trivy-image.sarif
           # Категория gateway сохранена как trivy-docker: только так уже открытые
@@ -1342,7 +1342,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: Set up Go
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
+        uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5
         with:
           go-version: ${{ env.GO_VERSION }}
       - name: 🌐 Подключение к сети Tailscale

@@ -132,6 +132,41 @@
 | `GO-2026-5932` | `go.mod` (транзитивная зависимость) | Ложноположительное: проект не импортирует `golang.org/x/crypto/openpgp` напрямую. Пакет `golang.org/x/crypto v0.54.0` тянется транзитивно через `golang.org/x/net` и `google.golang.org/api`. Уязвимость затрагивает только подпакет `openpgp`, deprecated по дизайну и не используемый в кодовой базе проекта. |
 | `KSV-0106` | `configs/k8s/base/local-path-provisioner.yaml` | Принятый риск: `DAC_OVERRIDE` необходима local-path-provisioner для создания директорий на хостовой ФС и изменения их владельца при подключении taints/tolerations и привязке к узлам. Без этого создание PV на `hostPath` невозможно. |
 
+#### `.trivyignore` — принятые исключения по CVE
+
+`.trivyignore` содержит **только идентификаторы**, без `#`-комментариев. Файл не имеет
+расширения, поэтому VS Code определяет его как Markdown, и любой `#`-комментарий
+воспринимается markdownlint как заголовок H1 (MD025/MD024). Поэтому обоснования вынесены
+в эту таблицу, а сам файл оставлен без комментариев — ошибки исправлены, а не подавлены.
+
+| Идентификатор | Обоснование |
+| ------------- | ----------- |
+| `GHSA-qwww-vcr4-c8h2` | Перенесено из предыдущего аудита; уязвимость не эксплуатируется в текущей конфигурации. |
+| `KSV-0109`, `KSV-0121`, `KSV-0010`, `KSV-0009`, `KSV-0125`, `KSV-0023`, `KSV-0012`, `KSV-0022`, `KSV-0048`, `KSV-0049`, `KSV-0042`, `KSV-0113`, `KSV-0117`, `KSV-01010`, `KSV-0116`, `KSV-0105`, `KSV-0021`, `KSV-0020`, `KSV-0039`, `KSV-0040`, `KSV-0106` | Правила Trivy misconfiguration, неприменимые к нашим манифестам или уже закрытые в манифестах (подробности — таблица выше). |
+| `CVE-2026-4738` | gdal/zlib inftree9 buffer overflow. GDAL в образах проекта не используется. |
+| `KSV-0014` | jaeger: `readOnlyRootFilesystem: true` уже выставлен; правило воспроизводится из устаревшего кэша Trivy. |
+| `KSV-0118` | argocd: security context уже усилен. |
+| `CVE-2025-47273` | setuptools PackageIndex path traversal. Build-time инструмент, в рантайме не используется. |
+| `CVE-2026-97689`, `CVE-2026-97687` | Уязвимости urllib3 (chunked DoS, HTTPS-proxy TLS override). Приложение urllib3 не использует. |
+| `GHSA-6v7p-g79w-8964`, `CVE-2026-114613` | Уязвимости msgpack (Unpacker reuse crash, map deserialization memory leak). Приложение msgpack не использует. |
+| `CVE-2025-68121` | crypto/tls: некорректная проверка сертификата при возобновлении сессии TLS 1.3. |
+| `CVE-2026-39836` | net: паника `Dial`/`LookupPort` на Windows при NUL-байте (только Windows). |
+| `CVE-2026-39820` | net/mail: DoS на подобранных адресах/датах. |
+| `CVE-2026-33814` | net/http2: DoS через `SETTINGS_MAX_FRAME_SIZE=0`. |
+| `CVE-2026-33811` | net: double-free в `LookupCNAME` при cgo-resolver. |
+| `CVE-2026-32283` | crypto/tls: DoS через несколько TLS 1.3 KeyUpdate в одном record. |
+| `CVE-2026-32281` | crypto/x509: DoS при валидации цепочки с большим числом policy mappings. |
+
+**Обоснование для семи CVE выше (`CVE-2025-68121`, `CVE-2026-39836`, `CVE-2026-39820`,
+`CVE-2026-33814`, `CVE-2026-33811`, `CVE-2026-32283`, `CVE-2026-32281`):** все они —
+уязвимости стандартной библиотеки Go **внутри бинарника `/usr/local/bin/gosu`** из базового
+образа `postgres:18-alpine` (и производных `postgres-pgsodium:pg18`, `backup-tools:pg18`).
+`gosu` собран с Go stdlib v1.24.6. Это не код проекта: `gosu` — это `su-exec` (сброс прав
+перед стартом PostgreSQL), он не обрабатывает сетевой ввод. Сервисы проекта собираются
+Go 1.27.3 (`GO_VERSION` в `.github/workflows/ci.yml`) и эти CVE не затрагивают. Блок
+исключений нужно удалить, когда апстрим `postgres:18-alpine` пересоберёт `gosu` на
+Go >= 1.25.10.
+
 ### Kubescape — принятые исключения
 
 Kubescape scan запускается в CI на директорию `configs/k8s/base/`. Ниже перечислены controls, которые отмечаются как принятый риск или ложноположительные и исключаются из SARIF-отчёта через CI-фильтр (`.github/workflows/ci.yml`):
@@ -228,12 +263,12 @@ Mutable tags позволяют владельцу action'а перенапра�
 | `actions/setup-node` | v7 | `82076278...` |
 | `actions/checkout` | v7 | `3d3c42e5...` |
 | `actions/cache` | v6 | `55cc8345...` |
-| `actions/setup-go` | v7 | `b7ad1dad...` |
+| `actions/setup-go` | v7.1.0 | `d8cbb804...` |
 | `actions/upload-artifact` | v7 | `043fb46d...` |
 | `actions/download-artifact` | v8 | `3e5f45b2...` |
-| `actions/dependency-review-action` | v5 | `a1d282b3...` |
+| `actions/dependency-review-action` | v5.0.1 | `bbc44d14...` |
 | `aquasecurity/trivy-action` | v0.36.0 | `a9c7b0f0...` |
-| `github/codeql-action/*` | v4 | `adfda868...` |
+| `github/codeql-action/*` | v4.39.4 | `1bd86f2f...` |
 | `google/osv-scanner-action` | v2.3.8 | `9a498708...` |
 | `docker/login-action` | v4.5.1 | `abd2ef45...` |
 | `docker/setup-buildx-action` | v4 | `bb05f3f5...` |

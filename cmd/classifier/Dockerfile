@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 
-FROM golang@sha256:f92b6ef800e499660581efdabdf25d9d817a9d124eaf900924f0504e7e27e12d AS builder
+FROM golang:1.27.3-alpine AS builder
 
 ENV GOPROXY=https://proxy.golang.org,direct
 ENV GOTOOLCHAIN=auto
@@ -26,7 +26,7 @@ RUN --mount=type=cache,target=/go/pkg/mod \
 	-o /app/bin/classifier \
 	./cmd/classifier
 
-FROM alpine@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b
+FROM alpine:3.24
 
 ARG APP_UID=1001
 ARG APP_GID=1001

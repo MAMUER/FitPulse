@@ -1364,7 +1364,11 @@ const profilePath = "/api/v1/profile"
 
 func (g *gateway) registerProtectedRoutes(r chi.Router, authMiddleware func(http.Handler) http.Handler) {
 
-	r.Route("/api/v1", func(r chi.Router) {
+	// ВАЖНО: Group, а не Route. Route("/api/v1", ...) монтирует subrouter по
+	// /api/v1, а пути внутри уже абсолютные ("/api/v1/profile") — получался
+	// двойной префикс /api/v1/api/v1/profile и 404 на всех защищённых
+	// эндпоинтах. Group только навешивает middleware, не меняя префикс.
+	r.Group(func(r chi.Router) {
 
 		r.Use(authMiddleware)
 
@@ -1557,23 +1561,20 @@ func (g *gateway) registerIntegrationRoutes(r chi.Router) {
 
 	// Open Wearables integration management (requires auth)
 
-	r.Get("/api/v1/api/v1/integrations/providers", g.proxyToBiometricWithUser)
+	r.Get("/api/v1/integrations/providers", g.proxyToBiometricWithUser)
 
-	r.Route("/api/v1/integrations/{source}", func(r chi.Router) {
+	// POST /api/v1/integrations/{source}/disconnect
+	r.Post("/api/v1/integrations/{source}/disconnect", func(w http.ResponseWriter, r *http.Request) {
 
-		r.Post("/api/v1/disconnect", func(w http.ResponseWriter, r *http.Request) {
+		source := chi.URLParam(r, "source")
 
-			source := chi.URLParam(r, "source")
+		q := r.URL.Query()
 
-			q := r.URL.Query()
+		q.Set("source", source)
 
-			q.Set("source", source)
+		r.URL.RawQuery = q.Encode()
 
-			r.URL.RawQuery = q.Encode()
-
-			g.proxyToBiometricWithUser(w, r)
-
-		})
+		g.proxyToBiometricWithUser(w, r)
 
 	})
 

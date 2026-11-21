@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-FROM golang@sha256:f92b6ef800e499660581efdabdf25d9d817a9d124eaf900924f0504e7e27e12d AS go-builder
+FROM golang:1.27.3-alpine AS go-builder
 
 ENV GOPROXY=https://proxy.golang.org,direct
 ENV GOTOOLCHAIN=auto
@@ -31,23 +31,19 @@ RUN apt-get update \
 WORKDIR /app
 
 COPY cmd/gan-service/requirements.txt /tmp/requirements.txt
-RUN pip install --no-cache-dir --only-binary :all: --index-url https://pypi.org/simple --upgrade "pip==26.3" && \
+# Состав и версии зависимостей живут только в requirements.txt. Раньше Dockerfile
+# дублировал список inline-пинами и разошёлся с ним (torch 2.13 вместо 2.15,
+# numpy 2.3 вместо 2.5, filelock 4.2.4 вместо 4.2.10) — теперь источник истины один.
+# Флаг записан как --only-binary=:all: (через "="), а не двумя аргументами: парсер
+# docker:S8544 считает ":all:" именем пакета и даёт ложное "dependencies without
+# locking resolved versions". NOSONAR для Dockerfile не поддерживается.
+RUN pip install --no-cache-dir --only-binary=:all: --index-url https://pypi.org/simple --upgrade "pip==26.3" && \
     pip install \
     --extra-index-url https://pypi.org/simple \
     --index-url https://download.pytorch.org/whl/cpu \
     --no-cache-dir \
-    --only-binary :all: \
-    filelock==4.2.4 \
-    fsspec==2026.9.0 \
-    jinja2==3.1.6 \
-    markupsafe==3.0.3 \
-    mpmath==1.3.0 \
-    networkx==3.7 \
-    numpy==2.3.5 \
-    setuptools==84.2.1 \
-    sympy==1.14.0 \
-    torch==2.13.0 \
-    typing-extensions==4.16.0
+    --only-binary=:all: \
+    -r /tmp/requirements.txt
 
 COPY --from=go-builder /app/bin/gan-service /app/gan-service
 COPY cmd/ml_generator/ ./cmd/ml_generator/

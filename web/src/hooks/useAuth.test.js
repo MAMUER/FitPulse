@@ -379,16 +379,35 @@ describe('useAuth', () => {
     expect(result.current.location.pathname).toBe('/login');
   });
 
-  it('socialLogin notifies for yandex (not configured)', () => {
+  it('socialLogin redirects to the yandex oauth endpoint', () => {
+    // jsdom не реализует навигацию — подменяем location, чтобы проверить переход.
+    const original = window.location;
+    const assign = vi.fn();
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      value: { assign },
+    });
+    api.socialLogin.mockReturnValue({ redirect: '/api/v1/auth/yandex' });
+
     result.current.socialLogin('yandex');
-    expect(notify).toHaveBeenCalledWith(
-      'Вход через Яндекс пока не настроен на этом сервере.'
-    );
-    expect(window.location.href).toBe('');
+
+    expect(assign).toHaveBeenCalledWith('/api/v1/auth/yandex');
+    expect(notify).not.toHaveBeenCalled();
+
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      value: original,
+    });
   });
 
   it('socialLogin notifies for other providers', () => {
     result.current.socialLogin('google');
+    expect(notify).toHaveBeenCalledWith('Этот способ входа пока не настроен.');
+  });
+
+  it('socialLogin notifies when the backend returns no redirect', () => {
+    api.socialLogin.mockReturnValue({});
+    result.current.socialLogin('yandex');
     expect(notify).toHaveBeenCalledWith('Этот способ входа пока не настроен.');
   });
 

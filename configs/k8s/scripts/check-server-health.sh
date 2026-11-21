@@ -29,8 +29,23 @@ GREEN='\033[0;32m'
 NC='\033[0m' # No Color
 
 # Logging function
+# ВАЖНО: log() пишет в stderr. Проверки вызываются через $(check_xxx), и запись
+# логов в stdout смешивалась с результатом ("OK_MEM:42:..."), из-за чего в отчёте
+# появлялись ANSI-коды и обрезанные таймстемпы.
 log() {
-	echo -e "${2:-}[$(date '+%Y-%m-%d %H:%M:%S')] $1${NC}"
+	echo -e "${2:-}[$(date '+%Y-%m-%d %H:%M:%S')] $1${NC}" >&2
+}
+
+# Форматирует результат проверки STATUS_NAME:detail[:detail] в строку для отчёта.
+format_result() {
+	local raw="$1"
+	local token="${raw%%:*}"
+	local rest="${raw#*:}"
+	if [[ -z "$raw" || "$rest" == "$raw" || -z "$rest" ]]; then
+		printf '%s' "$token"
+	else
+		printf '%s (%s)' "$token" "${rest%%:*}"
+	fi
 }
 # Send Telegram notification
 send_telegram() {
@@ -154,7 +169,7 @@ check_systemd() {
 		log "WARNING: $failed_count systemd units failed" "$YELLOW"
 		local failed_units
 		failed_units=$(systemctl --failed --no-legend 2>/dev/null | awk '{print $2}' | head -5 | tr '\n' ', ')
-		echo "WARNING_SYSTEMD:${failed_count}:${failed_units}" >&2
+		echo "WARNING_SYSTEMD:${failed_count}:${failed_units}"
 		return 0
 	else
 		log "OK: No systemd units failed" "$GREEN"
@@ -237,12 +252,12 @@ main() {
 			;;
 		esac
 		message+="\n<b>Summary:</b>\n"
-		message+="  • Fstab: ${fstab_result%%:*}\n"
-		message+="  • Memory: ${mem_result%%:*}\n"
-		message+="  • Disk: ${disk_result%%:*}\n"
-		message+="  • k3s: ${k3s_result%%:*}\n"
-		message+="  • Systemd: ${systemd_result%%:*}\n"
-		message+="  • Swap: ${swap_result%%:*}\n"
+		message+="  • Fstab: $(format_result "$fstab_result")\n"
+		message+="  • Memory: $(format_result "$mem_result")\n"
+		message+="  • Disk: $(format_result "$disk_result")\n"
+		message+="  • k3s: $(format_result "$k3s_result")\n"
+		message+="  • Systemd: $(format_result "$systemd_result")\n"
+		message+="  • Swap: $(format_result "$swap_result")\n"
 		send_telegram "$message"
 	fi
 	if [[ "$status" == "CRITICAL" ]]; then

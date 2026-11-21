@@ -1,0 +1,30 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: ingress-nginx-tls-reader
+  namespace: fitness-platform-production
+rules:
+  # ingress-nginx читает TLS-сертификаты, которые cert-manager пишет в этот
+  # namespace, через list/watch (не только get). Доступ ограничен одним
+  # namespace, поэтому скомпрометированный контроллер не может читать
+  # секреты всего кластера (KSV-0041).
+  # Сейчас Ingress-ресурсов нет (TLS терминирует Tailscale Funnel), но Role
+  # оставляем: без неё контроллер не сможет поднять HTTPS, если Ingress
+  # появится снова, и /healthz начнёт отдавать 500.
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: ingress-nginx-tls-reader-binding
+  namespace: fitness-platform-production
+subjects:
+  - kind: ServiceAccount
+    name: ingress-nginx
+    namespace: ingress-nginx
+roleRef:
+  kind: Role
+  name: ingress-nginx-tls-reader
+  apiGroup: rbac.authorization.k8s.io

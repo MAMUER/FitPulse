@@ -165,6 +165,15 @@ spec:
               value: "/etc/secrets/YANDEX_CLIENT_SECRET"
             - name: YANDEX_REDIRECT_URL_FILE
               value: "/etc/secrets/YANDEX_REDIRECT_URL"
+            # Публичный база-URL: если YANDEX_REDIRECT_URL не задан в секрете,
+            # gateway собирает его как ${APP_BASE_URL}/api/v1/auth/yandex/callback.
+            # Без APP_BASE_URL redirect_uri пустой и OAuth-вход невозможен.
+            - name: APP_BASE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: APP_BASE_URL
+                  optional: true
             - name: TELEGRAM_BOT_TOKEN_FILE
               value: "/etc/secrets/TELEGRAM_BOT_TOKEN"
             - name: TELEGRAM_CHAT_ID_FILE

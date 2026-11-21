@@ -2,6 +2,10 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
   - ../../base
+  # Namespace-scoped Role/RoleBinding: даёт ingress-nginx доступ только к
+  # TLS-секретам этого namespace (KSV-0041). Файл был случайно удалён при
+  # чистке DuckDNS-ссылок — восстановлен.
+  - ingress-nginx-tls-role.yaml
 
 patches:
   # Scale monitoring and ELK to 0 in production to free VPS resources

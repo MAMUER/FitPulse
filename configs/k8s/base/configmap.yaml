@@ -32,3 +32,7 @@ data:
   SSL_TLS: "Self-signed сертификаты"
   ACCESS_CONTROL: "Локальный доступ"
   READINESS_ENABLED: "true"
+  # Публичный HTTPS-домен. Нужен бэкенду для сборки redirect_uri OAuth
+  # (Yandex/Withings): без него YANDEX_REDIRECT_URL пустой и вход через
+  # Яндекс падает. Меняется вместе с доменом в docs/ARCHITECTURE.md.
+  APP_BASE_URL: "https://fitpulse.tail6f5dca.ts.net"
