@@ -71,7 +71,7 @@ kubectl get pods -n fitness-platform-production -l app=biometric-service
 kubectl logs -f deployment/biometric-service -n fitness-platform-production | grep -i "webhook\|error\|panic"
 
 # Проверить health endpoints
-curl -k https://fittpulse.duckdns.org/health
+curl -k https://fitpulse.tail6f5dca.ts.net/health
 curl http://biometric-service:8085/health
 ```
 
@@ -219,7 +219,7 @@ Action Items:
 |Инструмент|URL / Путь|Назначение|
 |---|---|---|
 |Telegram|CI/CD bot + server health chat|Уведомления о инцидентах|
-|Grafana|`https://fittpulse.duckdns.org`|Дашборды и метрики|
+|Grafana|`https://fitpulse.tail6f5dca.ts.net`|Дашборды и метрики|
 |Kubernetes|`kubectl`|Оркестрация контейнеров|
 |CI/CD|GitHub Actions|Сканирование, сборка, деплой|
 
@@ -276,7 +276,7 @@ Action Items:
 
 |Сервис|Namespace label|Health endpoint|Логи|
 |---|---|---|---|
-|Gateway|`app=gateway`|`https://fittpulse.duckdns.org/health`|`kubectl logs -f deployment/gateway`|
+|Gateway|`app=gateway`|`https://fitpulse.tail6f5dca.ts.net/health`|`kubectl logs -f deployment/gateway`|
 |User Service|`app=user-service`|gRPC health|`kubectl logs -f deployment/user-service`|
 |Biometric Service|`app=biometric-service`|gRPC health + `http://biometric-service:8085/health`|`kubectl logs -f deployment/biometric-service`|
 |Classifier|`app=classifier`|`http://classifier:8001/health`|`kubectl logs -f deployment/classifier`|
@@ -289,7 +289,7 @@ Action Items:
 При инцидентах, затрагивающих health-данные (заболевания, менструальный цикл, биометрические параметры):
 
 1. **Классифицировать как SEV-1+**, если есть риск утечки ПДн специальных категорий (здоровье, менструальный цикл) — см. `docs/compliance/ПОЛИТИКА_ОБРАБОТКИ_ПДН.md`
-2. **Уведомить DPO** (`privacy@fittpulse.duckdns.org`) в течение 1 часа
+2. **Уведомить DPO** (`privacy@fitpulse.tail6f5dca.ts.net`) в течение 1 часа
 3. **Остановить инцидент** согласно playbook выше
 4. **Проверить audit trail** — кто, когда, какой доступ к health-данным имел
 5. **Подготовить breach notification** для Роскомнадзора (72 часа) и субъектов ПДн

@@ -113,11 +113,11 @@ spec:
                   name: app-secrets
                   key: SEED_ADMIN_PASSWORD
             - name: API_BASE_URL
-              value: "https://fittpulse.duckdns.org"
+              value: "https://fitpulse.tail6f5dca.ts.net"
             - name: FRONTEND_URL
-              value: "https://fittpulse.duckdns.org"
+              value: "https://fitpulse.tail6f5dca.ts.net"
             - name: CORS_ORIGINS
-              value: '["https://fittpulse.duckdns.org"]'
+              value: '["https://fitpulse.tail6f5dca.ts.net"]'
             # The root filesystem is read-only. Keep uv's cache and Python
             # bytecode out of /root_project.
             - name: PYTHONPYCACHEPREFIX

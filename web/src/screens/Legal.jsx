@@ -61,7 +61,7 @@ FitPulse («мы», «наша», «наш») — это открытая пла
 - Yandex ID 2.0 — аутентификация
 - Open Wearables — агрегированные данные здоровья из различных источников
 - Telegram Bot API — уведомления (по согласию)
-- DuckDNS — доменная запись
+- Tailscale — VPN/Funnel (домен и TLS)
 
 7. Ваши права (GDPR / CCPA)
 - Доступ: запрос копии персональных данных
@@ -291,7 +291,7 @@ We do not sell or transfer your personal data to third parties, except as requir
 - Yandex ID 2.0 — authentication
 - Open Wearables — aggregated health data from various sources
 - Telegram Bot API — notifications (with consent)
-- DuckDNS — DNS record
+- Tailscale — VPN/Funnel (domain and TLS)
 
 7. Your rights (GDPR / CCPA)
 - Access: request a copy of your personal data

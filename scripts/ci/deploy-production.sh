@@ -48,7 +48,6 @@ main() {
 	pre_pull_images) pre_pull_images ;;
 	pre_pull_public_images) pre_pull_public_images ;;
 	import_fluent_bit) import_fluent_bit ;;
-	import_duckdns_webhook_image) import_duckdns_webhook_image ;;
 	manifests) apply_manifests ;;
 	apply_manifests) apply_manifests ;;
 	cleanup_cluster) cleanup_cluster_resources ;;
@@ -56,7 +55,6 @@ main() {
 	run_migrations) run_migrations ;;
 	verify) verify_deployment ;;
 	verify_deployment) verify_deployment ;;
-	verify_tls) verify_tls ;;
 	ensure_service_account) ensure_service_account ;;
 	create_image_pull_secret) create_image_pull_secret ;;
 	wait_for_rabbitmq) wait_for_rabbitmq ;;

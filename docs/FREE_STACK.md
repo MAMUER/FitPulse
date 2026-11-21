@@ -8,23 +8,23 @@
 
 ## Stack Components (All Free, No Card Required)
 
-| Layer | Component | License | Cost | Card Required? |
-| --- | --- | --- | --- | --- |
-| **IaC** | Kubernetes manifests | — | Free | ❌ No |
-| **VPS** | Existing VPS (k3s already running) | — | Already paid | ❌ No |
-| **Kubernetes** | k3s | Apache-2.0 | Free | ❌ No |
-| **Secrets** | Vault + External Secrets Operator | Apache-2.0 / BUSL-2.0 | Free | ❌ No |
-| **DNS** | DuckDNS / Cloudflare | — | Free | ❌ No |
-| **CI/CD** | GitHub Actions | — | Free tier | ❌ No |
-| **Monitoring** | Prometheus + Grafana + Alertmanager | Apache-2.0 | Free | ❌ No |
-| **Tracing** | Jaeger + OpenTelemetry | Apache-2.0 | Free | ❌ No |
-| **Database** | PostgreSQL 18 + pgsodium | PostgreSQL License | Free | ❌ No |
-| **Cache** | Valkey (Redis fork) | BSD-3-Clause | Free | ❌ No |
-| **MQ** | RabbitMQ | MPL-2.0 | Free | ❌ No |
-| **Container** | Docker / BuildKit | Apache-2.0 | Free | ❌ No |
-| **TLS** | cert-manager + Let's Encrypt | Apache-2.0 | Free | ❌ No |
-| **WAF** | Ingress NGINX + ModSecurity CRS v4 | Apache-2.0 | Free | ❌ No |
-| **Backup** | Silo (MinIO drop-in fork, S3-compatible) | AGPL-3.0 | Free | ❌ No |
+| Layer | Component | License |
+| --- | --- | --- |
+| **IaC** | Kubernetes manifests | — |
+| **VPS** | Existing VPS (k3s already running) | — |
+| **Kubernetes** | k3s | Apache-2.0 |
+| **Secrets** | Vault + External Secrets Operator | Apache-2.0 / BUSL-2.0 |
+| **DNS** | Tailscale Funnel (*.ts.net) | BSD-3-Clause |
+| **CI/CD** | GitHub Actions | — |
+| **Monitoring** | Prometheus + Grafana + Alertmanager | Apache-2.0 |
+| **Tracing** | Jaeger + OpenTelemetry | Apache-2.0 |
+| **Database** | PostgreSQL 18 + pgsodium | PostgreSQL License |
+| **Cache** | Valkey (Redis fork) | BSD-3-Clause |
+| **MQ** | RabbitMQ | MPL-2.0 |
+| **Container** | Docker / BuildKit | Apache-2.0 |
+| **TLS** | cert-manager + Let's Encrypt | Apache-2.0 |
+| **WAF** | Ingress NGINX + ModSecurity CRS v4 | Apache-2.0 |
+| **Backup** | Silo (MinIO drop-in fork, S3-compatible) | AGPL-3.0 |
 
 ---
 
@@ -37,8 +37,8 @@
                               │ HTTPS
                               ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│  DuckDNS / Cloudflare (free DNS, no card required)              │
-│  fittpulse.duckdns.org → <VPS_IP>                                       │
+│  Tailscale Funnel (*.ts.net, TLS auto)                          │
+│  fitpulse.tail6f5dca.ts.net → <VPS_IP>                          │
 └────────────────────────────┬────────────────────────────────────┘
                               │
                               ▼

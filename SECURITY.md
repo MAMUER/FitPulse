@@ -272,8 +272,8 @@ Mutable tags позволяют владельцу action'а перенапра�
   - GitHub Actions / GHCR — CI/CD и registry образов
   - [SonarCloud — fitness-platform](https://sonarcloud.io/project/settings?category=integration&id=fitness-platform) — SAST, quality gate и покрытие кода. Токен хранится в GitHub Secrets как `SONAR_TOKEN`. При проблемах с доступом проверьте права токена и существование проекта `fitness-platform` в организации `mamuer`.
   - [Google Cloud Console — fitpulse-1780824080979](https://console.cloud.google.com/welcome?project=fitpulse-1780824080979) — Yandex ID вход (`YANDEX_CLIENT_ID`, `YANDEX_CLIENT_SECRET` в GitHub Secrets).
-  - Privacy Policy: `https://fittpulse.duckdns.org/privacy`. Terms of Service: `https://fittpulse.duckdns.org/terms`.
-  - Authorized domain: `fittpulse.duckdns.org`.
+  - Privacy Policy: `https://fitpulse.tail6f5dca.ts.net/privacy`. Terms of Service: `https://fitpulse.tail6f5dca.ts.net/terms`.
+  - Authorized domain: `fitpulse.tail6f5dca.ts.net`.
   - [Yandex app passwords](https://id.yandex.ru/security/app-passwords) — SMTP-провайдер — отправка писем. Secrets: `SMTP_FROM`, `SMTP_USER`, `SMTP_PASSWORD` хранятся в GitHub Secrets и передаются в кластер через `kubectl create secret generic app-secrets`.
 - **CODEOWNERS**: Файл `.github/CODEOWNERS` определяет mandatory reviewers для security-sensitive путей (.github, configs/, scripts/, deploy/, cmd/*, internal/*). Изменения в этих путях требуют approval от @MAMUER.
 - **Conventional Commits**: Все коммиты в main должны следовать Conventional Commits specification (`feat:`, `fix:`, `security:`, `chore:`, etc.). Проверка выполняется в CI job `conventional-commits`.
@@ -358,8 +358,6 @@ Mutable tags позволяют владельцу action'а перенапра�
 
 ## Покрытие тестами
 
-Замер: 2026-11-16 — `npx vitest run --coverage`, `go test ./... -coverprofile`, `pytest --cov`.
-
 | Слой | Покрытие |
 | --- | --- |
 | Web (vitest, lines) | **99.94%** (1794 / 1795) |
@@ -405,10 +403,16 @@ Postgres/Valkey/RabbitMQ. Они проверяются интеграционн
 | `cmd/user-service/migration.go` | 94-95, 168-170, 202-203, 221-222, 233-235, 306-307, 325-326, 342-343, 354-355, 359-360 | Ветки ошибок валидации (`nonce column ... is not allowed`), `rows.Err()` сразу после `QueryContext` и ошибки `rows.Close()` — недостижимы при обычной итерации `database/sql` |
 | `cmd/gateway/handlers_auth.go` | 78-79, 212-213, 234-235, 242-243, 329-330, 541-542, 549-550, 907-912, 1329-1330, 1466-1471, 1484-1485, 1772-1773 | gRPC error paths, encode-error ветки, недостижимые ветки при валидных данных |
 | `cmd/gateway/handlers_training.go` | 134-138, 271-272, 409-410 | Ошибки `json.Unmarshal`; невозможны при валидном `structpb.Struct` |
-| `cmd/gateway/ml_helpers.go` | 41-42, 47-49 | `resp.Body.Close()` и `io.ReadAll` ошибки; `net/http` их не возвращает в нормальной работе |
+| `cmd/gateway/ml_helpers.go` | 40-42, 45-49 | `resp.Body.Close()` и `io.ReadAll` ошибки — `net/http` их не возвращает в нормальной работе. Чистые функции + `callClassifier` (success/non-200/bad-JSON/invalid-URL) покрыты `ml_helpers_test.go`. |
 | `internal/auth/jwt/jwt.go` | 30-31, 34-35, 43-44, 119-120, 130, 161, 187-188, 190-191 | Ошибки крипто-операций (`GenerateKey`, `MarshalECPrivateKey`, `MarshalPKIXPublicKey`, `SignedString`); `rand.Read` не падает, формат ключа корректен после проверки P-256 |
 | `internal/server/lifecycle.go` | 83-85, 87-90, 92-93, 95-96, 98, 134-135, 146-147 | `signal.NotifyContext` (не отменить из теста без OS-сигналов) и `log.Fatal` при ошибке `ListenAndServe` |
 | `internal/webhook/handler.go` | 64 | Литерал `logFatal` вызывается только на фатальных ошибках сервера |
+| `cmd/gateway/handlers_dishes.go` | 43, 52 | Ветка `rows.Scan(...) != nil` (continue) и `rows.Err()` недостижимы при корректных строках sqlmock; остальные ветки (nil-db, фильтры, лимит 100, ошибки вставки) покрыты. |
+| `cmd/gateway/handlers_friends.go` | 44, 60 | `rows.Scan` continue и `rows.Err()` — то же; CRUD-ветки (401/503/400/409/500/200) покрыты. |
+| `cmd/gateway/handlers_report.go` | 89-107 | HTTP-ветка `notifyOncall` (реальный вызов Telegram Bot API) не покрыта: в тестах `TELEGRAM_BOT_TOKEN`/`_CHAT_ID` пусты → ранний выход. `reportHandler` (все статусы) и `getEnvOrFile` покрыты. |
+| `cmd/gateway/handlers_social.go` | 58, 70, 178, 187, 281, 294 | Защитные `rows.Scan` continue / `rows.Err()` — недостижимы при валидных строках. Leaderboard/sync/search/friend-requests/linkFriends покрыты. |
+| `cmd/gateway/handlers_simple.go` | 186, 197 | `rows.Scan` continue / `rows.Err()`; также updateMeal в ветке `db == nil` недостижим (id в памяти «meal-N», а `meal_id` парсится как int). DB-ветки покрыты `handlers_simple_db_test.go`. |
+| `internal/email/password_reset.go` | — | Покрыт полностью `password_reset_test.go` (ctx cancel, невалидный адрес, skip-домен, дневной лимит, plain/TLS, auth, ошибка send, экранирование). |
 
 ### Python
 
@@ -474,7 +478,7 @@ KB2kZNQaaRr4/jwD
 =vO9G
 -----END PGP PUBLIC KEY BLOCK-----`  
 **Public key server**: `hkps://keys.openpgp.org`  
-**WKD endpoint**: `<https://fittpulse.duckdns.org/.well-known/openpgpkey/hu/`>
+**WKD endpoint**: `<https://fitpulse.tail6f5dca.ts.net/.well-known/openpgpkey/hu/`>
 
 ### Как отправить encrypted report
 

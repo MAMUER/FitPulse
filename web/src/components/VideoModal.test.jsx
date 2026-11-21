@@ -115,6 +115,29 @@ describe('VideoModal', () => {
     expect(onClose).toHaveBeenCalled();
   });
 
+  it('opens the video source in a new tab when provided', () => {
+    setup();
+    const open = vi.spyOn(window, 'open').mockImplementation(() => {});
+    const videos = [
+      { id: 3, title: 'Сурва', video_url: 'https://cdn.example.com/v.mp4' },
+    ];
+    render(
+      <VideoModal
+        videos={videos}
+        index={0}
+        onChange={vi.fn()}
+        onClose={vi.fn()}
+      />
+    );
+    fireEvent.click(screen.getByText('Открыть видео'));
+    expect(open).toHaveBeenCalledWith(
+      'https://cdn.example.com/v.mp4',
+      '_blank',
+      'noopener'
+    );
+    open.mockRestore();
+  });
+
   it('switches to the previous and next video', () => {
     const { onChange } = setup();
     render(

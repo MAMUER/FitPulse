@@ -3,8 +3,6 @@ import { check, sleep, group } from 'k6';
 import { Trend, Counter, Rate } from 'k6/metrics';
 
 const loginDuration = new Trend('login_duration');
-const mlChatDuration = new Trend('ml_chat_duration');
-const healthCheckDuration = new Trend('health_check_duration');
 const apiErrors = new Counter('api_errors_total');
 const errorRate = new Rate('errors');
 
@@ -34,9 +32,7 @@ function buildStages(vus, totalSeconds) {
     ];
 }
 
-// DURATION / VUS come from the wrapper (scripts/load-test.py --duration/--vus)
-// so the CLI flags actually affect the run. Defaults keep the previous shape:
-// ~2 minutes, ramping 20 -> 50 virtual users.
+// DURATION / VUS come from the wrapper (scripts/load-test.py --duration/--vus).
 const VUS = Math.max(1, Number(__ENV.K6_VUS) || 50);
 const TOTAL_SECONDS = parseDuration(__ENV.K6_DURATION || '2m');
 
@@ -47,140 +43,127 @@ export const options = {
         http_req_duration: [
             'p(95)<2000',
             'p(99)<5000',
-            'p(99.9)<10000'
+            'p(99.9)<10000',
         ],
         'api_errors_total': ['count<6000'],
     },
 };
 
 const BASE_URL = __ENV.BASE_URL || 'https://localhost:8443';
+// Токен логина приходит в HttpOnly-cookie, а не в теле ответа.
+const ACCESS_COOKIE = 'fitpulse-access-token';
+const ADMIN_EMAIL = __ENV.SEED_ADMIN_EMAIL || '';
+const ADMIN_PASSWORD = __ENV.SEED_ADMIN_PASSWORD || '';
 const TEST_PASSWORD = __ENV.TEST_PASSWORD || 'LoadTest123!';
-const RUN_ID = Math.random().toString(36).substring(2, 8);
-const TEST_USER = {
-    email: `loadtest-${RUN_ID}@example.com`,
-    password: TEST_PASSWORD,
-    full_name: 'Load Test User',
-    role: 'client'
-};
+
+function login(email, password) {
+    return http.post(
+        `${BASE_URL}/api/v1/login`,
+        JSON.stringify({ email, password }),
+        { headers: { 'Content-Type': 'application/json' }, timeout: '10s' }
+    );
+}
+
+function extractAccessToken(res) {
+    const cookies = res.cookies[ACCESS_COOKIE];
+    if (cookies && cookies.length > 0) {
+        return cookies[0].value;
+    }
+    return '';
+}
 
 export function setup() {
-    console.log(`Setup: Starting load test with user ${TEST_USER.email}`);
+    let email = ADMIN_EMAIL;
+    let password = ADMIN_PASSWORD;
 
-    // Регистрация
-    const registerRes = http.post(`${BASE_URL}/api/v1/register`, JSON.stringify(TEST_USER), {
-        headers: { 'Content-Type': 'application/json' },
-        timeout: '10s'
-    });
-    check(registerRes, { 'register success': (r) => r.status === 200 });
-
-    // Email confirmation skipped in load tests (token delivered via email in production)
-    let verifyToken = null;
-
-    // Подтверждаем email
-    if (verifyToken) {
-        const confirmRes = http.post(`${BASE_URL}/api/v1/auth/confirm`, JSON.stringify({ token: verifyToken }), {
-            headers: { 'Content-Type': 'application/json' },
-            timeout: '10s'
-        });
-        check(confirmRes, { 'email confirmed': (r) => r.status === 200 });
+    // Если админ не задан — регистрируем нового пользователя (в проде такому
+    // пользователю нужно подтверждение email, поэтому основной путь — SEED_ADMIN).
+    if (!email || !password) {
+        const rid = Math.random().toString(36).substring(2, 8);
+        email = `loadtest-${rid}@example.com`;
+        password = TEST_PASSWORD;
+        const reg = http.post(
+            `${BASE_URL}/api/v1/register`,
+            JSON.stringify({
+                email,
+                password,
+                full_name: 'Load Test User',
+                role: 'client',
+            }),
+            { headers: { 'Content-Type': 'application/json' }, timeout: '10s' }
+        );
+        check(reg, { 'register success': (r) => r.status === 200 });
     }
 
-    // Логин
-    const loginRes = http.post(`${BASE_URL}/api/v1/login`, JSON.stringify({
-        email: TEST_USER.email,
-        password: TEST_USER.password,
-    }), {
-        headers: { 'Content-Type': 'application/json' },
-        timeout: '10s'
-    });
+    const start = new Date();
+    const loginRes = login(email, password);
+    loginDuration.add(new Date() - start);
     check(loginRes, { 'login success': (r) => r.status === 200 });
 
-    const token = loginRes.json('access_token');
+    const token = extractAccessToken(loginRes);
+    if (!token) {
+        throw new Error(
+            `login failed: HTTP ${loginRes.status} (нет cookie ${ACCESS_COOKIE}; задан ли SEED_ADMIN?)`
+        );
+    }
 
-    // Заполняем профиль
-    const profileRes = http.put(`${BASE_URL}/api/v1/profile`, JSON.stringify({
-        full_name: 'Load Test User',
-        age: 30,
-        gender: 'male',
-        height_cm: 180,
-        weight_kg: 75.5,
-        fitness_level: 'intermediate',
-        goals: ['endurance', 'weight_loss'],
-        contraindications: [],
-        nutrition: 'balanced',
-        sleep_hours: 7.5,
-    }), {
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        timeout: '10s'
-    });
-    check(profileRes, { 'profile setup': (r) => r.status === 200 });
+    // Заполняем профиль (идемпотентно, 401 не валит setup).
+    http.put(
+        `${BASE_URL}/api/v1/profile`,
+        JSON.stringify({
+            full_name: 'Load Test User',
+            age: 30,
+            gender: 'male',
+            height_cm: 180,
+            weight_kg: 75.5,
+            fitness_level: 'intermediate',
+            goals: ['endurance', 'weight_loss'],
+            contraindications: [],
+            nutrition: 'balanced',
+            sleep_hours: 7.5,
+        }),
+        {
+            headers: {
+                'Content-Type': 'application/json',
+                Cookie: `${ACCESS_COOKIE}=${token}`,
+            },
+            timeout: '10s',
+        }
+    );
 
-    console.log(`Setup: User ${TEST_USER.email} ready for load test`);
     return { token };
 }
 
+const PROTECTED_PATHS = [
+    '/api/v1/profile',
+    '/api/v1/nutrition/meals',
+    '/api/v1/calendar/events',
+    '/api/v1/dishes',
+    '/api/v1/friends',
+    '/api/v1/leaderboard',
+    '/api/v1/health/body-composition',
+    '/api/v1/health/menstrual-cycles',
+];
+
 export default function (data) {
-    const headers = {
-        'Authorization': `Bearer ${data.token}`,
-        'Content-Type': 'application/json',
-    };
+    const headers = { Cookie: `${ACCESS_COOKIE}=${data.token}` };
 
-    // 1. Health Check
     group('Health Check', () => {
-        let startTime = new Date();
-        let healthRes = http.get(`${BASE_URL}/health`, { timeout: '10s' });
-        healthCheckDuration.add(new Date() - startTime);
-        const healthOk = healthRes.status === 200 || healthRes.status === 429 || healthRes.status === 503;
-        check(healthRes, { 'health check success': () => healthOk }) || (apiErrors.add(1), errorRate.add(1));
+        const res = http.get(`${BASE_URL}/healthz`, { timeout: '10s' });
+        check(res, { 'health ok': (r) => r.status === 200 }) ||
+            (apiErrors.add(1), errorRate.add(1));
     });
+    sleep(0.3);
+
+    for (const path of PROTECTED_PATHS) {
+        group(`GET ${path}`, () => {
+            const res = http.get(`${BASE_URL}${path}`, { headers, timeout: '10s' });
+            check(res, {
+                [`${path} -> 200`]: (r) => r.status === 200,
+            }) || (apiErrors.add(1), errorRate.add(1));
+        });
+        sleep(0.2);
+    }
+
     sleep(0.5);
-
-    // 2. Chat - 30%
-    if (Math.random() < 0.3) {
-        group('Chat', () => {
-            let startTime = new Date();
-            let chatRes = http.post(`${BASE_URL}/api/v1/chat`, JSON.stringify({message: 'plan'}), {
-                headers,
-                timeout: '10s'
-            });
-            mlChatDuration.add(new Date() - startTime);
-
-            const ok = chatRes.status === 200 || chatRes.status === 202;
-            const unavailable = [429, 500, 502, 503].includes(chatRes.status);
-
-            if (ok || unavailable) {
-                check(chatRes, { 'ml chat success': () => true });
-            } else {
-                apiErrors.add(1);
-                errorRate.add(1);
-                check(chatRes, { 'ml chat error': () => false });
-            }
-        });
-        sleep(1);
-    }
-
-    // 4. Получение профиля - 50%
-    if (Math.random() < 0.5) {
-        group('Get Profile', () => {
-            let profileRes = http.get(`${BASE_URL}/api/v1/profile`, { headers, timeout: '10s' });
-            const profileOk = profileRes.status === 200 || profileRes.status === 429;
-            check(profileRes, {
-                'get profile success': () => profileOk,
-                'profile has data': (r) => r.body && r.body.length > 0,
-            }) || (apiErrors.add(1), errorRate.add(1));
-        });
-        sleep(0.5);
-    }
-
-    // 5. Список устройств - 40%
-    if (Math.random() < 0.4) {
-        group('List Devices', () => {
-            let devicesRes = http.get(`${BASE_URL}/api/v1/devices`, { headers, timeout: '10s' });
-            const devicesOk = devicesRes.status === 200 || devicesRes.status === 404 || devicesRes.status === 429;
-            check(devicesRes, {
-                'list devices success': () => devicesOk,
-            }) || (apiErrors.add(1), errorRate.add(1));
-        });
-        sleep(0.5);
-    }
 }

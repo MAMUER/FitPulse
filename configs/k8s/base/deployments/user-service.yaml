@@ -220,9 +220,9 @@ spec:
           resources:
             requests:
               cpu: "25m"
-              memory: "64Mi"
+              memory: "128Mi"
               ephemeral-storage: "100Mi"
             limits:
-              cpu: "150m"
-              memory: "256Mi"
+              cpu: "300m"
+              memory: "512Mi"
               ephemeral-storage: "200Mi"

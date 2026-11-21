@@ -1,6 +1,6 @@
 # FitPulse — API Reference
 
-> Полная спецификация REST/gRPC endpoints. Base URL: `https://fittpulse.duckdns.org/api/v1/` (production).
+> Полная спецификация REST/gRPC endpoints. Base URL: `https://fitpulse.tail6f5dca.ts.net/api/v1/` (production).
 
 ## Аутентификация
 

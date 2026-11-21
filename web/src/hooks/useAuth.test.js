@@ -374,15 +374,9 @@ describe('useAuth', () => {
     expect(notify).toHaveBeenCalledWith('Ошибка сброса пароля');
   });
 
-  it('continueAsGuest enters guest mode', () => {
+  it('continueAsGuest redirects to login (guest mode removed)', () => {
     act(() => result.current.continueAsGuest());
-    expect(update).toHaveBeenCalledWith({
-      guest: true,
-      registered: false,
-      authenticated: false,
-      screen: 'home',
-    });
-    expect(result.current.location.pathname).toBe('/home');
+    expect(result.current.location.pathname).toBe('/login');
   });
 
   it('socialLogin notifies for yandex (not configured)', () => {

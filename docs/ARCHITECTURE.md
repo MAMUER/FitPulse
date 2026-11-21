@@ -2696,5 +2696,5 @@ configs/k8s/
 3. **Storage**: `local-path-provisioner` требует `/opt/local-path-provisioner` на каждой ноде
 4. **Images**: тегируются через `IMAGE_TAG` environment variable (default: `latest`)
 5. **Backup**: настройте `BACKUP_KEY` и `PGPASSWORD` для бэкапов
-6. **DNS**: DuckDNS update script требует `DUCKDNS_TOKEN` secret
+6. **DNS**: Tailscale Funnel (домен `*.ts.net`, TLS автоматически)
 7. **Тестирование**: валидируйте YAML через `python -c "import yaml; list(yaml.safe_load_all(open('configs/k8s/base/namespace.yaml')))"`

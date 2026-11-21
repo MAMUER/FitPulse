@@ -42,7 +42,7 @@ function loadTurnstile() {
  * Renders the Cloudflare Turnstile widget and reports its token through
  * `onToken`, which the auth screens wire to the X-Captcha-Token header.
  *
- * Turnstile is bound to the production domain (fittpulse.duckdns.org). On a
+ * Turnstile is bound to the production domain (fitpulse.tail6f5dca.ts.net). On a
  * local/LAN host (e.g. 172.27.x.x) the sitekey cannot be verified and the
  * widget would render an error box that blocks the form, so when Turnstile
  * fails to load or errors we hide the container instead of showing the error.

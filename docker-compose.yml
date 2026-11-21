@@ -84,7 +84,7 @@ services:
       CLASSIFIER_ADDR: classifier:8001
       DEVICE_AGGREGATOR_ADDR: device-aggregator:8083
       ML_GENERATOR_ADDR: gan-service:8004
-      APP_BASE_URL: ${APP_BASE_URL:-https://fittpulse.duckdns.org}
+      APP_BASE_URL: ${APP_BASE_URL:-https://fitpulse.tail6f5dca.ts.net}
       YANDEX_CLIENT_ID: ${YANDEX_CLIENT_ID:-}
       YANDEX_CLIENT_SECRET: ${YANDEX_CLIENT_SECRET:-}
     depends_on:

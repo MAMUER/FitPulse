@@ -92,7 +92,7 @@ create_secrets() {
 		--from-literal=POSTGRES_DB="$POSTGRES_DB" \
 		--from-literal=RABBITMQ_URL="amqp://${RABBITMQ_USER:-fitpulse}:${RABBITMQ_PASS}@rabbitmq:5672/" \
 		--from-literal=VALKEY_PASSWORD="${VALKEY_PASSWORD:-}" \
-		--from-literal=APP_BASE_URL="${APP_BASE_URL:-https://fittpulse.duckdns.org}" \
+		--from-literal=APP_BASE_URL="${APP_BASE_URL:-https://fitpulse.tail6f5dca.ts.net}" \
 		--from-literal=SMTP_HOST="${SMTP_HOST:-}" \
 		--from-literal=SMTP_PORT="${SMTP_PORT:-}" \
 		--from-literal=SMTP_USER="${SMTP_USER:-}" \
@@ -100,7 +100,7 @@ create_secrets() {
 		--from-literal=SMTP_FROM="${SMTP_FROM:-}" \
 		--from-literal=YANDEX_CLIENT_ID="${YANDEX_CLIENT_ID:-}" \
 		--from-literal=YANDEX_CLIENT_SECRET="${YANDEX_CLIENT_SECRET:-}" \
-		--from-literal=YANDEX_REDIRECT_URL="${YANDEX_REDIRECT_URL:-${APP_BASE_URL:-https://fittpulse.duckdns.org}/api/v1/auth/yandex/callback}" \
+		--from-literal=YANDEX_REDIRECT_URL="${YANDEX_REDIRECT_URL:-${APP_BASE_URL:-https://fitpulse.tail6f5dca.ts.net}/api/v1/auth/yandex/callback}" \
 		--from-literal=OPEN_WEARABLES_WEBHOOK_SECRET="${OPEN_WEARABLES_WEBHOOK_SECRET:-}" \
 		--from-literal=SEED_ADMIN_EMAIL="${SEED_ADMIN_EMAIL:-}" \
 		--from-literal=SEED_ADMIN_PASSWORD="${SEED_ADMIN_PASSWORD:-}" \

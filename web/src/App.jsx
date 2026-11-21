@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import Modal from './components/Modal';
+import Toast from './components/Toast';
 import { useApp } from './contexts/AppContext';
 import Ai from './screens/AI';
 import Body from './screens/Body';
@@ -103,8 +104,7 @@ function TabBar() {
 }
 
 export default function App() {
-  const { state, t, closeMetric, closeAchievement, update, go, notify } =
-    useApp();
+  const { state, t, closeMetric, closeAchievement, update, notify } = useApp();
   const { pathname } = useLocation();
 
   // Держим state.screen в синхроне с реальным маршрутом. Иначе при переходе
@@ -194,24 +194,6 @@ export default function App() {
           }
         />
       </Routes>
-      {state.authenticated === false && showAppChrome && (
-        <div className='guest-banner'>
-          <strong>{t('Гостевой режим', 'Guest mode')}</strong>
-          <span className='muted'>
-            {t(
-              'Войдите, чтобы сохранять тренировки, питание и данные.',
-              'Sign in to save workouts, nutrition and data.'
-            )}
-          </span>
-          <button
-            type='button'
-            className='primary full'
-            onClick={() => go('login')}
-          >
-            {t('Войти', 'Sign in')}
-          </button>
-        </div>
-      )}
       {showAppChrome && <TabBar />}
       {state.selectedMetric && state.metricInfo?.[state.selectedMetric] && (
         <Modal
@@ -259,6 +241,7 @@ export default function App() {
           </section>
         </Modal>
       )}
+      <Toast />
     </>
   );
 }

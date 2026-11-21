@@ -1079,12 +1079,17 @@ h3,
   padding: 4px 60px 0 43px;
 }
 
+.topbar > div:first-child {
+  min-width: 0;
+}
+
 .topbar h1 {
   margin-top: 3px;
   font-size: 34px;
   font-weight: 700;
   letter-spacing: -0.5px;
   font-family: var(--font);
+  overflow-wrap: anywhere;
 }
 
 .eyebrow {

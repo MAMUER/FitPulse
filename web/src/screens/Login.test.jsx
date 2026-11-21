@@ -14,7 +14,6 @@ vi.mock('../components/AuthLayout', () => ({
 describe('Login', () => {
   it('handles actions', () => {
     const doLogin = vi.fn();
-    const continueAsGuest = vi.fn();
     const socialLogin = vi.fn();
     const forgotPassword = vi.fn();
     const go = vi.fn();
@@ -22,7 +21,6 @@ describe('Login', () => {
     useApp.mockReturnValue({
       t: (ru, _en) => ru,
       doLogin,
-      continueAsGuest,
       socialLogin,
       forgotPassword,
       go,
@@ -35,8 +33,6 @@ describe('Login', () => {
     expect(go).toHaveBeenCalledWith('register');
     fireEvent.click(screen.getByText('Забыли пароль?'));
     expect(forgotPassword).toHaveBeenCalled();
-    fireEvent.click(screen.getByText('Продолжить как гость'));
-    expect(continueAsGuest).toHaveBeenCalled();
     fireEvent.click(screen.getByText('Пользовательское соглашение'));
     expect(openLegal).toHaveBeenCalledWith('terms');
     fireEvent.click(

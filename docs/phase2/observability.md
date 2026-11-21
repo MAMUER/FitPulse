@@ -5,7 +5,7 @@
 ### 5.1 Текущий статус Phase 1
 
 Production-сервисы: gateway, user-service, biometric-service, training-service, classifier, ml-generator, data-processor, device-aggregator.
-Production domain: fittpulse.duckdns.org
+Production domain: fitpulse.tail6f5dca.ts.net
 
 | Компонент | Статус Phase 1 | Что требуется в Phase 2 |
 | --- | --- | --- |

@@ -5,7 +5,7 @@ info:
   description: API for personalized fitness management with biometric data integration
 
 servers:
-  - url: https://fittpulse.duckdns.org/api/v1
+  - url: https://fitpulse.tail6f5dca.ts.net/api/v1
     description: Production server
 
 security:

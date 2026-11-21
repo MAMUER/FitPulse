@@ -96,7 +96,7 @@ kubectl create secret generic app-secrets -n fitness-platform-production \
     --from-literal=SMTP_PASSWORD=<app-password> \
     --from-literal=SMTP_FROM=<your-email> \
     --from-literal=SMTP_TLS=true \
-    --from-literal=APP_BASE_URL=https://fittpulse.duckdns.org \
+    --from-literal=APP_BASE_URL=https://fitpulse.tail6f5dca.ts.net \
     --from-literal=SEED_ADMIN_EMAIL=<admin-email> \
     --from-literal=SEED_ADMIN_PASSWORD=<admin-password> \
     --from-literal=TOTP_ENCRYPTION_KEY=<32-byte-key>

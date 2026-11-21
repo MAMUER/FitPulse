@@ -71,7 +71,7 @@ concurrency:
 env:
   GO_VERSION: "1.27.3"
   REGISTRY: ghcr.io
-  FITPULSE_DOMAIN: "fittpulse.duckdns.org"
+  FITPULSE_DOMAIN: "fitpulse.tail6f5dca.ts.net"
 
 jobs:
   # ============================================================================
@@ -365,7 +365,7 @@ jobs:
         env:
           GO_VERSION: 1.27.2
           REGISTRY: ghcr.io
-          FITPULSE_DOMAIN: fittpulse.duckdns.org
+          FITPULSE_DOMAIN: fitpulse.tail6f5dca.ts.net
           PYTHON_BLACK_VERSION: "26.5.1"
           DEFAULT_BRANCH: main
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -1383,79 +1383,6 @@ jobs:
           VPS_HOST: ${{ secrets.VPS_HOST }}
           VPS_PORT: ${{ secrets.VPS_PORT }}
         run: bash scripts/ci/ci-helpers.sh check_connectivity
-      - name: Store DuckDNS token in Kubernetes
-        if: steps.connectivity.outputs.reachable == 'true'
-        env:
-          DUCKDNS_TOKEN: ${{ secrets.DUCKDNS_TOKEN }}
-        run: |
-          set -euo pipefail
-          test -n "$DUCKDNS_TOKEN" || {
-            echo "::error::DUCKDNS_TOKEN secret is required for DNS-01 certificate validation"
-            exit 1
-          }
-          token_file="$(mktemp "$RUNNER_TEMP/duckdns-token.XXXXXX")"
-          trap 'rm -f "$token_file"' EXIT
-          printf '%s' "$DUCKDNS_TOKEN" > "$token_file"
-          kubectl -n cert-manager create secret generic duckdns-token \
-            --from-file=token="$token_file" \
-            --dry-run=client -o yaml | kubectl apply -f -
-      - name: Set up Helm
-        if: steps.connectivity.outputs.reachable == 'true'
-        uses: Azure/setup-helm@2f5e7bc67f1f9972ab16657bb795f36d8f04de0e
-        with:
-          version: v3.19.0
-      - name: Import DuckDNS webhook image into k3s
-        if: steps.connectivity.outputs.reachable == 'true'
-        env:
-          VPS_HOST: ${{ secrets.VPS_HOST }}
-          VPS_PORT: ${{ secrets.VPS_PORT }}
-          VPS_USER: ${{ secrets.VPS_USER }}
-        run: bash scripts/ci/deploy-production.sh import_duckdns_webhook_image
-      - name: Install DuckDNS cert-manager webhook
-        if: steps.connectivity.outputs.reachable == 'true'
-        env:
-          DUCKDNS_WEBHOOK_VERSION: v1.2.3
-          DUCKDNS_WEBHOOK_COMMIT: bbda4a2b5b1f2b81954d6b6d4093fc652a9dc7dd
-        run: |
-          set -euo pipefail
-          chart_dir="$RUNNER_TEMP/cert-manager-webhook-duckdns"
-          git clone --depth 1 --branch "$DUCKDNS_WEBHOOK_VERSION" \
-            https://github.com/ebrianne/cert-manager-webhook-duckdns.git \
-            "$chart_dir"
-          actual_commit="$(git -C "$chart_dir" rev-parse HEAD)"
-          if [[ "$actual_commit" != "$DUCKDNS_WEBHOOK_COMMIT" ]]; then
-            echo "::error::DuckDNS webhook tag resolved to unexpected commit $actual_commit"
-            exit 1
-          fi
-          if ! helm upgrade --install cert-manager-webhook-duckdns \
-            "$chart_dir/deploy/cert-manager-webhook-duckdns" \
-            --namespace cert-manager \
-            --wait \
-            --timeout 10m \
-            --set secret.existingSecret=true \
-            --set secret.existingSecretName=duckdns-token \
-            --set clusterIssuer.staging.create=false \
-            --set clusterIssuer.production.create=false; then
-            echo "::error::DuckDNS webhook Helm install did not become ready; collecting diagnostics"
-            kubectl -n cert-manager get pods,deployments,services -o wide >&2 || true
-            kubectl -n cert-manager get certificates,issuers >&2 || true
-            kubectl -n cert-manager get events --sort-by=.metadata.creationTimestamp | tail -n 50 >&2 || true
-            kubectl -n cert-manager describe deployment cert-manager-webhook-duckdns >&2 || true
-            kubectl -n cert-manager describe certificate cert-manager-webhook-duckdns-webhook-tls >&2 || true
-            kubectl -n cert-manager logs deployment/cert-manager-webhook-duckdns \
-              --all-containers --tail=100 >&2 || true
-            kubectl get apiservice v1alpha1.acme.duckdns.org -o yaml >&2 || true
-            exit 1
-          fi
-      # Чарт не выдаёт вебхуку право читать kube-system/extension-apiserver-authentication,
-      # без которого kube-apiserver не может проверять запросы к APIService.
-      # Применяем сразу после helm, чтобы право появилось в этом же деплое.
-      - name: Apply DuckDNS webhook RBAC
-        if: steps.connectivity.outputs.reachable == 'true'
-        run: |
-          set -euo pipefail
-          kubectl apply -f configs/k8s/base/cert-manager/duckdns-webhook-rbac.yaml
-          kubectl -n cert-manager rollout status deployment/cert-manager-webhook-duckdns --timeout=120s
       - name: Create image pull secret for GHCR
         if: steps.connectivity.outputs.reachable == 'true'
         env:
@@ -1642,8 +1569,6 @@ jobs:
           VPS_PORT: ${{ secrets.VPS_PORT }}
           VPS_USER: ${{ secrets.VPS_USER }}
         run: bash scripts/ci/deploy-production.sh verify_deployment
-      - name: Verify ingress TLS certificate
-        run: bash scripts/ci/deploy-production.sh verify_tls
       - name: Check service logs and readiness
         if: steps.connectivity.outputs.reachable == 'true'
         run: bash scripts/ci/deploy-production.sh check_logs
@@ -1813,7 +1738,7 @@ jobs:
         run: cd web && ./node_modules/.bin/playwright install --with-deps chromium
       - name: Run Playwright E2E tests
         env:
-          BASE_URL: "https://fittpulse.duckdns.org"
+          BASE_URL: "https://fitpulse.tail6f5dca.ts.net"
           PLAYWRIGHT_IGNORE_HTTPS_ERRORS: "true"
         # Only chromium is installed in this job, but playwright.config.js declares
         # chromium/firefox/webkit projects: running all of them triples the workload
@@ -2251,7 +2176,7 @@ jobs:
               f'{section("Проверки:", checks)}\n'
               f'{section("Безопасность:", security)}\n'
               f'{section("Деплой и тесты:", deploy)}\n'
-              '🌐 Сайт: https://fittpulse.duckdns.org\n'
+              '🌐 Сайт: https://fitpulse.tail6f5dca.ts.net\n'
           )
           with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
               f.write(f'status={status}\n')

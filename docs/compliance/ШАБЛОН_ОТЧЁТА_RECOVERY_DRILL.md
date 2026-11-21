@@ -62,10 +62,10 @@ psql -h clone-postgres -U postgres -d fitness -c "SELECT COUNT(*) FROM users;"
 
 ```bash
 # Проверить доступность API
-curl -f https://fittpulse.duckdns.org/health
+curl -f https://fitpulse.tail6f5dca.ts.net/health
 
 # Проверить работу auth
-curl -f https://fittpulse.duckdns.org/api/v1/auth/login
+curl -f https://fitpulse.tail6f5dca.ts.net/api/v1/auth/login
 ```
 
 **Результат:** ✅ / ❌  

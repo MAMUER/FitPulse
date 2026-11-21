@@ -156,7 +156,7 @@ create_secrets() {
 		RABBITMQ_PASS_VAL="${RABBITMQ_DEFAULT_PASS:-$(openssl rand -base64 32 2>/dev/null || echo 'change-me-rabbitmq')}"
 		RABBITMQ_URL_VAL="amqp://${RABBITMQ_USER_VAL}:${RABBITMQ_PASS_VAL}@rabbitmq:5672"
 		VALKEY_PASS_VAL="${VALKEY_PASSWORD:-valkey-$(date +%s)}"
-		APP_BASE_URL_VAL="${APP_BASE_URL:-https://fittpulse.duckdns.org}"
+		APP_BASE_URL_VAL="${APP_BASE_URL:-https://fitpulse.tail6f5dca.ts.net}"
 
 		kubectl create secret generic app-secrets -n fitness-platform-production \
 			--from-literal=JWT_PRIVATE_KEY_PEM="$JWT_KEY_PRIVATE" \
@@ -171,7 +171,7 @@ create_secrets() {
 			--from-literal=SMTP_PORT="${SMTP_PORT:-587}" \
 			--from-literal=SMTP_USER="${SMTP_USER:-}" \
 			--from-literal=SMTP_PASSWORD="${SMTP_PASSWORD:-}" \
-			--from-literal=SMTP_FROM="${SMTP_FROM:-noreply@fittpulse.duckdns.org}" \
+			--from-literal=SMTP_FROM="${SMTP_FROM:-noreply@fitpulse.tail6f5dca.ts.net}" \
 			--from-literal=RABBITMQ_DEFAULT_USER="${RABBITMQ_DEFAULT_USER:-fitpulse}" \
 			--from-literal=RABBITMQ_DEFAULT_PASS="${RABBITMQ_DEFAULT_PASS:-$(openssl rand -base64 32 2>/dev/null || echo 'change-me-rabbitmq')}" \
 			--from-literal=YANDEX_CLIENT_ID="${YANDEX_CLIENT_ID:-}" \
@@ -210,22 +210,26 @@ create_secrets() {
 	echo "Ensuring app-secrets contains OPEN_WEARABLES_WEBHOOK_SECRET..."
 	kubectl patch secret app-secrets -n fitness-platform-production --type=merge -p "{\"stringData\":{\"OPEN_WEARABLES_WEBHOOK_SECRET\":\"${OPEN_WEARABLES_WEBHOOK_SECRET:-}\"}}" >/dev/null 2>&1 || true
 
-	# Ensure SEED_ADMIN_EMAIL and SEED_ADMIN_PASSWORD exist in app-secrets (required by seed-admin job)
-	kubectl patch secret app-secrets -n fitness-platform-production --type=merge -p "{\"stringData\":{\"SEED_ADMIN_EMAIL\":\"${SEED_ADMIN_EMAIL:-admin@fittpulse.duckdns.org}\",\"SEED_ADMIN_PASSWORD\":\"${SEED_ADMIN_PASSWORD:-FitPulseAdmin2026!}\"}}" >/dev/null 2>&1 || true
-
 	# TELEGRAM_* — для отправки жалоб (напр. на фото) в oncall-bot.
 	kubectl patch secret app-secrets -n fitness-platform-production --type=merge -p "{\"stringData\":{\"TELEGRAM_BOT_TOKEN\":\"${TELEGRAM_BOT_TOKEN:-}\",\"TELEGRAM_CHAT_ID\":\"${TELEGRAM_CHAT_ID:-}\"}}" >/dev/null 2>&1 || true
 
-	# seed-admin cannot produce Argon2id hashes with pgcrypto, so precompute the
-	# PHC string through the same code path as user-service and ship it in
-	# app-secrets. This must stay in sync with the password patched above.
-	SEED_ADMIN_EFFECTIVE_PASSWORD="${SEED_ADMIN_PASSWORD:-FitPulseAdmin2026!}"
-	SEED_ADMIN_HASH="$(printf '%s' "${SEED_ADMIN_EFFECTIVE_PASSWORD}" | go run ./cmd/hash-password)"
-	if [[ -z "${SEED_ADMIN_HASH}" ]]; then
-		echo "::error::failed to generate SEED_ADMIN_HASH via cmd/hash-password" >&2
-		return 1
+	# Ensure SEED_ADMIN_EMAIL and SEED_ADMIN_PASSWORD exist in app-secrets (required by seed-admin job).
+	# Никаких хардкод-креденшелов: если не заданы — провижининг пропускается.
+	if [[ -n "${SEED_ADMIN_EMAIL}" && -n "${SEED_ADMIN_PASSWORD}" ]]; then
+		kubectl patch secret app-secrets -n fitness-platform-production --type=merge -p "{\"stringData\":{\"SEED_ADMIN_EMAIL\":\"${SEED_ADMIN_EMAIL}\",\"SEED_ADMIN_PASSWORD\":\"${SEED_ADMIN_PASSWORD}\"}}" >/dev/null 2>&1 || true
+
+		# seed-admin cannot produce Argon2id hashes with pgcrypto, so precompute the
+		# PHC string through the same code path as user-service and ship it in
+		# app-secrets. This must stay in sync with the password patched above.
+		SEED_ADMIN_HASH="$(printf '%s' "${SEED_ADMIN_PASSWORD}" | go run ./cmd/hash-password)"
+		if [[ -z "${SEED_ADMIN_HASH}" ]]; then
+			echo "::error::failed to generate SEED_ADMIN_HASH via cmd/hash-password" >&2
+			return 1
+		fi
+		kubectl patch secret app-secrets -n fitness-platform-production --type=merge -p "{\"stringData\":{\"SEED_ADMIN_HASH\":\"${SEED_ADMIN_HASH}\"}}" >/dev/null 2>&1 || true
+	else
+		echo "::warning::SEED_ADMIN_EMAIL/SEED_ADMIN_PASSWORD not set — skipping seed-admin provisioning" >&2
 	fi
-	kubectl patch secret app-secrets -n fitness-platform-production --type=merge -p "{\"stringData\":{\"SEED_ADMIN_HASH\":\"${SEED_ADMIN_HASH}\"}}" >/dev/null 2>&1 || true
 
 	# Ensure DB_ENCRYPTION_KEY exists in app-secrets (required by user-service
 	# pgsodium keyring). Never rotate it automatically: pgsodium derives the PII

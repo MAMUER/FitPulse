@@ -53,7 +53,7 @@ CREATE TABLE IF NOT EXISTS users (
     email_encrypted         BYTEA,
     email_nonce             BYTEA,
     email_hash              VARCHAR(64) UNIQUE,
-    password_hash           VARCHAR(255),
+    password_hash           VARCHAR(255), -- Argon2id PHC-хеш (односторонний), НЕ открытый пароль и не pgsodium
     full_name_encrypted     BYTEA,
     full_name_nonce         BYTEA,
     full_name_hash          VARCHAR(64),

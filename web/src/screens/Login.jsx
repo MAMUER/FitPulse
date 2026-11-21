@@ -4,15 +4,7 @@ import { useApp } from '../contexts/AppContext';
 import { setCaptchaToken } from '../utils/backendRequest';
 
 export default function Login() {
-  const {
-    t,
-    doLogin,
-    continueAsGuest,
-    socialLogin,
-    forgotPassword,
-    go,
-    openLegal,
-  } = useApp();
+  const { t, doLogin, socialLogin, forgotPassword, go, openLegal } = useApp();
 
   return (
     <AuthLayout>
@@ -49,13 +41,6 @@ export default function Login() {
           {t('Забыли пароль?', 'Forgot password?')}
         </button>
       </div>
-      <button
-        type='button'
-        className='secondary full'
-        onClick={continueAsGuest}
-      >
-        {t('Продолжить как гость', 'Continue as guest')}
-      </button>
       <div className='auth-link'>
         {t('Продолжая, вы принимаете', 'By continuing, you accept')}{' '}
         <button

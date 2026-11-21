@@ -187,7 +187,30 @@ function getText(key: TextKey, config: (typeof CONFIGS)[number]) {
   return map[config.lang]?.[key] ?? key;
 }
 
-for (const config of CONFIGS) {
+// ---------------------------------------------------------------------------
+// Реальный пользователь для E2E (гостевой режим удалён). Логин/пароль берутся
+// ТОЛЬКО из SEED_ADMIN_EMAIL / SEED_ADMIN_PASSWORD (в CI — GitHub secrets).
+// Никаких хардкод-креденшелов: если их нет — авторизованные тесты пропускаются.
+const ADMIN_EMAIL = process.env.SEED_ADMIN_EMAIL ?? '';
+const ADMIN_PASSWORD = process.env.SEED_ADMIN_PASSWORD ?? '';
+const HAS_AUTH = Boolean(process.env.BASE_URL && ADMIN_EMAIL && ADMIN_PASSWORD);
+
+async function login(page: Page, email: string, password: string) {
+  await page.goto('/login');
+  await page.locator('#loginEmail').fill(email);
+  await page.locator('#loginPassword').fill(password);
+  await page.getByRole('button', { name: 'Войти', exact: true }).click();
+  // После успешного входа SPA уходит с /login на /home.
+  await page.waitForURL((url) => !url.pathname.includes('/login'), {
+    timeout: 15000,
+  });
+}
+
+// Дедупликация: раньше матрица гоняла 8 конфигов (RU/EN × light/dark × HC) × 11
+// тестов = 88 одинаковых проверок. Кросс-браузерность обеспечивают 3 проекта
+// (chromium/firefox/webkit), а тему/контраст/язык тесты переключают сами,
+// поэтому достаточно одного репрезентативного конфига.
+for (const config of HAS_AUTH ? CONFIGS.slice(0, 1) : []) {
   test.describe(`FitPulse E2E ${config.name}`, () => {
     test.beforeEach(async ({ page }) => {
       await setupConfig(page, config);
@@ -221,15 +244,15 @@ for (const config of CONFIGS) {
       await expect(title).toHaveText(getText('privacy', config));
     });
 
-    test('guest flow reaches home', async ({ page }) => {
-      await page.locator(`text=${getText('guest', config)}`).click();
+    test('login reaches home', async ({ page }) => {
+      await login(page, ADMIN_EMAIL, ADMIN_PASSWORD);
       await expect(
         page.locator(`text=${getText('home', config)}`)
       ).toBeVisible();
     });
 
     test('home navigates to main screens', async ({ page }) => {
-      await page.locator(`text=${getText('guest', config)}`).click();
+      await login(page, ADMIN_EMAIL, ADMIN_PASSWORD);
       for (const key of ['nutrition', 'calendar', 'training', 'ai'] as const) {
         const label = getText(key, config);
         // Кнопки навигации содержат иконку FontAwesome, поэтому точное
@@ -243,10 +266,8 @@ for (const config of CONFIGS) {
     });
 
     test('profile actions are accessible', async ({ page }) => {
-      await page.locator(`text=${getText('guest', config)}`).click();
-      await page
-        .getByRole('button', { name: getText('profile', config) })
-        .click();
+      await login(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+      await page.goto('/profile');
       const settings = page.locator('.settings .setting');
       // Кнопка смены пароля — это .secondary.full, а не .setting, поэтому ищем
       // её по тексту напрямую (в блоке настроек и в опасной зоне).
@@ -265,8 +286,8 @@ for (const config of CONFIGS) {
       ).toBeVisible();
     });
 
-    test('training screen renders for guests (start hidden)', async ({ page }) => {
-      await page.locator(`text=${getText('guest', config)}`).click();
+    test('training screen renders for a logged-in user', async ({ page }) => {
+      await login(page, ADMIN_EMAIL, ADMIN_PASSWORD);
       await page
         .locator('.bottom-nav .nav')
         .filter({ hasText: getText('training', config) })
@@ -277,15 +298,10 @@ for (const config of CONFIGS) {
           exact: true,
         })
       ).toBeVisible();
-      // Гостю доступен просмотр, но не запуск тренировок (guest lockdown):
-      // кнопка «Начать» скрыта, пока пользователь не авторизован.
-      await expect(
-        page.locator(`text=${getText('startWorkout', config)}`).first()
-      ).toHaveCount(0);
     });
 
     test('nutrition period tabs exist', async ({ page }) => {
-      await page.locator(`text=${getText('guest', config)}`).click();
+      await login(page, ADMIN_EMAIL, ADMIN_PASSWORD);
       await page
         .locator('.bottom-nav .nav')
         .filter({ hasText: getText('nutrition', config) })
@@ -305,10 +321,8 @@ for (const config of CONFIGS) {
     });
 
     test('theme toggle works', async ({ page }) => {
-      await page.locator(`text=${getText('guest', config)}`).click();
-      await page
-        .getByRole('button', { name: getText('profile', config) })
-        .click();
+      await login(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+      await page.goto('/profile');
       const html = page.locator('html');
       const initial = await html.getAttribute('data-theme');
       await page
@@ -324,10 +338,8 @@ for (const config of CONFIGS) {
     });
 
     test('language toggle switches labels', async ({ page }) => {
-      await page.locator(`text=${getText('guest', config)}`).click();
-      await page
-        .getByRole('button', { name: getText('profile', config) })
-        .click();
+      await login(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+      await page.goto('/profile');
       const html = page.locator('html');
       const before = await html.getAttribute('lang');
       await page
@@ -340,3 +352,133 @@ for (const config of CONFIGS) {
     });
   });
 }
+
+// ---------------------------------------------------------------------------
+// Authenticated functional E2E.
+// Авторизованные тесты требуют реального бэкенда с засеянным админом, поэтому
+// запускаются только когда задан BASE_URL (CI/прод). Локально (vite dev без
+// backend) блок пропускается, чтобы не ломать `npm run test:e2e`.
+(HAS_AUTH ? test.describe : test.describe.skip)(
+  'FitPulse authenticated (admin)',
+  () => {
+    test('login screen: Yandex button surfaces a visible toast', async ({
+      page,
+    }) => {
+      await page.goto('/login');
+      await page.getByRole('button', { name: 'Яндекс' }).click();
+      // Тосты раньше не рендерились — этот тест ловит регрессию.
+      await expect(page.locator('.fp-toast.show')).toBeVisible();
+      await expect(page.locator('.fp-toast.show')).toContainText('Яндекс');
+    });
+
+    test('admin logs in and reaches home', async ({ page }) => {
+      await login(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+      await expect(
+        page.getByRole('heading', { name: 'Главная', exact: true })
+      ).toBeVisible();
+    });
+
+    test('main screens render without uncaught runtime errors', async ({
+      page,
+    }) => {
+      const errors: string[] = [];
+      page.on('pageerror', (err) => errors.push(err.message));
+
+      await login(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+
+      const targets: Array<{ nav: string; heading: string }> = [
+        { nav: 'Питание', heading: 'Питание' },
+        { nav: 'Календарь', heading: 'Календарь' },
+        { nav: 'Тренировки', heading: 'Тренировки' },
+        { nav: 'AI', heading: 'AI' },
+      ];
+      for (const target of targets) {
+        await page
+          .locator('.bottom-nav .nav')
+          .filter({ hasText: new RegExp(`^\\s*${target.nav}\\s*$`) })
+          .click();
+        await expect(
+          page.getByRole('heading', { name: target.heading, exact: true })
+        ).toBeVisible();
+      }
+
+      // Ни один экран не должен ронять приложение (เช่น чёрный экран /videos).
+      expect(errors).toEqual([]);
+    });
+
+    test('profile settings and achievements are reachable for a logged-in user', async ({
+      page,
+    }) => {
+      await login(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+      await page.goto('/profile');
+      await expect(
+        page.getByRole('heading', { name: 'Профиль', exact: true })
+      ).toBeVisible();
+      // «Достижения» и «Друзей» — кнопки статистики ведут к спискам.
+      await expect(page.locator('#achievements')).toBeAttached();
+    });
+
+    test('profile: change-password opens a working modal', async ({ page }) => {
+      await login(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+      await page.goto('/profile');
+      await page.getByText('Изменить пароль').first().click();
+      // Модалка со сменой пароля должна открыться (поля #oldPass/#newPass).
+      await expect(page.locator('dialog[open]')).toBeVisible();
+      await expect(page.locator('#oldPass')).toBeVisible();
+      await expect(page.locator('#newPass')).toBeVisible();
+      // Закрытие возвращает к профилю.
+      await page.getByRole('button', { name: 'Закрыть' }).first().click();
+      await expect(page.locator('dialog[open]')).toHaveCount(0);
+    });
+
+    test('nutrition: manual "Персональные настройки" were removed', async ({
+      page,
+    }) => {
+      await login(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+      await page
+        .locator('.bottom-nav .nav')
+        .filter({ hasText: /^\s*Питание\s*$/ })
+        .click();
+      await expect(
+        page.getByRole('heading', { name: 'Питание', exact: true })
+      ).toBeVisible();
+      // Кнопка ручной правки калорий удалена — цели только из опроса/GAN.
+      await expect(page.getByText('Персональные настройки')).toHaveCount(0);
+    });
+
+    test('secondary screens render without runtime errors', async ({
+      page,
+    }) => {
+      const errors: string[] = [];
+      page.on('pageerror', (err) => errors.push(err.message));
+      await login(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+
+      // Экраны, не покрытые нижней навигацией: тело, цикл, устройства,
+      // лидеры, видео. Раньше /videos падал в чёрный экран — ловим pageerror.
+      for (const path of [
+        '/body',
+        '/menstrual',
+        '/integrations',
+        '/leaderboard',
+        '/videos',
+      ]) {
+        await page.goto(path);
+        await expect(page.locator('section').first()).toBeVisible();
+      }
+
+      expect(errors).toEqual([]);
+    });
+
+    test('nutrition diary section is present', async ({ page }) => {
+      await login(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+      await page.goto('/nutrition');
+      await expect(
+        page.getByRole('heading', { name: 'Питание', exact: true })
+      ).toBeVisible();
+      // Секция дневника (заголовок или подзаголовок).
+      await expect(
+        page.getByText(/Дневник питания|Diet diary/i).first()
+      ).toBeVisible();
+    });
+  }
+);

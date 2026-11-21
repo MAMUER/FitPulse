@@ -3037,7 +3037,7 @@ func (s *userServer) AdminListInvites(ctx context.Context, req *pb.AdminListInvi
 
 	if baseURL == "" {
 
-		baseURL = "https://fittpulse.duckdns.org"
+		baseURL = "https://fitpulse.tail6f5dca.ts.net"
 
 	}
 
@@ -3205,7 +3205,7 @@ func optionalString(value string) *string {
 // inviteBaseURL возвращает базовый URL для ссылок-приглашений.
 func (s *userServer) inviteBaseURL() string {
 	if s.baseURL == "" {
-		return "https://fittpulse.duckdns.org"
+		return "https://fitpulse.tail6f5dca.ts.net"
 	}
 	return s.baseURL
 }

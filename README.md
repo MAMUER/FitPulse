@@ -182,7 +182,7 @@ docker compose up --build
 - **Grafana**: <http://localhost:3000>
 - **Jaeger**: <http://localhost:16686>
 
-Production домен: <https://fittpulse.duckdns.org>
+Production домен: <https://fitpulse.tail6f5dca.ts.net>
 
 Переменные окружения для локального запуска описаны в `docker-compose.yml`.
 

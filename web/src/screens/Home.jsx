@@ -69,7 +69,6 @@ export default function Home() {
   } = useApp();
   const storyStrip = useRef(null);
   const [notifOpen, setNotifOpen] = useState(false);
-  const [guestBannerDismissed, setGuestBannerDismissed] = useState(false);
 
   useEffect(() => {
     loadBiometrics();
@@ -178,29 +177,10 @@ export default function Home() {
 
   return (
     <section className='home'>
-      {state.guest && !guestBannerDismissed && (
-        <output className='fp-guest-banner'>
-          <i className='fas fa-circle-info' />
-          <span>
-            {t(
-              'Гостевой режим: данные не сохраняются на сервере. Войдите, чтобы пользоваться всеми функциями.',
-              'Guest mode: data is not saved to the server. Sign in to use all features.'
-            )}
-          </span>
-          <button
-            type='button'
-            className='fp-guest-banner-close'
-            aria-label={t('Закрыть', 'Close')}
-            onClick={() => setGuestBannerDismissed(true)}
-          >
-            <i className='fas fa-times' />
-          </button>
-        </output>
-      )}
       <header className='topbar'>
         <div>
           <div className='eyebrow'>FITPULSE · {t('СЕГОДНЯ', 'TODAY')}</div>
-          <h1>
+          <h1 className='profile-greeting-title'>
             {t('Привет', 'Hello')}
             {profileName ? `, ${profileName}` : '!'}
           </h1>

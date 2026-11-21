@@ -30,15 +30,15 @@ Yandex ID **уже реализован** в Phase 1:
 
 - DNS-записи домена указывают на VPS / внешний load balancer, где поднят кластер k3s.
 - В Yandex Developer Console:
-  - добавлен `fittpulse.duckdns.org` в **Authorized domains** для проекта `fitpulse-yandex-app`;
+  - добавлен `fitpulse.tail6f5dca.ts.net` в **Authorized domains** для проекта `fitpulse-yandex-app`;
   - настроен OAuth 2.0 Client ID (Web application) с authorised redirect URIs:
-    - `https://fittpulse.duckdns.org/api/v1/auth/yandex/callback`
+    - `https://fitpulse.tail6f5dca.ts.net/api/v1/auth/yandex/callback`
   - в consent screen указаны:
-    - Homepage: `https://fittpulse.duckdns.org`
-    - Privacy Policy: `https://fittpulse.duckdns.org/privacy`
-    - Terms of Service: `https://fittpulse.duckdns.org/terms`
+    - Homepage: `https://fitpulse.tail6f5dca.ts.net`
+    - Privacy Policy: `https://fitpulse.tail6f5dca.ts.net/privacy`
+    - Terms of Service: `https://fitpulse.tail6f5dca.ts.net/terms`
 - На VPS / в k8s:
-  - cert-manager выписывает TLS-сертификат для `fittpulse.duckdns.org`;
+  - cert-manager выписывает TLS-сертификат для `fitpulse.tail6f5dca.ts.net`;
   - ingress/routes проксируют `/`, `/privacy`, `/terms` на gateway;
   - SPA на React отдаёт главную страницу и юридические страницы.
 
@@ -46,7 +46,7 @@ Yandex ID **уже реализован** в Phase 1:
 
 | Этап | Задача | Срок | Приоритет |
 | --- | --- | --- | --- |
-| 2 | Подготовить инфраструктуру: TLS через cert-manager, Ingress/Route для `fittpulse.duckdns.org` | 2–3 дня | P0 |
+| 2 | Подготовить инфраструктуру: TLS через cert-manager, Ingress/Route для `fitpulse.tail6f5dca.ts.net` | 2–3 дня | P0 |
 | 3 | Обновить `SECURITY.md`, CI конфиги, deployment manifests под новый домен | 1 день | P1 |
 | 4 | В Yandex Developer Console обновить authorized domains, consent screen URLs, redirect URIs | 1 день | P0 |
 | 5 | Пройти branding verification (логотип 120×120, скриншоты, описание) | 1–2 дня | P0 |
@@ -54,7 +54,7 @@ Yandex ID **уже реализован** в Phase 1:
 
 ### 25.5 Acceptance Criteria
 
-- `https://fittpulse.duckdns.org`, `/privacy`, `/terms` доступны из внешней сети по HTTPS без авторизации.
+- `https://fitpulse.tail6f5dca.ts.net`, `/privacy`, `/terms` доступны из внешней сети по HTTPS без авторизации.
 - Yandex ID consent screen находится в статусе **production**.
 - Вход через Yandex работает для любых пользователей без ограничения в 100 аккаунтов и без 7-дневного истечения токена.
 - DPA с Yandex ID согласована и доступна: `docs/compliance/DPA_YANDEX_ID.md`

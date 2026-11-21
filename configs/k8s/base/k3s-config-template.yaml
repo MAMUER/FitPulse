@@ -1,6 +1,6 @@
 bind-address: 0.0.0.0
 tls-san:
-  - "fittpulse.duckdns.org"
+  - "fitpulse.tail6f5dca.ts.net"
   - "${VPS_HOST}"
   - "localhost"
   - "127.0.0.1"

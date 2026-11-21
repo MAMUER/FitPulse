@@ -183,14 +183,9 @@ export function useAuth({ state, update, notify }) {
   }, [state.profile, state.resetEmail, update, notify]);
 
   const continueAsGuest = useCallback(() => {
-    update({
-      guest: true,
-      registered: false,
-      authenticated: false,
-      screen: 'home',
-    });
-    void navigate('/home');
-  }, [update, navigate]);
+    // Гостевой режим удалён: гость не может войти, только регистрация/вход.
+    void navigate('/login');
+  }, [navigate]);
 
   const socialLogin = useCallback(
     (provider) => {

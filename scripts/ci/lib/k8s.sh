@@ -628,16 +628,12 @@ collect_cluster_diagnostics() {
 		--sort-by=.metadata.creationTimestamp 2>&1 | tail -n 100 || true
 	echo "::endgroup::"
 
-	echo "::group::cert-manager, DuckDNS webhook, and ACME resources"
+	echo "::group::cert-manager and ACME resources"
 	kubectl -n cert-manager get pods,deployments,services,endpoints -o wide 2>&1 || true
 	kubectl get certificates,certificaterequests,orders,challenges -A -o wide 2>&1 || true
-	kubectl get apiservice v1alpha1.acme.duckdns.org -o yaml 2>&1 || true
 	echo "--- cert-manager controller logs (last 30 minutes) ---"
 	kubectl -n cert-manager logs deployment/cert-manager --all-containers=true \
 		--prefix --timestamps --since=30m --tail=200 2>&1 || true
-	echo "--- DuckDNS webhook logs (last 30 minutes) ---"
-	kubectl -n cert-manager logs deployment/cert-manager-webhook-duckdns \
-		--all-containers=true --prefix --timestamps --since=30m --tail=200 2>&1 || true
 	kubectl -n cert-manager get events --field-selector=type=Warning \
 		--sort-by=.metadata.creationTimestamp 2>&1 | tail -n 100 || true
 	echo "::endgroup::"
@@ -707,9 +703,6 @@ echo '=== Recent k3s networking and DNS messages ==='
 sudo journalctl -u k3s --since '30 minutes ago' --no-pager -n 500 2>&1 |
 	grep -Ei 'coredns|dns|cni|flannel|kube-proxy|iptables|nft|network|no route|refused|timeout' |
 	tail -n 200 || true
-echo '=== DuckDNS webhook image in k3s containerd ==='
-sudo k3s ctr -n k8s.io images ls 2>&1 |
-	grep -F 'cert-manager-webhook-duckdns' || true
 REMOTE
 	)
 
@@ -792,27 +785,4 @@ check_logs() {
 		echo "::error::Production services are not Ready; stopping deployment before external tests" >&2
 		return 1
 	fi
-}
-
-verify_tls() {
-	local secret="fittpulse-duckdns-tls"
-	local domain="${FITPULSE_DOMAIN:-fittpulse.duckdns.org}"
-	wait_for_k8s_api 180 || true
-	if ! kubectl wait --for=condition=ready certificate/"$secret" \
-		-n fitness-platform-production --timeout=300s; then
-		echo "::error::Ingress TLS certificate $secret is not Ready" >&2
-		kubectl describe certificate/"$secret" -n fitness-platform-production >&2 || true
-		kubectl get order,challenge -n fitness-platform-production >&2 || true
-		kubectl describe challenge -n fitness-platform-production >&2 || true
-		kubectl get pods -n fitness-platform-production -l acme.cert-manager.io/http01-solver=true -o wide >&2 || true
-		kubectl describe networkpolicy -n fitness-platform-production allow-ingress-nginx-to-acme-solver >&2 || true
-		return 1
-	fi
-	echo "✅ Ingress TLS certificate $secret is Ready"
-	if ! curl -fsS --max-time 15 -o /dev/null "https://${domain}/health"; then
-		echo "::error::Public HTTPS endpoint does not serve the trusted certificate" >&2
-		curl -v --max-time 15 "https://${domain}/health" 2>&1 | sed -n '1,40p' >&2 || true
-		return 1
-	fi
-	echo "✅ Public HTTPS endpoint serves the trusted Let's Encrypt certificate"
 }
