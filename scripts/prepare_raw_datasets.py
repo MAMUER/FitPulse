@@ -605,6 +605,8 @@ def _iter_wesd_root(
     for participant_dir in root.rglob("*"):
         if not participant_dir.is_dir():
             continue
+        if not _has_e4_files(participant_dir):
+            continue
         df = _process_wesd_participant(participant_dir, max_rows_per_file)
         if df is not None:
             records.append(df)
@@ -638,14 +640,11 @@ def process_wesd(
         print("WESD: missing")
         return pd.DataFrame()
 
+    search_roots: list[Path] = [dataset_dir]
     extract_dir = _extract_wesd_zip(dataset_dir)
-    if extract_dir is None:
-        return pd.DataFrame()
+    if extract_dir is not None:
+        search_roots.insert(0, extract_dir)
 
-    search_roots = [extract_dir]
-    raw_dir = RAW_ROOT / "WESD"
-    if raw_dir.exists():
-        search_roots.append(raw_dir)
     records, count = _iter_wesd_participants(
         search_roots, max_participants, max_rows_per_file
     )

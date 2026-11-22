@@ -1,350 +1,449 @@
 # FitPulse — ML/Classifier Спецификация
 
-> **Статус:** Этот документ описывает **реализованную** ML-архитектуру FitPulse (на 2026-10-07).
-> **Продакшн:** Гибридный классификатор — rule-based (Go) + ML fallback (HistGradientBoosting + ONNX).
+> **Статус:** документ описывает **реализованную** ML-архитектуру FitPulse (обновлено 2026-11-22).
+> **Продакшн:** гибридный классификатор — rule-based (Go, первичный) + ML-деревья HistGradientBoosting (Go, для `unknown`).
 
 ---
 
-## Обзор
+## 1. Обзор
 
 FitPulse использует **гибридный классификатор**:
 
-1. **Rule-based (Go, production)** — детерминированные правила на 7 признаках. Всегда доступен.
-2. **ML (Python → ONNX → Go, experimental)** — HistGradientBoosting (full) + LogisticRegression fallback (ONNX). Используется при confidence ≥ 0.85.
+1. **Rule-based (Go, первичный)** — детерминированные правила на физиологических признаках. Всегда доступен, не требует модели.
+2. **ML (Python → JSON → Go, для `unknown`)** — HistGradientBoosting, экспортированный в JSON-деревья. Применяется только тогда, когда правила не могут дать ответ.
+
+**Почему правила первичны.** Публичные датасеты (WESAD, ADARP, PPG-DaLiA и др.) измеряют **кожную температуру запястья** (~33 °C), а SpO2 присутствует менее чем в 0.5% строк, сон и давление — почти отсутствуют. Модель, обученная на таких данных, вне распределения ведёт себя произвольно. Правила кодируют предметную семантику (core-температура, SpO2, сон) и работают во всём диапазоне.
+
+**Что делает ML.** Разрешает состояния `unknown` (низкий SpO2, субфебрилитет), где правила намеренно не дают класса, и служит основой для персонализации (дельты Δ_u).
 
 ---
 
-## Архитектура
+## 2. Архитектура
 
 ```text
 ┌─────────────────────────────────────────────────────────────────┐
 │                    POST /classify Request                       │
 └─────────────────────────┬───────────────────────────────────────┘
-                          │
                           ▼
-┌─────────────────────────────────────────────────────────────────┐
-│  ML Model Loaded? (onnx_classifier.go loads classifier_weights) │
-└─────────────────────────┬───────────────────────────────────────┘
-                          │
-              ┌───────────┴───────────┐
-              ▼                       ▼
-         ДА                          НЕТ
-              │                       │
-              ▼                       ▼
-    ┌──────────────────┐    ┌────────────────────────┐
-    │ Predict via ONNX │    │ Rule-based (classifyState)│
-    │ (LogisticRegression) │  │ (7 features, 7 classes)  │
-    └────────┬───────────┘    └───────────┬────────────┘
-             │                           │
-             ▼                           ▼
-    Confidence ≥ 0.85?              Always used
-             │
-       ┌──────┴──────┐
-       ▼             ▼
-     ДА             НЕТ
-       │             │
-       ▼             ▼
-   Use ML         Rule-based
+        ┌──────────────────────────────────────────┐
+        │ buildClassifierFeatures (7 признаков)    │
+        │ temperature_source: wrist | core         │
+        │ missing_metrics / data_quality           │
+        └──────────────────┬───────────────────────┘
+                           ▼
+        ┌──────────────────────────────────────────┐
+        │ classifyState (Go rules)                 │
+        └──────────────────┬───────────────────────┘
+                           ▼
+                 Класс == unknown?
+                           │
+              ┌────────────┴────────────┐
+              ▼                         ▼
+            ДА                         НЕТ
+              │                         │
+              ▼                         ▼
+   ┌────────────────────┐      ┌──────────────────┐
+   │ ML: деревья + Δ_u  │      │  Используем      │
+   │ (tree_model.go)    │      │  правило         │
+   └─────────┬──────────┘      └────────┬─────────┘
+             │                          │
+             ▼                          ▼
+   confidence × quality-штраф     confidence × quality-штраф
+             │                          │
+             └────────────┬─────────────┘
+                          ▼
+        ┌──────────────────────────────────────────┐
+        │ Ответ: state, confidence, probabilities, │
+        │ model, data_quality, missing_metrics     │
+        └──────────────────────────────────────────┘
 ```
 
 ---
 
-## Классификатор (Go + ML Hybrid)
-
-### Входные признаки (7 признаков)
+## 3. Входные признаки
 
 | # | Признак | Тип | Единица | Примечание |
-| - | ------- | --- | ------- | ---------- |
-| 1 | `heart_rate` | float64 | уд/мин | Текущий или средний за последний час |
-| 2 | `heart_rate_variability` | float64 | мс | HRV (RMSSD) |
+| --- | --------- | ----- | --------- | ------------ |
+| 1 | `heart_rate` | float64 | уд/мин | обязателен, валидация 20–250 |
+| 2 | `heart_rate_variability` | float64 | мс | HRV (SDNN/RMSSD) |
 | 3 | `spo2` | float64 | % | 70–100 |
-| 4 | `temperature` | float64 | °C | 35.5–38.5; ключевой для "illness" |
-| 5 | `blood_pressure_systolic` | float64 | мм рт.ст. | 80–200 (часто NaN) |
-| 6 | `blood_pressure_diastolic` | float64 | мм рт.ст. | 50–130 (часто NaN) |
-| 7 | `sleep_hours` | float64 | часы | 0–24 (часто NaN) |
+| 4 | `temperature` | float64 | °C | зависит от `temperature_source` |
+| 5 | `blood_pressure_systolic` | float64 | мм рт.ст. | часто отсутствует |
+| 6 | `blood_pressure_diastolic` | float64 | мм рт.ст. | часто отсутствует |
+| 7 | `sleep_hours` | float64 | часы | часто отсутствует |
 
-> **Важно:** Признаки 5-7 часто NaN в текущих датасетах. ML fallback использует только 4 признака (HR, HRV, SpO2, Temp).
+### 3.1. Температура: wrist или core
 
-### Источники данных
+Браслеты измеряют **кожу запястья** (на 2–3 °C ниже ядра). Поэтому ML-модель обучается на коже, а правила должны это учитывать.
 
-- `GET /api/v1/biometrics?metric_type=heart_rate,hrv,spo2,temperature,blood_pressure,sleep_hours`
-- `GET /api/v1/health/menstrual-cycles` (дополнительный контекст)
-- `GET /api/v1/health/conditions`
-- `GET /api/v1/training/plans?status=active` + `POST /api/v1/training/complete`
-- `GET /api/v1/devices` — проверка последнего ingestion
+Поле `temperature_source`:
 
----
+| Источник | Субфебрилитет | Лихорадка | Высокая |
+| ---------- | --------------- | ----------- | --------- |
+| `core` | 37.3 | 37.5 | 38.0 |
+| `wrist` (абсолютные) | 35.8 | 36.0 | 36.5 |
+| `wrist` + `temperature_baseline` $b$ | $b+0.4$ | $b+0.7$ | $b+1.2$ |
 
-## ML Модель (Python → ONNX → Go)
+По умолчанию — `wrist`. `temperature_baseline` — скользящее среднее температуры пользователя (персонализация измерения).
 
-### Полная модель (Python)
+### 3.2. Качество данных
 
-- **Файл:** `models/classifier.pkl` (joblib)
-- **Алгоритм:** HistGradientBoostingClassifier (sklearn)
-- **Данные:** 12.9M сэмплов из 13 датасетов
-- **Признаки:** 4 usable (HR, HRV, SpO2, Temp) — остальные NaN
-- **Классы:** 7 (recovery, endurance_basic, endurance_threshold, power_hiit, overtraining, illness, unknown)
-- **Validation accuracy:** 0.9986
-- **Validation size:** 2.57M samples
+Ответ `/classify` содержит:
 
-### Fallback ONNX (Go inference)
+- `missing_metrics` — список отсутствующих показателей (`hrv`, `spo2`, `temperature`, `sleep_hours`, `systolic_pressure`, `diastolic_pressure`);
+- `data_quality` — `high` (ничего не пропущено) / `medium` (≤2 пропуска) / `low` (>2);
+- confidence умножается на 1.0 / 0.9 / 0.8 соответственно.
 
-- **Файл:** `models/classifier.onnx` + `models/classifier_weights.json`
-- **Алгоритм:** LogisticRegression (sklearn Pipeline с SimpleImputer) + pure Go linear inference
-- **Обучение:** на стратифицированной подвыборке 5000 сэмплов
-- **Классы:** 5 (endurance_basic, endurance_threshold, power_hiit, overtraining, unknown)
-- **Отсутствуют:** recovery (0), illness (5) — в текущих весах не представлены
-- **Признаки:** 4 (HR, HRV, SpO2, Temp) с импутацией NaN
-- **Примечание:** Для покрытия всех 7 классов требуется переобучение fallback-модели с гарантированным stratified sampling. Go-инференс использует `models/classifier_weights.json`.
-
-### Веса для Go (JSON)
-
-- **Файл:** `models/classifier_weights.json`
-- **Структура:** `{labels: [...], weights: [...], multi_class: int}`
-- **Загружается:** `onnx_classifier.go` при старте
+Отсутствующие значения подставляются нейтральными (HRV 50, SpO2 98, t 37, АД 120/80, сон 7), но это отражается в качестве.
 
 ---
 
-## Rule-based Классификатор (Go, 7 классов)
+## 4. Классы (7)
 
-### 7 классов (как в коде)
+| Индекс | Slug | Название RU | Ключевые правила |
+| -------- | ------ | ------------- | ------------------ |
+| 0 | `recovery` | Восстановление | HRV > 80 И (HR < 60% HRmax ИЛИ сон > 8) |
+| 1 | `endurance_basic` | Базовая выносливость | HR 65–80% HRmax, HRV 50–80 |
+| 2 | `endurance_threshold` | Пороговая выносливость | HR 80–90% HRmax |
+| 3 | `power_hiit` | Силовая/HIIT | HR > 90% HRmax |
+| 4 | `overtraining` | Перетренированность | HRV < 30 ИЛИ сон < 5 |
+| 5 | `illness` | Заболевание | t > порога ИЛИ SpO2 < 95 + признаки |
+| 6 | `unknown` | Неопределено | SpO2 < 93, субфебрилитет, default |
 
-| Index | Класс (slug) | Название RU | Ключевые правила |
-| ------- | ------------- | ------------- | ------------------ |
-| 0 | `recovery` | Восстановление | HRV > 80 И (HR < 60% HRmax ИЛИ sleep > 8) |
-| 1 | `endurance_basic` | Базовая выносливость | HRV 50–80, HR 65–80% HRmax, sleep 6–8 |
-| 2 | `endurance_threshold` | Пороговая выносливость | HRV 40–50, HR 80–90% HRmax |
-| 3 | `power_hiit` | Силовая/HIIT | HRV > 60, HR > 90% HRmax, sleep > 7 |
-| 4 | `overtraining` | Перетренированность | HRV < 30 И HR < 60% HRmax |
-| 5 | `illness` | Заболевание | Температура > 37.5°C ИЛИ HRV < 30 с признаками болезни |
-| 6 | `unknown` | Неопределено | Default fallback |
+---
 
-### Endpoint
+## 5. ML-модель
 
-`POST /classify` (service на порту 8001, вызывается через gateway `POST /api/v1/classify`)
+### 5.1. Полная модель (Python)
 
-### Выход
+- **Файл:** `models/classifier.pkl` (joblib, HistGradientBoostingClassifier).
+- **Данные:** 12.9 млн строк из 13 датасетов → после очистки 6.18 млн → балансировка.
+- **Признаки:** `heart_rate`, `hrv`, `spo2`, `temperature` (BP и сон отсутствуют в данных).
+- **Классы:** 7.
+- **Accuracy на валидации:** ≈ 0.999.
+
+### 5.2. Экспорт для Go — деревья (histgb-v1)
+
+**Файл:** `models/classifier_trees.json` (~1.9 МБ, 700 деревьев, 39 800 узлов).
+
+Формат:
 
 ```json
 {
-  "predicted_class": "recovery",
-  "confidence": 0.87,
-  "probabilities": {
-    "recovery": 0.87,
-    "endurance_basic": 0.08,
-    "endurance_threshold": 0.03,
-    "power_hiit": 0.01,
-    "overtraining": 0.01,
-    "illness": 0.0,
-    "unknown": 0.0
-  },
-  "description": "Низкая нагрузка + высокий HRV + хорошее восстановление",
-  "hr_range": "50-65% HRmax",
-  "recommendations": ["Лёгкая активность...", "..."]
+  "format": "histgb-v1",
+  "n_classes": 7,
+  "learning_rate": 0.05,
+  "baseline": [...],
+  "feature_keys": ["heart_rate","hrv","spo2","temperature"],
+  "feature_min": [25.0, 1.28, 83.0, 30.01],
+  "feature_max": [210.47, 390.61, 100.0, 37.43],
+  "classes": [...],
+  "trees": [{"feature":[...],"threshold":[...],"left":[...],"right":[...],
+             "missing_left":[...],"value":[...],"leaf":[...]}]
 }
 ```
 
----
+**Важно:**
 
-## ML Switching Logic (Step 6.4)
+- значения листьев **уже содержат** `learning_rate` — Go не умножает повторно;
+- пороги внутренних узлов могут быть `+inf` — экспортируются как `1e308` (JSON не поддерживает Infinity);
+- пропуски в признаках кодируются как `NaN` и обрабатываются через `missing_go_to_left`.
 
-### Константа
+### 5.3. Экспортёр
 
-```go
-const mlSwitchThreshold = 0.85
+**Скрипт:** `scripts/export_go_model.py`
+
+```powershell
+python scripts/export_go_model.py
 ```
 
-### Логика переключения
+Создаёт:
+
+- `models/classifier_trees.json` — деревья для Go;
+- `models/classifier_golden.json` — 400 эталонных случаев (сырые значения + ожидаемый класс) для Go-теста.
+
+### 5.4. Линейная модель (legacy)
+
+- `models/classifier_weights.json` — веса LogisticRegression (линейная аппроксимация бустинга). Совпадает с бустингом ~71%, поэтому **не используется**, если есть деревья.
+- `scripts/train_classifier_linear.py` — обучение линейной модели на дистиллированном датасете (без внешних зависимостей, только stdlib). Нужна, если деревья недоступны.
+
+---
+
+## 6. Go-инференс
+
+**Файлы:**
+
+- `cmd/classifier/tree_model.go` — обход деревьев HistGradientBoosting (`TreeModel`, формат `histgb-v1`);
+- `cmd/classifier/onnx_classifier.go` — линейная модель (legacy) + min-max нормализация + softmax;
+- `cmd/classifier/personal_delta.go` — персональные дельты Δ_u (работают и с деревьями, и с линейной моделью);
+- `cmd/classifier/main.go` — HTTP-сервер, правила, качество данных.
+
+### 6.1. Приоритет модели
 
 ```go
-// В classifyHandler (cmd/classifier/main.go)
-if s.onnxClassifier != nil {
-    mlClass, mlConfidence, _ := s.onnxClassifier.Predict(features)
-    if mlConfidence >= mlSwitchThreshold {  // 0.85
-        // Используем ML предсказание
-        predictedClass = mlClass
-        confidence = mlConfidence
-        modelUsed = "ml"
-    } else {
-        // Fallback на rule-based
-        predictedClass, confidence, probs = classifyState(data, age)
-        modelUsed = "rule-based"
-    }
-} else {
-    // ML не загружен → rule-based
-    predictedClass, confidence, probs = classifyState(data, age)
-    modelUsed = "rule-based"
+func (s *classifierServer) activeModel() scoreModel {
+    if s.treeModel != nil { return s.treeModel }
+    if s.onnxClassifier != nil { return s.onnxClassifier }
+    if s.personalClassifier != nil { return s.personalClassifier.classifier }
+    return nil
 }
 ```
 
-### Поведение
+### 6.2. Формула
 
-| Условие | Результат |
-| ----------- | ----------- |
-| ONNX загружен + confidence ≥ 0.85 | ML prediction |
-| ONNX загружен + confidence < 0.85 | Rule-based fallback |
-| ONNX не загружен | Rule-based only |
+Деревья:
 
-### Метрики
+$$\text{score}_c(x) = b_c + \sum_{m:\,c(m)=c} h_m(x), \qquad \hat{c} = \arg\max_c \text{score}_c(x)$$
 
-- `ClassificationConfidence` с лейблами `model` (ml/rule-based) и `class`
+Персональная дельта:
+
+$$\widetilde{\text{score}}_c(x) = \text{score}_c(x) + \sum_j \Delta_u[c,j] \cdot x_j$$
+
+### 6.3. Порог переключения
+
+```go
+const mlSwitchThreshold = 0.25
+```
+
+ML применяется **только** для `unknown`; если ML-уверенность ниже порога, остаётся `unknown`.
 
 ---
 
-## Pipeline: Data → Training → Deployment
+## 7. Персонализация плана
 
-### Step 6.1 — Подготовка датасета
+**Файл:** `internal/planner/personalize.go`
+
+Вход `PersonalizationInput`: возраст, пол, вес, рост, цель, менструальная фаза, стресс, сон, аллергии, ограничения, биометрия.
+
+Оператор $\Pi$ домножает вектор GAN и шаблон:
+
+| Фактор | Эффект |
+| -------- | -------- |
+| Возраст <18 / >60 / ≥75 | ×0.85 / ×0.8 / ×0.65 + меньше подходов |
+| ИМТ <18.5 / 25–30 / 30–35 / ≥35 | ×0.9 / ×0.95 / ×0.85 / ×0.7 |
+| Менструация / лютеиновая | ×0.8 / ×0.9 (только для женщин) |
+| Стресс ≥7 / 5–7 | ×0.75 / ×0.9 |
+| Сон <5 / <6.5 | ×0.7 / ×0.85 |
+| HRV <20 / <40 | потолок 0.4 / ×0.85 |
+| ЧСС покоя >100 / >85 | ×0.7 / ×0.9 |
+| SpO2 <94 | ×0.7 |
+| t > 37.5 | ×0.6, длительность ×0.8 |
+| Сердце / гипертония / диабет / почки / печень / ортопедия | ×0.6 … ×0.85 |
+
+Результат попадает в `plan_data.personalization` — список применённых ограничений.
+
+---
+
+## 8. Меню
+
+**Файл:** `internal/chat/menu_profile.go` (`BuildDayMenuForProfile`)
+
+Учитывает:
+
+- цель → шаблон (похудение / масса / баланс);
+- вес, рост, возраст, пол → калораж (Миффлин–Сан Жеор) × активность × цель;
+- аллергии → замена блюд на безопасные (`allergenSafeMeals`);
+- диабет → перекус без сахара;
+- менструация → акцент на железо; лютеиновая фаза → магний и сложные углеводы;
+- стресс ≥ 7 → меньше кофеина, больше магния.
+
+---
+
+## 9. Pipeline: Data → Training → Deployment
+
+### 9.1. Подготовка данных
 
 **Скрипты:** `scripts/prepare_raw_datasets.py`, `scripts/prepare_classifier_dataset.py`
 
-1. **prepare_raw_datasets.py** — обрабатывает 13 датасетов:
-   - ADARP, SPD, ue4w, Toadstool, stress_nurses (E4 CSVs, headerless)
-   - big-ideas (E4 CSVs с заголовками)
-   - in-gauge_en-gage (E4 CSVs, двойная вложенность)
-   - PPG_DaLiA (Pickle + E4 extracted)
-   - WEEE (Fitbit/Apple Watch JSON/CSV)
-   - WESAD (Pickle S2.pkl–S17.pkl)
-   - WESD (Zip/CSV)
-   - BIDMC (Numerics CSV)
+```powershell
+python -u scripts\prepare_raw_datasets.py       # 13 датасетов -> classifier_dataset.csv (сырые значения)
+python -u scripts\prepare_classifier_dataset.py # очистка + min-max + балансировка
+```
 
-2. **prepare_classifier_dataset.py** — очистка:
-   - Удаление дубликатов и all-NaN строк
-   - Удаление признаков без данных
-   - Fallback на синтетику если < 1000 сэмплов
+`prepare_classifier_dataset.py`:
 
-**Выход:** `datasets/processed/classifier_dataset.csv` (12.9M строк)
+- удаляет дубликаты и строки с выбросами (ЧСС 25–230, HRV 1–400, SpO2 70–100, t 30–43);
+- сохраняет `models/classifier_scaler.json` (min/max);
+- балансирует классы (до 20 000 на класс, редкие — до 5× oversampling).
 
-### Step 6.2 — Обучение
+**Выход:** `datasets/processed/classifier_dataset.csv` (~100 000 строк, сбалансировано).
 
-**Скрипт:** `scripts/train_classifier.py`
+### 9.2. Обучение
 
 ```powershell
-python train_classifier.py --dataset datasets/processed/classifier_dataset.csv \
-  --output models/classifier.onnx --max-iter 50 --lr 1e-2
+python -u scripts\train_classifier.py `
+    --dataset datasets\processed\classifier_dataset.csv `
+    --output models\classifier.onnx --max-iter 100 --lr 0.05
 ```
 
-**Результат:**
+Результат:
 
-- `models/classifier.pkl` — полная HistGradientBoosting модель
-- `models/classifier.onnx` — fallback ONNX (LogisticRegression)
-- `models/classifier_weights.json` — веса для Go
+- `models/classifier.pkl` — HistGradientBoosting;
+- `models/classifier_weights.json` — линейные веса (legacy);
+- `models/train_metrics.json` — метрики.
 
-### Step 6.3 — Go Инференс
+### 9.3. Экспорт деревьев
 
-**Файлы:** `cmd/classifier/onnx_classifier.go`, `cmd/classifier/main.go`
-
-```go
-// onnx_classifier.go — pure Go, без ONNX Runtime
-// Загружает weights из JSON, делает линейную классификацию
-
-// main.go — HTTP сервер с ML switching
-const mlSwitchThreshold = 0.85
+```powershell
+python scripts\export_go_model.py
 ```
 
-### Step 6.4 — Порог переключения
+Создаёт `models/classifier_trees.json` и `models/classifier_golden.json`.
 
-В `cmd/classifier/main.go`:
+### 9.4. Go-инференс
 
-```go
-const mlSwitchThreshold = 0.85
-```
+- `tree_model.go` загружает деревья и обходит их;
+- `onnx_classifier.go` — fallback;
+- `/health` возвращает фактическое состояние (`model_loaded`, `scaler_loaded`).
+
+### 9.5. Сборка образа
+
+`cmd/classifier/Dockerfile` копирует `models/` (включая деревья), иначе ML молча отключается.
 
 ---
 
-## Пайплайн данных (13 датасетов)
+## 10. Датасеты (используемые)
 
-| Датасет | Формат | Сэмплы | Ключевое исправление |
-| --------- | -------- | -------- | ---------------------- |
-| ADARP | E4 CSV (без заголовков) | 6.1M | Пропуск строк с timestamp |
-| big-ideas | E4 CSV (с заголовками) | 9.4M | Шаблон `HR_001.csv` |
-| in-gauge_en-gage | E4 CSV (с заголовками) | 3.7M | Двойная вложенность исправлена |
-| PPG_DaLiA | Pickle + E4 | 135K | Директории `_E4_extracted/` |
-| SPD | E4 CSV (без заголовков) | 116K | Пропуск строк с timestamp |
-| stress_nurses | E4 CSV (без заголовков) | 4.6M | Директории `*_extracted/` |
-| Toadstool | E4 CSV (без заголовков) | 1.3M | Одноколоночные CSVs |
-| ue4w | E4 CSV (без заголовков) | 956K | Пропуск строк с timestamp |
-| WEEE | JSON/CSV | 4.4M | Множество поддиректорий |
-| WESAD | Pickle | 15 субъектов | S2.pkl–S17.pkl |
-| WESAD_labels | Pickle | 15 субъектов | Метки из WESAD |
-| WESD | Zip/CSV | — | Data.zip + extracted |
-| BIDMC | CSV | 53 файла | Numerics CSV |
+Все данные лежат в **`datasets/raw`**, которая является junction на `H:\Games\raw`.
+Репозиторий не содержит сами файлы — только ссылку.
+
+| Датасет | Папка | Ссылка | Лицензия | Что используем |
+| --------- | ------- | -------- | ---------- | ---------------- |
+| **WESAD** | `datasets/raw/WESAD` | <https://ubi29.informatik.uni-siegen.de/usi/data_wesad.html> | CC BY-NC 4.0 | HR, HRV, EDA, кожная температура, АКГ; 15 субъектов |
+| **WESD** | `datasets/raw/WESD` | <https://utexas.box.com/s/2ef96g1r69eyox0t6t9bv2gy1p1zv1h0p> | CC BY 4.0 | Empatica E4, 210 файлов |
+| **BIDMC** | `datasets/raw/bidmc-ppg-and-respiration-dataset-1.0.0` | <https://physionet.org/content/bidmc/1.0.0/> | ODC-BY 1.0 | SpO2, HR, PPG, дыхание; 53 субъекта |
+| **PPG-DaLiA** | `datasets/raw/PPG_DaLiA` | <https://archive.ics.uci.edu/dataset/495/ppg+dalia> | CC BY 4.0 | BVP/PPG, EDA, температура, ACC, ЧСС; 15 субъектов |
+| **ADARP** | `datasets/raw/ADARP` | <https://huggingface.co/datasets/FcmC/E4SelfLearning> | CC BY 4.0 | E4 CSV: HR, HRV, EDA, TEMP |
+| **big-ideas** | `datasets/raw/big-ideas` | <https://huggingface.co/datasets/FcmC/E4SelfLearning> | CC BY 4.0 | E4 CSV с заголовками |
+| **in-gauge_en-gage** | `datasets/raw/in-gauge_en-gage` | <https://huggingface.co/datasets/FcmC/E4SelfLearning> | CC BY 4.0 | E4 CSV, двойная вложенность |
+| **SPD** | `datasets/raw/SPD` | <https://huggingface.co/datasets/FcmC/E4SelfLearning> | CC BY 4.0 | E4 CSV |
+| **stress_nurses** | `datasets/raw/stress_detection_nurses_hospital` | <https://huggingface.co/datasets/FcmC/E4SelfLearning> | CC BY 4.0 | E4 CSV |
+| **Toadstool** | `datasets/raw/Toadstool` | <https://huggingface.co/datasets/FcmC/E4SelfLearning> | CC BY 4.0 | E4 CSV |
+| **ue4w** | `datasets/raw/ue4w` | <https://huggingface.co/datasets/FcmC/E4SelfLearning> | CC BY 4.0 | E4 CSV |
+| **WEEE** | `datasets/raw/WEEE` | <https://huggingface.co/datasets/FcmC/E4SelfLearning> | CC BY 4.0 | Fitbit/Apple Watch JSON/CSV |
+
+> **ADARP, big-ideas, in-gauge_en-gage, SPD, stress_nurses, Toadstool, ue4w, WEEE** — это подвыборки
+> одного датасета **E4SelfLearning** (<https://huggingface.co/datasets/FcmC/E4SelfLearning/tree/main>).
+> Они уже распакованы в `datasets/raw/<ИМЯ>`.
+
+### 10.1. Подготовка
+
+Все архивы распакованы, лишние файлы удалены. Проверить:
+
+```powershell
+Get-ChildItem datasets\raw | Select-Object Name, LinkType, Target
+```
+
+Ожидаемо: `datasets\raw` → `Junction` → `H:\Games\raw`.
+
+## 11. Пайплайн
+
+```powershell
+# 1. 13 датасетов -> classifier_dataset.csv (сырые значения)
+python -u scripts\prepare_raw_datasets.py
+
+# 2. очистка выбросов + min-max (models/classifier_scaler.json) + балансировка
+python -u scripts\prepare_classifier_dataset.py
+
+# 3. HistGradientBoosting + линейные веса
+python -u scripts\train_classifier.py `
+    --dataset datasets\processed\classifier_dataset.csv `
+    --output models\classifier.onnx --max-iter 100 --lr 0.05
+
+# 4. экспорт деревьев + golden set для Go
+python scripts\export_go_model.py
+
+# 5. проверка Go-инференса
+go test ./cmd/classifier -run TestTreeModelMatchesGoldenSet -v
+```
+
+Ожидаемый результат:
+
+- `datasets/processed/classifier_dataset.csv` — ~100 000 строк, сбалансировано;
+- `models/classifier.pkl` — HistGradientBoosting;
+- `models/classifier_trees.json` — 700 деревьев (histgb-v1);
+- `models/classifier_golden.json` — 400 эталонных случаев;
+- `TestTreeModelMatchesGoldenSet` — PASS (Go == Python).
 
 ---
 
-## Результаты обучения
+## 12. Метрики
 
 | Метрика | Значение |
 | --------- | ---------- |
-| Всего сэмплов | 12,865,107 |
-| Разделение Train/Val | 80/20 (стратифицированное) |
-| Точность на валидации | 0.9986 |
-| Macro F1 | 0.89 |
-| Weighted F1 | 1.00 |
-
-### По классам (валидация)
-
-| Класс | Precision | Recall | F1 | Support |
-| ------- | ----------- | -------- | ----- | --------- |
-| recovery | 0.33 | 0.33 | 0.33 | 3 |
-| endurance_basic | 1.00 | 1.00 | 1.00 | 1,059,610 |
-| endurance_threshold | 0.97 | 0.87 | 0.92 | 3,052 |
-| power_hiit | 0.99 | 0.95 | 0.97 | 1,517 |
-| overtraining | 1.00 | 1.00 | 1.00 | 438,471 |
-| illness | 0.96 | 1.00 | 0.98 | 25 |
-| unknown | 1.00 | 1.00 | 1.00 | 1,070,344 |
-
-> **Примечание:** `recovery` (15 train / 3 val) и `illness` (125 train / 25 val) сильно недорепрезентированы.
+| Сырых строк (13 датасетов) | 12 951 581 |
+| После очистки | 6 184 166 |
+| После балансировки | ~100 000 (до 20 000 на класс) |
+| HistGradientBoosting, validation accuracy | ≈ 0.999 |
+| Деревья для Go | 700 деревьев, 39 800 узлов, 1.9 МБ |
+| Go vs Python (golden set) | 400 / 400 |
 
 ---
 
-## Структура файлов
+## 13. API (Classifier Service: 8001)
+
+| Метод | Путь | Описание |
+| ------- | ------ | ---------- |
+| POST | `/classify` | Классификация состояния |
+| POST | `/classify/delta` | Обновление персональной дельты Δ_u |
+| GET | `/health` | Здоровье (`model_loaded`, `scaler_loaded`) |
+| GET | `/classes` | Список классов |
+| GET | `/model-info` | Метаданные модели |
+| GET | `/metrics` | Prometheus-метрики |
+
+---
+
+## 14. Структура файлов
 
 ```text
 scripts/
-├── prepare_raw_datasets.py      # Обработка 13 датасетов
-├── prepare_classifier_dataset.py # Очистка + разметка
-├── cleanup_raw_datasets.py       # Утилита очистки
-└── train_classifier.py           # Обучение + ONNX экспорт
+├── prepare_raw_datasets.py        # обработка 13 датасетов
+├── prepare_classifier_dataset.py  # очистка + min-max + балансировка
+├── train_classifier.py            # HistGradientBoosting + линейный экспорт
+├── train_classifier_linear.py     # чистая линейная модель (stdlib)
+├── export_go_model.py             # экспорт деревьев + golden set
+└── cleanup_raw_datasets.py        # утилита очистки
 
 models/
-├── classifier.pkl              # Полная HistGradientBoosting (1.2 MB)
-├── classifier.onnx             # Fallback ONNX (700 байт)
-├── classifier_weights.json     # Веса для Go (JSON)
-└── classifier_test.onnx        # Тестовые модели
+├── classifier.pkl                 # HistGradientBoosting
+├── classifier_trees.json          # деревья для Go (histgb-v1)
+├── classifier_weights.json        # линейные веса (legacy)
+├── classifier_scaler.json         # min/max нормализация
+├── classifier_golden.json         # 400 эталонных случаев для теста
+├── gan_generator.pt               # GAN
+├── gan_norm_params.json
+└── gan_history.json
 
 cmd/classifier/
-├── main.go                     # HTTP сервер + ML switching
-└── onnx_classifier.go          # Чистый Go линейный инференс
+├── main.go                        # HTTP-сервер, правила, качество данных
+├── tree_model.go                  # Go-инференс деревьев
+├── onnx_classifier.go             # линейная модель (legacy) + нормализация
+├── personal_delta.go              # дельты Δ_u
+├── dataset_dump.go                # генерация дистиллированного датасета
+├── db.go                          # подключение к PostgreSQL
+└── delta_store_pg.go              # персистентные дельты
 
-scripts/train_classifier.py     # Пайплайн обучения
-scripts/prepare_raw_datasets.py # Обработка данных
-scripts/prepare_classifier_dataset.py # Очистка датасета
-scripts/cleanup_raw_datasets.py # Утилита очистки
+internal/planner/
+├── engine.go                      # шаблонный план
+├── gan.go                         # GAN-вектор → план
+└── personalize.go                 # персонализация плана
+
+internal/chat/
+├── menu.go                        # статичное меню
+└── menu_profile.go                # персонализированное меню
 ```
 
 ---
 
-## API Эндпоинты (Classifier Service: 8001)
+## 15. Известные проблемы / Планы
 
-| Метод | Путь | Описание |
-| ------- | ------ | ---------- |
-| POST | `/classify` | Классификация физиологического состояния |
-| GET | `/health` | Проверка здоровья |
-| GET | `/classes` | Список классов обучения |
-| GET | `/model-info` | Метаданные модели (ML загружен?) |
-| GET | `/metrics` | Prometheus метрики |
+1. **Дисбаланс классов** — `recovery` (15) и `illness` (125) в сырых данных; компенсируется oversampling и `class_weight='balanced'`, но точность на них ниже.
+2. **Температура** — в датасетах кожа запястья (~33 °C), в проде может быть core; нужна калибровка `temperature_source` на фронте/устройстве.
+3. **SpO2/сон/давление** — почти отсутствуют в публичных датасетах; правила используют нейтральные значения.
+4. **Нет GPU** — HistGradientBoosting обучается на CPU.
+5. **Локальные пути** — часть датасетов лежит вне репозитория (`H:\Games\raw`); для CI их нужно либо кэшировать, либо исключить из пайплайна.
 
 ---
 
-## Известные проблемы / Планы
-
-1. **Дисбаланс классов** — `recovery` (15 сэмплов), `illness` (125) сильно недорепрезентированы
-2. **ONNX fallback только 5 классов** — отсутствуют `recovery` и `illness`
-3. **3 из 7 признаков в основном NaN** — `systolic_pressure`, `diastolic_pressure`, `sleep_hours`
-4. **ONNX fallback использует 4 признака** — отсутствуют BP/sleep
-5. **Нет GPU обучения** — HistGradientBoosting работает на CPU
-
----
-
-*Последнее обновление: 2026-10-07*
+*Последнее обновление: 2026-11-22*
 *Отражает реализованный пайплайн на момент коммита*
