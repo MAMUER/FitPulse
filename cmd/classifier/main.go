@@ -24,7 +24,23 @@ import (
 type classifierServer struct {
 	log                *logger.Logger
 	onnxClassifier     *ONNXClassifier
+	treeModel          *TreeModel
 	personalClassifier *PersonalDeltaClassifier
+}
+
+// activeModel возвращает приоритетную модель: деревья HistGradientBoosting
+// точнее линейной аппроксимации (99.9% против ~71%).
+func (s *classifierServer) activeModel() scoreModel {
+	if s.treeModel != nil {
+		return s.treeModel
+	}
+	if s.onnxClassifier != nil {
+		return s.onnxClassifier
+	}
+	if s.personalClassifier != nil {
+		return s.personalClassifier.classifier
+	}
+	return nil
 }
 
 const (
@@ -32,6 +48,7 @@ const (
 	contentTypeJSON       = "application/json"
 	headerContentType     = "Content-Type"
 	mlSwitchThreshold     = 0.25
+	unknownClass          = 6
 	modelRuleBased        = "rule-based"
 	modelML               = "ml"
 	errMethodNotSupported = "Метод не поддерживается"
@@ -192,12 +209,23 @@ type healthResponse struct {
 	AsyncEnabled bool   `json:"async_enabled"`
 }
 
+// modelHasScaler сообщает, сохранена ли min-max нормализация.
+func (s *classifierServer) modelHasScaler() bool {
+	if s.treeModel != nil {
+		return len(s.treeModel.featureMin) > 0
+	}
+	if s.onnxClassifier != nil {
+		return len(s.onnxClassifier.featureMin) > 0
+	}
+	return false
+}
+
 func (s *classifierServer) healthHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set(headerContentType, contentTypeJSON)
 	// Фактическое состояние: раньше здесь всегда стояло true, поэтому
 	// scripts/ml-e2e.py не мог обнаружить отсутствие модели в образе.
-	modelLoaded := s.onnxClassifier != nil
-	scalerLoaded := modelLoaded && len(s.onnxClassifier.featureMin) > 0
+	modelLoaded := s.activeModel() != nil
+	scalerLoaded := modelLoaded && s.modelHasScaler()
 	if err := json.NewEncoder(w).Encode(healthResponse{
 		Status:       "healthy",
 		ModelLoaded:  modelLoaded,
@@ -228,7 +256,12 @@ func (s *classifierServer) modelInfoHandler(w http.ResponseWriter, r *http.Reque
 	totalParams := 0
 	featureKeys := []string{}
 	scalerSaved := false
-	if s.onnxClassifier != nil {
+	if s.treeModel != nil {
+		modelName = "histgradientboosting-trees"
+		totalParams = len(s.treeModel.trees)
+		featureKeys = s.treeModel.FeatureKeys()
+		scalerSaved = len(s.treeModel.featureMin) > 0
+	} else if s.onnxClassifier != nil {
 		modelName = "onnx-linear-classifier"
 		totalParams = len(s.onnxClassifier.Weights)
 		featureKeys = s.onnxClassifier.FeatureKeys()
@@ -261,6 +294,19 @@ func (s *classifierServer) buildClassifierFeatures(data physiologicalData) map[s
 		"diastolic_pressure": data.BloodPressureDiastolic,
 		"sleep_hours":        data.SleepHours,
 	}
+}
+
+func (s *classifierServer) initPersonalClassifier(deltaSize int) {
+	log := s.log
+	if database := connectClassifierDB(); database != nil {
+		s.personalClassifier = NewPersonalDeltaClassifier(s.activeModel(), NewPostgresDeltaStore(database))
+		log.Info("Персональные дельты сохраняются в PostgreSQL", zap.Int("delta_size", deltaSize))
+		return
+	}
+	deltaStore := NewInMemoryDeltaStore(deltaSize)
+	s.personalClassifier = NewPersonalDeltaClassifier(s.activeModel(), deltaStore)
+	log.Warn("POSTGRES не настроен: персональные дельты хранятся в RAM и теряются при рестарде",
+		zap.Int("delta_size", deltaSize))
 }
 
 func (s *classifierServer) classifyHandler(w http.ResponseWriter, r *http.Request) {
@@ -298,26 +344,26 @@ func (s *classifierServer) classifyHandler(w http.ResponseWriter, r *http.Reques
 		age = req.UserProfile.Age
 	}
 
-	var predictedClass int
-	var confidence float64
-	var probs map[string]float64
-	var modelUsed string
+	// Правила — первичный источник истины: они кодируют предметную семантику
+	// (core temperature, SpO2, сон) и корректно работают во всём диапазоне.
+	// ML-модель на реальных публичных датасетах откалибрована на кожную
+	// температуру (~33 °C) и почти не имеет SpO2, поэтому применяется только
+	// там, где правила не дают ответа (unknown).
+	predictedClass, confidence, probs := classifyState(data, age)
+	modelUsed := modelRuleBased
 
-	if s.onnxClassifier != nil {
+	if predictedClass == unknownClass && s.activeModel() != nil {
 		features := s.buildClassifierFeatures(data)
 		mlClass, mlConfidence, err := s.classifyWithDelta(features, req.UserID)
 		if err == nil && mlConfidence >= mlSwitchThreshold {
 			predictedClass = mlClass
 			confidence = mlConfidence
-			probs = buildZoneProbabilities(predictedClass, confidence)
+			probs = buildZoneProbabilities(mlClass, mlConfidence)
 			modelUsed = modelML
-		} else {
-			predictedClass, confidence, probs = classifyState(data, age)
-			modelUsed = modelRuleBased
 		}
-	} else {
-		predictedClass, confidence, probs = classifyState(data, age)
-		modelUsed = modelRuleBased
+	}
+	if predictedClass < 0 || predictedClass >= len(trainingClasses) {
+		predictedClass = unknownClass
 	}
 
 	classInfo := trainingClasses[predictedClass]
@@ -829,22 +875,18 @@ func main() {
 	}
 
 	s := &classifierServer{log: log}
-	if clf, err := NewONNXClassifier(DefaultONNXWeightsPath()); err == nil {
+	if tree, err := NewTreeModel(defaultTreeModelPath()); err == nil {
+		s.treeModel = tree
+		log.Info("Древовидная модель HistGradientBoosting загружена",
+			zap.String("model", sanitize.LogString(defaultTreeModelPath())),
+			zap.Int("trees", len(tree.trees)))
+		s.initPersonalClassifier(tree.NumClasses() * tree.NumFeatures())
+	} else if clf, err := NewONNXClassifier(DefaultONNXWeightsPath()); err == nil {
 		s.onnxClassifier = clf
-		log.Info("ONNX-классификатор загружен", zap.String("weights", sanitize.LogString(DefaultONNXWeightsPath())))
-		log.Info("Персональный классификатор с дельтами инициализирован", zap.Int("delta_size", len(clf.Weights)))
-
-		// Персональные дельты переживают рестарт пода только при наличии БД.
-		if database := connectClassifierDB(); database != nil {
-			s.personalClassifier = NewPersonalDeltaClassifier(clf, NewPostgresDeltaStore(database))
-			log.Info("Персональные дельты сохраняются в PostgreSQL")
-		} else {
-			deltaStore := NewInMemoryDeltaStore(len(clf.Weights))
-			s.personalClassifier = NewPersonalDeltaClassifier(clf, deltaStore)
-			log.Warn("POSTGRES не настроен: персональные дельты хранятся в RAM и теряются при рестарде")
-		}
+		log.Info("Линейный классификатор загружен", zap.String("weights", sanitize.LogString(DefaultONNXWeightsPath())))
+		s.initPersonalClassifier(len(clf.Weights))
 	} else {
-		log.Warn("ONNX-классификатор не загружен, используется rule-based fallback", zap.Error(err))
+		log.Warn("ML-модель не загружена, используется rule-based fallback", zap.Error(err))
 	}
 
 	mux := http.NewServeMux()

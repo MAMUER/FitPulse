@@ -70,7 +70,7 @@ func (s *InMemoryDeltaStore) SetDelta(userID string, delta []float64) {
 	s.deltas[userID] = deltaCopy
 }
 
-// ResetDelta сбрасывает дельту пользователя к нулям.
+// ResetDelta сбрасывает дельту пользователя.
 func (s *InMemoryDeltaStore) ResetDelta(userID string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -78,19 +78,36 @@ func (s *InMemoryDeltaStore) ResetDelta(userID string) {
 	s.deltas[userID] = zero
 }
 
-// DeltaSize возвращает размер вектора дельты.
+// DeltaSize возвращает размер дельты.
 func (s *InMemoryDeltaStore) DeltaSize() int {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return s.size
 }
 
+// GetAllDeltas возвращает копию всех дельт.
+func (s *InMemoryDeltaStore) GetAllDeltas() map[string][]float64 {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	out := make(map[string][]float64, len(s.deltas))
+	for k, v := range s.deltas {
+		cp := make([]float64, len(v))
+		copy(cp, v)
+		out[k] = cp
+	}
+	return out
+}
+
+// PersonalDeltaClassifier — обёртка над моделью, добавляющая персональную
+// дельту Δ_u к итоговым оценкам классов. Работает и с линейной, и с
+// древовидной моделью (scoreModel).
 type PersonalDeltaClassifier struct {
-	classifier *ONNXClassifier
+	classifier scoreModel
 	store      DeltaStore
 }
 
-func NewPersonalDeltaClassifier(classifier *ONNXClassifier, store DeltaStore) *PersonalDeltaClassifier {
+// NewPersonalDeltaClassifier создаёт классификатор с персональными дельтами.
+func NewPersonalDeltaClassifier(classifier scoreModel, store DeltaStore) *PersonalDeltaClassifier {
 	return &PersonalDeltaClassifier{
 		classifier: classifier,
 		store:      store,
@@ -102,12 +119,13 @@ func (p *PersonalDeltaClassifier) PredictWithDelta(features map[string]float64, 
 		return 0, 0, errors.New("classifier not initialized")
 	}
 
-	x := p.classifier.extractFeatures(features)
-	numClasses := len(p.classifier.Labels)
-	numFeatures := len(p.classifier.featureKeys)
+	numClasses := p.classifier.NumClasses()
+	numFeatures := p.classifier.NumFeatures()
 
-	if !p.classifier.isValidConfig(numClasses, numFeatures) {
-		return 0, 0, errors.New("unsupported onnx model configuration")
+	x := p.classifier.ExtractFeatures(features)
+	base := p.classifier.RawScores(x)
+	if len(base) != numClasses {
+		return 0, 0, errors.New("unsupported model configuration")
 	}
 
 	delta, _ := p.store.GetDelta(userID)
@@ -116,57 +134,74 @@ func (p *PersonalDeltaClassifier) PredictWithDelta(features map[string]float64, 
 	}
 
 	scores := make([]float64, numClasses)
-	for cls := 0; cls < numClasses; cls++ {
-		offset := cls * numFeatures
-		sum := 0.0
-		if cls < len(p.classifier.Intercepts) {
-			sum = p.classifier.Intercepts[cls]
+	copy(scores, base)
+	for class := 0; class < numClasses; class++ {
+		offset := class * numFeatures
+		for j := 0; j < numFeatures && j < len(x); j++ {
+			scores[class] += delta[offset+j] * x[j]
 		}
-		for j := 0; j < numFeatures; j++ {
-			w := p.classifier.Weights[offset+j]
-			d := delta[offset+j]
-			sum += (w + d) * x[j]
-		}
-		scores[cls] = sum
 	}
 
-	best := p.classifier.findBestClass(scores)
-	confidence := p.classifier.confidence(scores)
+	best := 0
+	for i := 1; i < len(scores); i++ {
+		if scores[i] > scores[best] {
+			best = i
+		}
+	}
 
-	return p.classifier.Labels[best], confidence, nil
+	labels := p.classifier.LabelsList()
+	if best >= len(labels) {
+		return 0, 0, errors.New("invalid prediction index")
+	}
+	return labels[best], p.classifier.Confidence(scores), nil
 }
 
+// UpdateDelta пересчитывает дельту по обратной связи пользователя.
 func (p *PersonalDeltaClassifier) UpdateDelta(userID string, classIndex int, targetValue float64, features map[string]float64, learningRate float64) ([]float64, error) {
 	if p.classifier == nil {
 		return nil, errors.New("classifier not initialized")
 	}
 
-	numClasses := len(p.classifier.Labels)
-	numFeatures := len(p.classifier.featureKeys)
+	numClasses := p.classifier.NumClasses()
+	numFeatures := p.classifier.NumFeatures()
 
 	if classIndex < 0 || classIndex >= numClasses {
 		return nil, errors.New("invalid class index")
 	}
-	if err := validateFeatureKeys(p.classifier.featureKeys, features); err != nil {
+	if err := validateFeatureKeys(p.classifier.FeatureKeys(), features); err != nil {
 		return nil, err
 	}
 	if learningRate <= 0 {
 		learningRate = 0.01
 	}
 
-	x := p.classifier.extractFeatures(features)
+	x := p.classifier.ExtractFeatures(features)
+	if len(x) != numFeatures {
+		return nil, errors.New("invalid features length")
+	}
+
 	delta := p.deltaForUser(userID, numClasses*numFeatures)
 	offset := classIndex * numFeatures
 
-	currentPrediction := p.classifier.sigmoidConfidence(
-		p.classScore(classIndex, delta, x),
-	)
-	errorTerm := targetValue - currentPrediction
+	base := p.classifier.RawScores(x)
+	if len(base) != numClasses {
+		return nil, errors.New("unsupported model configuration")
+	}
+	current := base[classIndex]
+	for j := 0; j < numFeatures; j++ {
+		current += delta[offset+j] * x[j]
+	}
+
+	errorTerm := targetValue - sigmoid(current)
 	applyGradient(delta, offset, x, learningRate*errorTerm)
 	clampDelta(delta, offset, numFeatures)
 
 	p.store.SetDelta(userID, delta)
 	return delta, nil
+}
+
+func sigmoid(v float64) float64 {
+	return 1.0 / (1.0 + math.Exp(-v))
 }
 
 // validateFeatureKeys требует наличия всех признаков модели.
@@ -188,22 +223,12 @@ func (p *PersonalDeltaClassifier) deltaForUser(userID string, size int) []float6
 	return delta
 }
 
-// classScore считает оценку класса с учётом базовых весов, интерсепта и дельты.
-func (p *PersonalDeltaClassifier) classScore(classIndex int, delta, x []float64) float64 {
-	offset := classIndex * len(x)
-	score := 0.0
-	if classIndex < len(p.classifier.Intercepts) {
-		score = p.classifier.Intercepts[classIndex]
-	}
-	for j := range x {
-		score += (p.classifier.Weights[offset+j] + delta[offset+j]) * x[j]
-	}
-	return score
-}
-
 // applyGradient обновляет дельту целевого класса.
 func applyGradient(delta []float64, offset int, x []float64, step float64) {
 	for j := range x {
+		if offset+j >= len(delta) {
+			break
+		}
 		delta[offset+j] += step * x[j]
 	}
 }
@@ -212,6 +237,9 @@ func applyGradient(delta []float64, offset int, x []float64, step float64) {
 func clampDelta(delta []float64, offset, numFeatures int) {
 	const maxDelta = 5.0
 	for j := 0; j < numFeatures; j++ {
+		if offset+j >= len(delta) {
+			break
+		}
 		if delta[offset+j] > maxDelta {
 			delta[offset+j] = maxDelta
 		}
@@ -239,11 +267,34 @@ func (p *PersonalDeltaClassifier) DeltaStoreSize() int {
 }
 
 func (s *classifierServer) classifyWithDelta(features map[string]float64, userID string) (int, float64, error) {
-	if s.personalClassifier != nil {
-		return s.personalClassifier.PredictWithDelta(features, userID)
-	}
-	if s.onnxClassifier != nil {
-		return s.onnxClassifier.Predict(features)
+	if model := s.activeModel(); model != nil {
+		if p := s.personalClassifier; p != nil {
+			return p.PredictWithDelta(features, userID)
+		}
+		return predictWithModel(model, features)
 	}
 	return 0, 0, errors.New("no classifier available")
+}
+
+// predictWithModel — предсказание без персональной дельты.
+func predictWithModel(model scoreModel, features map[string]float64) (int, float64, error) {
+	if model == nil {
+		return 0, 0, errors.New("classifier not initialized")
+	}
+	x := model.ExtractFeatures(features)
+	scores := model.RawScores(x)
+	if len(scores) != model.NumClasses() {
+		return 0, 0, errors.New("unsupported model configuration")
+	}
+	best := 0
+	for i := 1; i < len(scores); i++ {
+		if scores[i] > scores[best] {
+			best = i
+		}
+	}
+	labels := model.LabelsList()
+	if best >= len(labels) {
+		return 0, 0, errors.New("invalid prediction index")
+	}
+	return labels[best], model.Confidence(scores), nil
 }

@@ -195,7 +195,47 @@ func (c *ONNXClassifier) FeatureKeys() []string {
 	return keys
 }
 
+// Методы интерфейса scoreModel (линейная модель).
+
+func (c *ONNXClassifier) NumClasses() int   { return len(c.Labels) }
+func (c *ONNXClassifier) NumFeatures() int  { return len(c.featureKeys) }
+func (c *ONNXClassifier) LabelsList() []int { return c.Labels }
+
+func (c *ONNXClassifier) ExtractFeatures(features map[string]float64) []float64 {
+	return c.extractFeatures(features)
+}
+
+func (c *ONNXClassifier) RawScores(x []float64) []float64 {
+	numClasses := len(c.Labels)
+	numFeatures := len(c.featureKeys)
+	if !c.isValidConfig(numClasses, numFeatures) {
+		return nil
+	}
+	return c.computeScores(x, numClasses, numFeatures)
+}
+
+func (c *ONNXClassifier) Confidence(scores []float64) float64 {
+	return c.confidence(scores)
+}
+
 var getwd = os.Getwd
+
+// defaultTreeModelPath возвращает путь к древовидной модели HistGradientBoosting.
+func defaultTreeModelPath() string {
+	cwd, err := getwd()
+	if err != nil {
+		cwd = "."
+	}
+	root := cwd
+	if base := filepath.Base(cwd); base == "cmd" || base == "classifier" {
+		root = filepath.Join(cwd, "..", "..")
+	}
+	abs, absErr := filepath.Abs(filepath.Join(root, "models", "classifier_trees.json"))
+	if absErr != nil {
+		return filepath.Join("models", "classifier_trees.json")
+	}
+	return abs
+}
 
 func DefaultONNXWeightsPath() string {
 	// Относительный путь от корня репозитория; возвращаем абсолютный, чтобы

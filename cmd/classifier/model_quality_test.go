@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -13,22 +15,42 @@ import (
 	"github.com/MAMUER/project/internal/logger"
 )
 
-// canonicalStates — эталонные физиологические состояния. Модель обучается на
-// rule-based разметке тех же состояний, поэтому ML-путь обязан их различать.
-// Если тест падает, значит модель вырождена (всегда один класс) или в образ не
-// попали веса/нормализация.
-var canonicalStates = []struct {
-	name     string
-	features map[string]float64
-	expected int
-}{
-	{"recovery", map[string]float64{"heart_rate": 60, "hrv": 90, "spo2": 98.5, "temperature": 36.5, "sleep_hours": 8}, 0},
-	{"endurance_basic", map[string]float64{"heart_rate": 135, "hrv": 50, "spo2": 97.5, "temperature": 36.7, "sleep_hours": 7}, 1},
-	{"endurance_threshold", map[string]float64{"heart_rate": 160, "hrv": 30, "spo2": 96, "temperature": 36.9, "sleep_hours": 7}, 2},
-	{"power_hiit", map[string]float64{"heart_rate": 185, "hrv": 18, "spo2": 95, "temperature": 37.2, "sleep_hours": 7}, 3},
-	{"overtraining", map[string]float64{"heart_rate": 100, "hrv": 18, "spo2": 98, "temperature": 36.6, "sleep_hours": 4}, 4},
-	{"illness", map[string]float64{"heart_rate": 110, "hrv": 18, "spo2": 93.5, "temperature": 38.5, "sleep_hours": 6}, 5},
-	{"unknown", map[string]float64{"heart_rate": 120, "hrv": 40, "spo2": 91.5, "temperature": 36.8, "sleep_hours": 7}, 6},
+// goldenSet — эталонные предсказания, сгенерированные Python-моделью
+// (scripts/export_go_model.py). Проверяет, что Go-инференс (нормализация,
+// импутация, обход деревьев) даёт тот же результат, что обучение.
+type goldenSet struct {
+	FeatureKeys []string `json:"feature_keys"`
+	Classes     []string `json:"classes"`
+	Cases       []struct {
+		Features map[string]float64 `json:"features"`
+		Class    int                `json:"class"`
+	} `json:"cases"`
+}
+
+func defaultGoldenPath() string {
+	cwd, err := os.Getwd()
+	if err != nil {
+		cwd = "."
+	}
+	root := cwd
+	if base := filepath.Base(cwd); base == "cmd" || base == "classifier" {
+		root = filepath.Join(cwd, "..", "..")
+	}
+	abs, absErr := filepath.Abs(filepath.Join(root, "models", "classifier_golden.json"))
+	if absErr != nil {
+		return filepath.Join("models", "classifier_golden.json")
+	}
+	return abs
+}
+
+func loadGoldenSet(t *testing.T) goldenSet {
+	t.Helper()
+	data, err := os.ReadFile(defaultGoldenPath())
+	require.NoError(t, err, "classifier_golden.json должен существовать (scripts/export_go_model.py)")
+	var golden goldenSet
+	require.NoError(t, json.Unmarshal(data, &golden))
+	require.NotEmpty(t, golden.Cases)
+	return golden
 }
 
 func loadRepoClassifier(t *testing.T) *ONNXClassifier {
@@ -38,25 +60,35 @@ func loadRepoClassifier(t *testing.T) *ONNXClassifier {
 	return clf
 }
 
-// TestClassifierDiscriminatesStates — главный артефактный тест: модель обязана
-// различать функциональные состояния, а не выдавать один класс с conf=1.0.
-func TestClassifierDiscriminatesStates(t *testing.T) {
-	clf := loadRepoClassifier(t)
-	require.NotEmpty(t, clf.featureMin, "в весах должна быть нормализация feature_min")
+// TestTreeModelMatchesGoldenSet — главный артефактный тест: Go должен
+// воспроизводить Python-модель на эталонной выборке (допуск 2% на float).
+func TestTreeModelMatchesGoldenSet(t *testing.T) {
+	model, err := NewTreeModel(defaultTreeModelPath())
+	require.NoError(t, err, "classifier_trees.json должен загружаться (scripts/export_go_model.py)")
+	require.NotEmpty(t, model.featureMin, "в модели должна быть нормализация")
 
+	golden := loadGoldenSet(t)
 	seen := map[int]bool{}
-	for _, tc := range canonicalStates {
-		got, conf, err := clf.Predict(tc.features)
-		require.NoError(t, err, tc.name)
-		assert.Equalf(t, tc.expected, got,
-			"%s: ожидался класс %d, получен %d (conf=%.3f)", tc.name, tc.expected, got, conf)
+	mismatches := 0
+
+	for i, tc := range golden.Cases {
+		got, conf, predErr := model.Predict(tc.Features)
+		require.NoError(t, predErr, "case %d", i)
 		assert.GreaterOrEqual(t, conf, 0.0)
 		assert.LessOrEqual(t, conf, 1.0)
+		if got != tc.Class {
+			mismatches++
+			t.Logf("case %d (%v): ожидался %d, получен %d (conf=%.3f)",
+				i, tc.Features, tc.Class, got, conf)
+		}
 		seen[got] = true
 	}
 
+	allowed := int(float64(len(golden.Cases)) * 0.02)
+	assert.LessOrEqual(t, mismatches, allowed,
+		"допустимо не более 2%% расхождений, получено %d из %d", mismatches, len(golden.Cases))
 	assert.GreaterOrEqual(t, len(seen), 5,
-		"модель вырождена: распознано только %d классов из %d", len(seen), len(canonicalStates))
+		"модель вырождена: распознано только %d классов", len(seen))
 }
 
 // TestClassifierNormalizationIsApplied проверяет, что сырые значения
@@ -102,13 +134,14 @@ func TestHealthReportsActualModelState(t *testing.T) {
 	})
 }
 
-// TestClassifyHandlerUsesMLModel — сквозной тест обработчика: при наличии
-// модели ответ содержит model="ml" и валидный класс.
+// TestClassifyHandlerUsesMLModel — ML подключается только для unknown:
+// правила не могут классифицировать низкий SpO2, и здесь решает модель.
 func TestClassifyHandlerUsesMLModel(t *testing.T) {
-	clf := loadRepoClassifier(t)
-	s := &classifierServer{log: logger.New("classifier"), onnxClassifier: clf}
+	tree, err := NewTreeModel(defaultTreeModelPath())
+	require.NoError(t, err)
+	s := &classifierServer{log: logger.New("classifier"), treeModel: tree}
 
-	body := `{"user_id":"u1","physiological_data":{"heart_rate":185,"heart_rate_variability":18,"spo2":95,"temperature":37.2,"sleep_hours":7},"user_profile":{"age":30}}`
+	body := `{"user_id":"u1","physiological_data":{"heart_rate":120,"heart_rate_variability":40,"spo2":91.5,"temperature":36.8,"sleep_hours":7},"user_profile":{"age":30}}`
 	req := httptest.NewRequest(http.MethodPost, "/classify", strings.NewReader(body))
 	rec := httptest.NewRecorder()
 	s.classifyHandler(rec, req)
@@ -116,7 +149,39 @@ func TestClassifyHandlerUsesMLModel(t *testing.T) {
 	require.Equal(t, http.StatusOK, rec.Code)
 	var resp classifyResponse
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
-	assert.Equal(t, modelML, resp.Model, "при загруженной модели должен использоваться ML-путь")
+	assert.Equal(t, modelML, resp.Model, "для unknown должна использоваться ML-модель")
 	assert.NotEmpty(t, resp.State)
 	assert.NotEmpty(t, resp.PredictedClass)
+}
+
+// TestRuleBasedClassifierHandlesKnownStates — правила обязаны корректно
+// классифицировать типовые состояния (ML здесь не участвует).
+func TestRuleBasedClassifierHandlesKnownStates(t *testing.T) {
+	s := &classifierServer{log: logger.New("classifier")}
+
+	cases := []struct {
+		name     string
+		body     string
+		expected string
+	}{
+		{"recovery", `{"physiological_data":{"heart_rate":60,"heart_rate_variability":90,"spo2":98,"temperature":36.5,"sleep_hours":8}}`, "recovery"},
+		{"endurance_basic", `{"physiological_data":{"heart_rate":135,"heart_rate_variability":50,"spo2":97,"temperature":36.7,"sleep_hours":7}}`, "endurance_basic"},
+		{"endurance_threshold", `{"physiological_data":{"heart_rate":160,"heart_rate_variability":30,"spo2":96,"temperature":36.9,"sleep_hours":7}}`, "endurance_threshold"},
+		{"power_hiit", `{"physiological_data":{"heart_rate":185,"heart_rate_variability":18,"spo2":95,"temperature":37.2,"sleep_hours":7}}`, "power_hiit"},
+		{"overtraining", `{"physiological_data":{"heart_rate":100,"heart_rate_variability":18,"spo2":98,"temperature":36.6,"sleep_hours":4}}`, "overtraining"},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodPost, "/classify", strings.NewReader(tc.body))
+			rec := httptest.NewRecorder()
+			s.classifyHandler(rec, req)
+
+			require.Equal(t, http.StatusOK, rec.Code)
+			var resp classifyResponse
+			require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+			assert.Equal(t, tc.expected, resp.PredictedClass)
+			assert.Equal(t, modelRuleBased, resp.Model)
+		})
+	}
 }

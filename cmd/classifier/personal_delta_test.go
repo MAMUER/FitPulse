@@ -288,7 +288,7 @@ func TestPersonalDeltaClassifier_PredictWithDelta_InvalidConfig(t *testing.T) {
 	pc := NewPersonalDeltaClassifier(badClassifier, store)
 	_, _, err := pc.PredictWithDelta(map[string]float64{"heart_rate": 140.0}, "user-1")
 	assert.Error(t, err)
-	assert.Equal(t, "unsupported onnx model configuration", err.Error())
+	assert.Equal(t, "unsupported model configuration", err.Error())
 }
 
 func TestPersonalDeltaClassifier_UpdateDelta(t *testing.T) {

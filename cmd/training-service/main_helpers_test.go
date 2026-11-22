@@ -47,5 +47,8 @@ func TestCalculatePlanDates(t *testing.T) {
 	assert.True(t, end.After(start))
 
 	_, zeroEnd := s.calculatePlanDates(0)
-	assert.Equal(t, start.Format(time.RFC3339), zeroEnd.AddDate(0, 0, 0).Format(time.RFC3339))
+	// Не сравниваем отформатированные строки: два вызова time.Now() могут
+	// попасть на разные секунды, и тест becomes flaky на границе секунды.
+	assert.WithinDuration(t, start, zeroEnd, time.Minute)
+	assert.False(t, zeroEnd.Before(start))
 }
