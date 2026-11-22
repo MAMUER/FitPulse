@@ -93,3 +93,41 @@ func TestConflictsWithAllergens(t *testing.T) {
 	assert.Empty(t, conflictsWithAllergens("Гречка с индейкой", []string{"Орехи", "Молоко"}))
 	assert.Empty(t, conflictsWithAllergens("Что угодно", []string{"Нет аллергий"}))
 }
+
+func TestBuildDayMenuForProfile_MenstrualPhase(t *testing.T) {
+	base := DietProfile{
+		Goal: "balance", Age: 30, Gender: "female", WeightKg: 60, HeightCm: 168,
+	}
+
+	menses := base
+	menses.MenstrualPhase = "menstruation"
+	menu := BuildDayMenuForProfile("balance", menses)
+	assert.Contains(t, menu.Note, "менструация")
+	assert.Contains(t, menu.Note, "железо")
+
+	luteal := base
+	luteal.MenstrualPhase = "luteal"
+	menu = BuildDayMenuForProfile("balance", luteal)
+	assert.Contains(t, menu.Note, "лютеиновая")
+
+	male := base
+	male.Gender = "male"
+	male.MenstrualPhase = "menstruation"
+	menu = BuildDayMenuForProfile("balance", male)
+	assert.NotContains(t, menu.Note, "менструация")
+}
+
+func TestBuildDayMenuForProfile_Stress(t *testing.T) {
+	profile := DietProfile{Goal: "balance", Age: 30, Gender: "male", WeightKg: 75, HeightCm: 180, StressLevel: 8}
+	menu := BuildDayMenuForProfile("balance", profile)
+	assert.Contains(t, menu.Note, "стресс")
+}
+
+func TestBuildDayMenuForProfile_Diabetes(t *testing.T) {
+	profile := DietProfile{
+		Goal: "balance", Age: 55, Gender: "male", WeightKg: 90, HeightCm: 175,
+		Restrictions: []string{"Сахарный диабет 2 типа"},
+	}
+	menu := BuildDayMenuForProfile("balance", profile)
+	assert.Contains(t, menu.Note, "диабет")
+}

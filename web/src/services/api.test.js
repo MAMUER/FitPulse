@@ -395,7 +395,7 @@ describe('training', () => {
     expect(mocked).toHaveBeenCalledWith('/api/v1/training/plans');
   });
 
-  it('generatePlan sends defaults', async () => {
+  it('generatePlan sends defaults without class (backend resolves it)', async () => {
     mocked.mockResolvedValue({ plan: 'p1' });
     await expect(api.generatePlan()).resolves.toEqual({ plan: 'p1' });
     expect(mocked).toHaveBeenCalledWith('/api/v1/training/generate', {
@@ -403,17 +403,16 @@ describe('training', () => {
       body: JSON.stringify({
         duration_weeks: 4,
         available_days: [1, 3, 5],
-        class: 'endurance_basic',
         confidence: 0.8,
       }),
     });
   });
 
-  it('generatePlan sends custom params', async () => {
+  it('generatePlan sends custom params including explicit class', async () => {
     await api.generatePlan({
       durationWeeks: 8,
       availableDays: [2, 4],
-      class: 'power_pro',
+      class: 'power_hiit',
       confidence: 0.5,
     });
     expect(mocked).toHaveBeenCalledWith('/api/v1/training/generate', {
@@ -421,7 +420,7 @@ describe('training', () => {
       body: JSON.stringify({
         duration_weeks: 8,
         available_days: [2, 4],
-        class: 'power_pro',
+        class: 'power_hiit',
         confidence: 0.5,
       }),
     });

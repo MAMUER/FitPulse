@@ -8,15 +8,17 @@ import (
 // DietProfile — особенности пользователя, влияющие на рацион:
 // антропометрия, цель, аллергии, ограничения, тип питания и активность.
 type DietProfile struct {
-	Goal         string
-	Allergies    []string
-	Restrictions []string
-	Diet         string
-	Age          int
-	Gender       string
-	WeightKg     float64
-	HeightCm     float64
-	Activity     string
+	Goal           string
+	Allergies      []string
+	Restrictions   []string
+	Diet           string
+	Age            int
+	Gender         string
+	WeightKg       float64
+	HeightCm       float64
+	Activity       string
+	MenstrualPhase string
+	StressLevel    float64
 }
 
 // safeMeal — вариант блюда без распространённых аллергенов.
@@ -69,28 +71,37 @@ var allergenPatterns = []struct {
 
 // conflictsWithAllergens возвращает аллерген, который встречается в тексте.
 func conflictsWithAllergens(text string, allergies []string) string {
-	if len(allergies) == 0 {
-		return ""
-	}
 	lower := strings.ToLower(text)
 	for _, allergy := range allergies {
-		a := strings.ToLower(strings.TrimSpace(allergy))
-		if a == "" || a == "нет аллергий" || a == "no allergies" {
-			continue
-		}
-		for _, entry := range allergenPatterns {
-			for _, name := range entry.names {
-				if strings.Contains(a, name) {
-					for _, pattern := range entry.patterns {
-						if strings.Contains(lower, pattern) {
-							return allergy
-						}
-					}
-				}
-			}
+		if conflictForAllergy(lower, allergy) != "" {
+			return allergy
 		}
 	}
 	return ""
+}
+
+// conflictForAllergy проверяет один аллерген против текста блюда.
+func conflictForAllergy(lower, allergy string) string {
+	a := strings.ToLower(strings.TrimSpace(allergy))
+	if a == "" || a == "нет аллергий" || a == "no allergies" {
+		return ""
+	}
+	for _, entry := range allergenPatterns {
+		if matchesAny(a, entry.names) && matchesAny(lower, entry.patterns) {
+			return allergy
+		}
+	}
+	return ""
+}
+
+// matchesAny возвращает true, если строка содержит хотя бы один шаблон.
+func matchesAny(text string, patterns []string) bool {
+	for _, pattern := range patterns {
+		if strings.Contains(text, pattern) {
+			return true
+		}
+	}
+	return false
 }
 
 // estimateCalories считает суточную калорийность по Миффлину–Сан Жеору.
@@ -143,51 +154,129 @@ func isFemaleProfile(gender string) bool {
 	}
 }
 
-// BuildDayMenuForProfile строит меню с учётом аллергий и калорийности.
+// BuildDayMenuForProfile строит меню с учётом аллергий, калорийности,
+// менструальной фазы, стресса и ограничений по здоровью.
 func BuildDayMenuForProfile(goal string, p DietProfile) DayMenu {
 	menu := BuildDayMenu(goal)
 	if len(menu.Meals) < 4 {
 		return menu
 	}
-	if len(p.Allergies) == 0 && estimateCalories(p) == 0 {
+	if !hasProfileExtras(p) {
 		return menu
 	}
 
-	notes := make([]string, 0, 4)
-	breakfast, lunch, snack, dinner := menu.Meals[0], menu.Meals[1], menu.Meals[2], menu.Meals[3]
-
-	if allergen := conflictsWithAllergens(breakfast.Description, p.Allergies); allergen != "" {
-		breakfast = allergenSafeMeals.breakfast
-		notes = append(notes, fmt.Sprintf("Завтрак заменён: аллергия — %s", allergen))
-	}
-	if allergen := conflictsWithAllergens(lunch.Description, p.Allergies); allergen != "" {
-		lunch = allergenSafeMeals.lunch
-		notes = append(notes, fmt.Sprintf("Обед заменён: аллергия — %s", allergen))
-	}
-	if allergen := conflictsWithAllergens(snack.Description, p.Allergies); allergen != "" {
-		snack = allergenSafeMeals.snack
-		notes = append(notes, fmt.Sprintf("Перекус заменён: аллергия — %s", allergen))
-	}
-	if allergen := conflictsWithAllergens(dinner.Description, p.Allergies); allergen != "" {
-		dinner = allergenSafeMeals.dinner
-		notes = append(notes, fmt.Sprintf("Ужин заменён: аллергия — %s", allergen))
-	}
-
-	menu.Meals = []Meal{breakfast, lunch, snack, dinner}
+	notes := make([]string, 0, 6)
+	notes = append(notes, replaceAllergens(&menu, p)...)
+	notes = append(notes, applyRestrictionsAndPhase(&menu, p)...)
 	menu = recalculateMacros(menu)
-
-	if target := estimateCalories(p); target > 0 {
-		scale := float64(target) / float64(menu.TotalKcal)
-		if scale > 0.5 && scale < 2.0 {
-			menu = scaleMenu(menu, scale)
-			notes = append(notes, fmt.Sprintf("Калорийность подстроена под профиль: ~%d ккал", target))
-		}
-	}
+	notes = append(notes, scaleToCalories(&menu, p)...)
 
 	if len(notes) > 0 {
 		menu.Note = menu.Note + " Персонализация: " + strings.Join(notes, "; ") + "."
 	}
 	return menu
+}
+
+// replaceAllergens заменяет блюда, содержащие аллергены пользователя.
+func replaceAllergens(menu *DayMenu, p DietProfile) []string {
+	if len(p.Allergies) == 0 {
+		return nil
+	}
+	var notes []string
+	slots := []struct {
+		name  string
+		safe  Meal
+		index int
+	}{
+		{"Завтрак", allergenSafeMeals.breakfast, 0},
+		{"Обед", allergenSafeMeals.lunch, 1},
+		{"Перекус", allergenSafeMeals.snack, 2},
+		{"Ужин", allergenSafeMeals.dinner, 3},
+	}
+	for _, slot := range slots {
+		if allergen := conflictsWithAllergens(menu.Meals[slot.index].Description, p.Allergies); allergen != "" {
+			menu.Meals[slot.index] = slot.safe
+			notes = append(notes, fmt.Sprintf("%s заменён: аллергия — %s", slot.name, allergen))
+		}
+	}
+	return notes
+}
+
+// applyRestrictionsAndPhase применяет ограничения по здоровью, менструальную
+// фазу и стресс к обеду/перекусу.
+func applyRestrictionsAndPhase(menu *DayMenu, p DietProfile) []string {
+	var notes []string
+
+	snack, note := applyHealthRestrictions(p.Restrictions, menu.Meals[2])
+	if note != "" {
+		menu.Meals[2] = snack
+		notes = append(notes, note)
+	}
+	if note := applyMenstrualNotes(p, &menu.Meals[1]); note != "" {
+		notes = append(notes, note)
+	}
+	if note := applyStressNotes(p.StressLevel, &menu.Meals[2]); note != "" {
+		notes = append(notes, note)
+	}
+	return notes
+}
+
+// scaleToCalories подгоняет калорийность под профиль пользователя.
+func scaleToCalories(menu *DayMenu, p DietProfile) []string {
+	target := estimateCalories(p)
+	if target <= 0 {
+		return nil
+	}
+	scale := float64(target) / float64(menu.TotalKcal)
+	if scale <= 0.5 || scale >= 2.0 {
+		return nil
+	}
+	*menu = scaleMenu(*menu, scale)
+	return []string{fmt.Sprintf("Калорийность подстроена под профиль: ~%d ккал", target)}
+}
+
+// hasProfileExtras проверяет, есть ли что персонализировать.
+func hasProfileExtras(p DietProfile) bool {
+	return len(p.Allergies) > 0 || estimateCalories(p) > 0 ||
+		p.MenstrualPhase != "" || p.StressLevel > 0 || len(p.Restrictions) > 0
+}
+
+// applyHealthRestrictions заменяет перекус при диабете и добавляет примечание.
+func applyHealthRestrictions(restrictions []string, snack Meal) (Meal, string) {
+	for _, raw := range restrictions {
+		r := strings.ToLower(raw)
+		if strings.Contains(r, "диабет") || strings.Contains(r, "diabetes") {
+			return meal(mealSnack, "16:30", "Горсть орехов и яблоко", 10, 26, 14),
+				"диабет: перекус без сахара"
+		}
+	}
+	return snack, ""
+}
+
+// applyMenstrualNotes добавляет акцент на железо в фолликулярной фазе и
+// менструации; в лютеиновую — на магний и сложные углеводы.
+func applyMenstrualNotes(p DietProfile, lunch *Meal) string {
+	if !isFemaleProfile(p.Gender) {
+		return ""
+	}
+	switch strings.ToLower(strings.TrimSpace(p.MenstrualPhase)) {
+	case "menstruation", "menstrual", "менструация":
+		lunch.Description = lunch.Description + " (шпинат, чечевица — железо)"
+		return "менструация: акцент на железо"
+	case "luteal", "лютеиновая":
+		return "лютеиновая фаза: больше магния и сложных углеводов"
+	default:
+		return ""
+	}
+}
+
+// applyStressNotes снижает кофеин и добавляет магний.
+func applyStressNotes(stress float64, snack *Meal) string {
+	if stress < 7 {
+		return ""
+	}
+	snack.Description = snack.Description + " + тёмный шоколад (магний)"
+	return fmt.Sprintf("высокий стресс %.0f/10: меньше кофеина, больше магния", stress)
 }
 
 func recalculateMacros(menu DayMenu) DayMenu {

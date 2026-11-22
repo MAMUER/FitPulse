@@ -96,9 +96,8 @@ func parseGeneratePlanRequest(w http.ResponseWriter, r *http.Request) (generateP
 		http.Error(w, errBadRequest, http.StatusBadRequest)
 		return generatePlanPayload{}, &http.Response{StatusCode: http.StatusBadRequest}
 	}
-	if req.Class == "" {
-		req.Class = "endurance_basic"
-	}
+	// Класс не подставляем: если клиент не передал его, training-service
+	// определит класс через classifier по реальной биометрии.
 	return req, nil
 }
 

@@ -162,13 +162,12 @@ func TestCallGANServiceConnectionError(t *testing.T) {
 	assert.Nil(t, resp)
 }
 
-func TestLoadUserProfileDefaults(t *testing.T) {
+func TestLoadUserProfileIncomplete(t *testing.T) {
 	s := &trainingServer{db: nil}
-	prof := s.loadUserProfile(context.Background(), "nonexistent_user")
+	prof, ok := s.loadUserProfile(context.Background(), "nonexistent_user")
 
-	assert.Equal(t, 30.0, prof.Age)
-	assert.Equal(t, 1.0, prof.Gender)
-	assert.Equal(t, 75.0, prof.Weight)
-	assert.Equal(t, 180.0, prof.Height)
-	assert.Equal(t, 1.0, prof.Goal)
+	assert.False(t, ok, "без профиля генерация плана запрещена")
+	assert.Zero(t, prof.Age)
+	assert.Zero(t, prof.Weight)
+	assert.Zero(t, prof.Height)
 }

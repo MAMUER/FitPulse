@@ -141,7 +141,7 @@ func TestClassifyHandlerUsesMLModel(t *testing.T) {
 	require.NoError(t, err)
 	s := &classifierServer{log: logger.New("classifier"), treeModel: tree}
 
-	body := `{"user_id":"u1","physiological_data":{"heart_rate":120,"heart_rate_variability":40,"spo2":91.5,"temperature":36.8,"sleep_hours":7},"user_profile":{"age":30}}`
+	body := `{"user_id":"u1","physiological_data":{"heart_rate":120,"heart_rate_variability":40,"spo2":91.5,"temperature":36.8,"temperature_source":"core","sleep_hours":7},"user_profile":{"age":30}}`
 	req := httptest.NewRequest(http.MethodPost, "/classify", strings.NewReader(body))
 	rec := httptest.NewRecorder()
 	s.classifyHandler(rec, req)
@@ -164,11 +164,11 @@ func TestRuleBasedClassifierHandlesKnownStates(t *testing.T) {
 		body     string
 		expected string
 	}{
-		{"recovery", `{"physiological_data":{"heart_rate":60,"heart_rate_variability":90,"spo2":98,"temperature":36.5,"sleep_hours":8}}`, "recovery"},
-		{"endurance_basic", `{"physiological_data":{"heart_rate":135,"heart_rate_variability":50,"spo2":97,"temperature":36.7,"sleep_hours":7}}`, "endurance_basic"},
-		{"endurance_threshold", `{"physiological_data":{"heart_rate":160,"heart_rate_variability":30,"spo2":96,"temperature":36.9,"sleep_hours":7}}`, "endurance_threshold"},
-		{"power_hiit", `{"physiological_data":{"heart_rate":185,"heart_rate_variability":18,"spo2":95,"temperature":37.2,"sleep_hours":7}}`, "power_hiit"},
-		{"overtraining", `{"physiological_data":{"heart_rate":100,"heart_rate_variability":18,"spo2":98,"temperature":36.6,"sleep_hours":4}}`, "overtraining"},
+		{"recovery", `{"physiological_data":{"heart_rate":60,"heart_rate_variability":90,"spo2":98,"temperature":36.5,"temperature_source":"core","sleep_hours":8}}`, "recovery"},
+		{"endurance_basic", `{"physiological_data":{"heart_rate":135,"heart_rate_variability":50,"spo2":97,"temperature":36.7,"temperature_source":"core","sleep_hours":7}}`, "endurance_basic"},
+		{"endurance_threshold", `{"physiological_data":{"heart_rate":160,"heart_rate_variability":30,"spo2":96,"temperature":36.9,"temperature_source":"core","sleep_hours":7}}`, "endurance_threshold"},
+		{"power_hiit", `{"physiological_data":{"heart_rate":185,"heart_rate_variability":18,"spo2":95,"temperature":37.2,"temperature_source":"core","sleep_hours":7}}`, "power_hiit"},
+		{"overtraining", `{"physiological_data":{"heart_rate":100,"heart_rate_variability":18,"spo2":98,"temperature":36.6,"temperature_source":"core","sleep_hours":4}}`, "overtraining"},
 	}
 
 	for _, tc := range cases {

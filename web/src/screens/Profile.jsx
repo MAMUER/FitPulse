@@ -44,7 +44,13 @@ export default function Profile() {
   const [friendModalOpen, setFriendModalOpen] = useState(false);
   const [friendSearch, setFriendSearch] = useState('');
   const [editOpen, setEditOpen] = useState(false);
-  const [editForm, setEditForm] = useState({ name: '', gender: '', age: '' });
+  const [editForm, setEditForm] = useState({
+    name: '',
+    gender: '',
+    age: '',
+    height: '',
+    weight: '',
+  });
   const [emailForm, setEmailForm] = useState({ email: '', password: '' });
 
   const openEditProfile = () => {
@@ -52,6 +58,8 @@ export default function Profile() {
       name: state.profile?.name || '',
       gender: state.profile?.gender || '',
       age: state.profile?.age ? String(state.profile.age) : '',
+      height: state.profile?.height_cm ? String(state.profile.height_cm) : '',
+      weight: state.profile?.weight_kg ? String(state.profile.weight_kg) : '',
     });
     setEditOpen(true);
   };
@@ -62,6 +70,8 @@ export default function Profile() {
       full_name: editForm.name,
       gender: editForm.gender,
       age: Number(editForm.age) || 0,
+      height_cm: Number(editForm.height) || 0,
+      weight_kg: Number(editForm.weight) || 0,
     });
     setLoading(false);
     if (ok) setEditOpen(false);
@@ -634,6 +644,31 @@ export default function Profile() {
                 value={editForm.age}
                 onChange={(e) =>
                   setEditForm({ ...editForm, age: e.target.value })
+                }
+              />
+            </label>
+            <label className='form-label'>
+              {t('Рост (см)', 'Height (cm)')}
+              <input
+                type='number'
+                min={100}
+                max={250}
+                value={editForm.height}
+                onChange={(e) =>
+                  setEditForm({ ...editForm, height: e.target.value })
+                }
+              />
+            </label>
+            <label className='form-label'>
+              {t('Вес (кг)', 'Weight (kg)')}
+              <input
+                type='number'
+                min={30}
+                max={350}
+                step={0.1}
+                value={editForm.weight}
+                onChange={(e) =>
+                  setEditForm({ ...editForm, weight: e.target.value })
                 }
               />
             </label>

@@ -104,7 +104,7 @@ func TestClassifyState(t *testing.T) {
 		},
 		{
 			name:         "fever with low spo2 classifies as uncertainty",
-			data:         physiologicalData{Temperature: 37.7, SpO2: 93.0, HeartRate: 90, HeartRateVariability: 40},
+			data:         physiologicalData{TemperatureSource: "core", Temperature: 37.7, SpO2: 93.0, HeartRate: 90, HeartRateVariability: 40},
 			age:          30,
 			wantZone:     6,
 			wantConfMin:  0.35,
@@ -113,7 +113,7 @@ func TestClassifyState(t *testing.T) {
 		},
 		{
 			name:         "fever without supporting signs classifies as uncertainty",
-			data:         physiologicalData{Temperature: 37.6, SpO2: 98.0, HeartRate: 90, HeartRateVariability: 50},
+			data:         physiologicalData{TemperatureSource: "core", Temperature: 37.6, SpO2: 98.0, HeartRate: 90, HeartRateVariability: 50},
 			age:          30,
 			wantZone:     6,
 			wantConfMin:  0.35,
@@ -122,7 +122,7 @@ func TestClassifyState(t *testing.T) {
 		},
 		{
 			name:         "mild temperature with low hrv is uncertainty",
-			data:         physiologicalData{Temperature: 37.35, SpO2: 96.0, HeartRate: 90, HeartRateVariability: 24},
+			data:         physiologicalData{TemperatureSource: "core", Temperature: 37.35, SpO2: 96.0, HeartRate: 90, HeartRateVariability: 24},
 			age:          30,
 			wantZone:     6,
 			wantConfMin:  0.35,
@@ -131,7 +131,7 @@ func TestClassifyState(t *testing.T) {
 		},
 		{
 			name:         "low spo2 alone is uncertainty",
-			data:         physiologicalData{Temperature: 36.6, SpO2: 92.0, HeartRate: 90, HeartRateVariability: 50},
+			data:         physiologicalData{TemperatureSource: "core", Temperature: 36.6, SpO2: 92.0, HeartRate: 90, HeartRateVariability: 50},
 			age:          30,
 			wantZone:     6,
 			wantConfMin:  0.35,
@@ -140,7 +140,7 @@ func TestClassifyState(t *testing.T) {
 		},
 		{
 			name:         "overtraining signs classify as overtraining",
-			data:         physiologicalData{Temperature: 36.6, SpO2: 98.0, HeartRate: 55, HeartRateVariability: 22, SleepHours: 4.0},
+			data:         physiologicalData{TemperatureSource: "core", Temperature: 36.6, SpO2: 98.0, HeartRate: 55, HeartRateVariability: 22, SleepHours: 4.0},
 			age:          30,
 			wantZone:     4,
 			wantConfMin:  0.55,

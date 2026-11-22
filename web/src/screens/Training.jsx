@@ -24,6 +24,12 @@ export default function Training() {
   const [exerciseSets, setExerciseSets] = useState('');
   const [activeWorkout, setActiveWorkout] = useState(null);
 
+  // Без возраста, веса и роста план строить нельзя: нет демографии
+  // для GAN и ИМТ для персонализации.
+  const profileComplete = Boolean(
+    state.profile?.age && state.profile?.weight_kg && state.profile?.height_cm
+  );
+
   useEffect(() => {
     loadTrainingPlans();
   }, [loadTrainingPlans]);
@@ -100,6 +106,21 @@ export default function Training() {
 
   return (
     <section className='training'>
+      {!profileComplete && (
+        <p className='muted'>
+          {t(
+            'Чтобы сгенерировать план, укажите возраст, рост и вес в профиле.',
+            'Add your age, height and weight to generate a plan.'
+          )}{' '}
+          <button
+            type='button'
+            className='link'
+            onClick={() => go('profile')}
+          >
+            {t('Открыть профиль', 'Open profile')}
+          </button>
+        </p>
+      )}
       <div className='page-title'>
         <div className='eyebrow'>ADAPTIVE TRAINING</div>
         <h2>{t('Тренировки', 'Training')}</h2>
@@ -288,9 +309,20 @@ export default function Training() {
               <button
                 type='button'
                 className='secondary'
+                disabled={!profileComplete}
+                title={
+                  profileComplete
+                    ? undefined
+                    : t(
+                        'Заполните возраст, рост и вес в профиле',
+                        'Add age, height and weight to your profile'
+                      )
+                }
                 onClick={() => generatePlan({ durationWeeks: 4 })}
               >
-                {t('Сгенерировать', 'Generate')}
+                {profileComplete
+                  ? t('Сгенерировать', 'Generate')
+                  : t('Заполните профиль', 'Complete profile')}
               </button>
             </div>
           </div>

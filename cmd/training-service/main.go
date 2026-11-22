@@ -86,6 +86,7 @@ type trainingServer struct {
 	healthRepo    port.UserHealthConditionRepository
 	menstrualRepo port.UserMenstrualRepository
 	ganURL        string
+	classifierURL string
 }
 
 func (s *trainingServer) GeneratePlan(ctx context.Context, req *pb.GeneratePlanRequest) (*pb.GeneratePlanResponse, error) {
@@ -109,20 +110,30 @@ func (s *trainingServer) GeneratePlan(ctx context.Context, req *pb.GeneratePlanR
 		return nil, status.Error(codes.Canceled, "запрос отменён")
 	}
 
+	// Профиль обязателен: без возраста/пола/веса/роста план строить нельзя.
+	if _, ok := s.loadUserProfile(ctx, req.UserId); !ok {
+		return nil, status.Error(codes.FailedPrecondition,
+			"Заполните профиль: возраст, пол, вес и рост")
+	}
+
 	s.deleteExistingActivePlan(ctx, req.UserId)
 
+	survey, _, _, _ := s.loadSurveyForUser(ctx, req.UserId)
+	biometrics := s.loadBiometricsForUser(ctx, req.UserId)
+	availableDays := prepareAvailableDays(req.AvailableDays)
+
+	// Класс состояния: если клиент его не передал (или передал пустую строку),
+	// определяем через classifier по реальной биометрии пользователя. Раньше
+	// здесь всегда была заглушка "endurance_basic" — GAN генерировал один и тот
+	// же класс независимо от пользователя.
 	classificationClass := sanitize.String(req.Classification)
 	if classificationClass == "" {
-		classificationClass = "endurance_basic"
+		classificationClass = s.resolveClassification(ctx, req.UserId, biometrics)
 	}
 	trainingGoal := mapClassToTrainingGoal(classificationClass)
 
 	planID := uuid.New().String()
 	startDate, endDate := s.calculatePlanDates(req.DurationWeeks)
-
-	survey, _, _, _ := s.loadSurveyForUser(ctx, req.UserId)
-	biometrics := s.loadBiometricsForUser(ctx, req.UserId)
-	availableDays := prepareAvailableDays(req.AvailableDays)
 
 	plan, weeks, ganParams, err := s.generatePlanData(ctx, req, classificationClass, survey, biometrics, availableDays)
 	if err != nil {
@@ -313,7 +324,8 @@ func (s *trainingServer) buildPersonalization(
 	survey map[string]interface{},
 	biometrics *planner.Biometrics,
 ) planner.PersonalizationInput {
-	in := planner.PersonalizationFromUser(userEntityFromProfile(s.loadUserProfile(ctx, userID)), survey, biometrics)
+	prof, _ := s.loadUserProfile(ctx, userID)
+	in := planner.PersonalizationFromUser(userEntityFromProfile(prof), survey, biometrics)
 	in = s.applyMenstrualPhase(ctx, userID, in)
 	in = s.applyHealthRestrictions(ctx, userID, in)
 	return in
@@ -433,6 +445,78 @@ func isFemaleGender(gender string) bool {
 	}
 }
 
+// resolveClassification определяет класс функционального состояния через
+// classifier-сервис. Если сервис недоступен или биометрии нет — безопасный
+// фоллбек endurance_basic.
+func (s *trainingServer) resolveClassification(ctx context.Context, userID string, b *planner.Biometrics) string {
+	const fallback = "endurance_basic"
+	if s.classifierURL == "" || b == nil {
+		return fallback
+	}
+
+	payload := map[string]interface{}{
+		"user_id": userID,
+		"physiological_data": map[string]interface{}{
+			"heart_rate":               b.HeartRate,
+			"heart_rate_variability":   b.HRV,
+			"spo2":                     b.Spo2,
+			"temperature":              b.Temperature,
+			"temperature_source":       "wrist",
+			"sleep_hours":              b.SleepHours,
+			"blood_pressure_systolic":  b.SystolicBP,
+			"blood_pressure_diastolic": b.DiastolicBP,
+		},
+	}
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return fallback
+	}
+
+	endpoint := strings.TrimRight(s.classifierURL, "/") + "/classify"
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(body))
+	if err != nil {
+		return fallback
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{Timeout: 3 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		s.log.Warn("Классификатор недоступен, используется endurance_basic", zap.Error(err))
+		return fallback
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		s.log.Warn("Классификатор вернул ошибку", zap.Int("status", resp.StatusCode))
+		return fallback
+	}
+
+	var out struct {
+		PredictedClass string  `json:"predicted_class"`
+		Confidence     float64 `json:"confidence"`
+		DataQuality    string  `json:"data_quality"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		return fallback
+	}
+
+	class := sanitize.String(out.PredictedClass)
+	switch class {
+	case "recovery", "endurance_basic", "endurance_threshold", "power_hiit", "overtraining", "illness":
+	default:
+		return fallback
+	}
+
+	s.log.Info("Класс состояния определён классификатором",
+		zap.String("user_id", sanitize.LogString(userID)),
+		zap.String("class", sanitize.LogString(class)),
+		zap.Float64("confidence", out.Confidence),
+		zap.String("data_quality", sanitize.LogString(out.DataQuality)),
+	)
+	return class
+}
+
 func (s *trainingServer) loadBiometricsForUser(ctx context.Context, userID string) *planner.Biometrics {
 	if s.bioRepo == nil {
 		return nil
@@ -465,11 +549,10 @@ type userProfile struct {
 	Goal   float64
 }
 
-func (s *trainingServer) loadUserProfile(ctx context.Context, userID string) userProfile {
-	// Значения по умолчанию (среднестатистический пользователь).
-	prof := userProfile{Age: 30, Gender: 1, Weight: 75.0, Height: 180.0, Goal: 1}
+func (s *trainingServer) loadUserProfile(ctx context.Context, userID string) (userProfile, bool) {
+	prof := userProfile{}
 	if s.db == nil {
-		return prof
+		return prof, false
 	}
 	var age, height sql.NullInt32
 	var weight sql.NullFloat64
@@ -478,14 +561,16 @@ func (s *trainingServer) loadUserProfile(ctx context.Context, userID string) use
 		SELECT age, gender, height_cm, weight_kg FROM users WHERE id = $1
 	`, userID).Scan(&age, &gender, &height, &weight)
 	if err != nil {
-		s.log.Debug("Не удалось загрузить профиль пользователя, используются значения по умолчанию",
+		s.log.Debug("Не удалось загрузить профиль пользователя",
 			zap.String("user_id", sanitize.LogString(userID)), zap.Error(err))
-		return prof
+		return prof, false
 	}
 	if age.Valid {
 		prof.Age = float64(age.Int32)
 	}
-	if gender.Valid {
+	genderSet := false
+	if gender.Valid && strings.TrimSpace(gender.String) != "" {
+		genderSet = true
 		switch strings.ToLower(gender.String) {
 		case "female":
 			prof.Gender = 0
@@ -520,7 +605,8 @@ func (s *trainingServer) loadUserProfile(ctx context.Context, userID string) use
 			prof.Goal = 1
 		}
 	}
-	return prof
+	complete := prof.Age > 0 && prof.Weight > 0 && prof.Height > 0 && genderSet
+	return prof, complete
 }
 
 // classToGANIndex отображает имя класса состояния на индекс класса для GAN (0-5).
@@ -652,7 +738,7 @@ func (s *trainingServer) resolveGANParams(ctx context.Context, userID, classific
 		RawVector:        nil,
 		GenerationMethod: "template",
 	}
-	prof := s.loadUserProfile(ctx, userID)
+	prof, _ := s.loadUserProfile(ctx, userID)
 	ganIdx := classToGANIndex(classificationClass)
 	ganResp, ganErr := s.callGANService(ganIdx, prof)
 	if ganErr != nil {
@@ -1572,6 +1658,7 @@ func setupGRPCServer(log *logger.Logger, db *sql.DB, trainingSvc service.Trainin
 		bioRepo:       bioRepo,
 		healthRepo:    pgrepo.NewUserHealthConditionRepository(db),
 		menstrualRepo: pgrepo.NewUserMenstrualRepository(db),
+		classifierURL: config.GetEnv("CLASSIFIER_URL", "http://classifier:8001"),
 	}
 	pb.RegisterTrainingServiceServer(s, ts)
 

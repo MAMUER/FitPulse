@@ -196,14 +196,19 @@ export async function loadTrainingPlans() {
 }
 
 export async function generatePlan(params = {}) {
+  const body = {
+    duration_weeks: params.durationWeeks || 4,
+    available_days: params.availableDays || [1, 3, 5],
+  };
+  // Класс состояния определяет бэкенд по биометрии. Если клиент передаёт
+  // class явно — используем его (ручной выбор), иначе поле не отправляем.
+  if (params.class) {
+    body.class = params.class;
+  }
+  body.confidence = params.confidence || 0.8;
   const data = await backendRequest('/api/v1/training/generate', {
     method: 'POST',
-    body: JSON.stringify({
-      duration_weeks: params.durationWeeks || 4,
-      available_days: params.availableDays || [1, 3, 5],
-      class: params.class || 'endurance_basic',
-      confidence: params.confidence || 0.8,
-    }),
+    body: JSON.stringify(body),
   });
   return data;
 }

@@ -109,6 +109,7 @@ function makeContext(overrides = {}) {
       selectedWorkout: null,
       trainingVideos: videos,
       trainingPlans,
+      profile: { name: 'Тест', age: 30, gender: 'male', height_cm: 180, weight_kg: 75 },
       instructions: {
         gym: 'Протирай тренажёры после использования.',
         pool: 'Принимай душ до и после бассейна.',
@@ -256,6 +257,17 @@ describe('Training', () => {
     fireEvent.click(screen.getByText('Сгенерировать'));
 
     expect(context.generatePlan).toHaveBeenCalledWith({ durationWeeks: 4 });
+  });
+
+  it('blocks plan generation until the profile is complete', () => {
+    const context = makeContext({ state: { profile: { name: 'Тест' } } });
+    useApp.mockReturnValue(context);
+    render(<Training />);
+
+    const button = screen.getByRole('button', { name: /Заполните профиль/ });
+    expect(button).toBeDisabled();
+    fireEvent.click(button);
+    expect(context.generatePlan).not.toHaveBeenCalled();
   });
 
   it('asks AI for a home exercise', () => {

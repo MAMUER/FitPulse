@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -114,9 +115,14 @@ func (g *gateway) loadDietProfile(ctx context.Context, userID string) chat.DietP
 			profile.Diet = firstNonEmpty(profile.Diet, stringValue(survey["diet"]))
 			profile.Activity = firstNonEmpty(stringValue(survey["activity"]), activity.String)
 			profile.Goal = firstNonEmpty(goalKey(survey["goals"]), profile.Goal)
+			profile.StressLevel = stressFromSurvey(survey)
 		}
 	} else if activity.Valid {
 		profile.Activity = activity.String
+	}
+
+	if isFemaleProfile(profile.Gender) {
+		profile.MenstrualPhase = g.latestMenstrualPhase(ctx, userID)
 	}
 
 	return profile
@@ -172,4 +178,77 @@ func goalKey(v interface{}) string {
 		}
 	}
 	return ""
+}
+
+// latestMenstrualPhase вычисляет фазу цикла по последней записи.
+func (g *gateway) latestMenstrualPhase(ctx context.Context, userID string) string {
+	var start string
+	err := g.db.QueryRowContext(ctx, `
+		SELECT cycle_start_date FROM user_menstrual_cycles
+		WHERE user_id = $1
+		ORDER BY cycle_start_date DESC
+		LIMIT 1
+	`, userID).Scan(&start)
+	if err != nil || len(start) < 10 {
+		return ""
+	}
+	parsed, err := time.Parse("2006-01-02", start[:10])
+	if err != nil {
+		return ""
+	}
+	day := int(time.Since(parsed).Hours()/24) + 1
+	switch {
+	case day < 1:
+		return ""
+	case day <= 5:
+		return "menstruation"
+	case day <= 12:
+		return "follicular"
+	case day <= 16:
+		return "ovulation"
+	default:
+		return "luteal"
+	}
+}
+
+func isFemaleProfile(gender string) bool {
+	switch strings.ToLower(strings.TrimSpace(gender)) {
+	case "female", "f", "жен", "женский":
+		return true
+	default:
+		return false
+	}
+}
+
+// stressFromSurvey читает уровень стресса; косвенно — цель «снизить стресс».
+func stressFromSurvey(survey map[string]interface{}) float64 {
+	for _, key := range []string{"stress", "stressLevel", "stress_level"} {
+		if v := firstNumber(survey[key]); v > 0 {
+			return v
+		}
+	}
+	for _, goal := range stringSlice(survey["goals"]) {
+		lower := strings.ToLower(goal)
+		if strings.Contains(lower, "стресс") || strings.Contains(lower, "stress") {
+			return 6
+		}
+	}
+	return 0
+}
+
+func firstNumber(v interface{}) float64 {
+	switch typed := v.(type) {
+	case float64:
+		return typed
+	case int:
+		return float64(typed)
+	case string:
+		parsed, err := strconv.ParseFloat(strings.TrimSpace(typed), 64)
+		if err != nil {
+			return 0
+		}
+		return parsed
+	default:
+		return 0
+	}
 }

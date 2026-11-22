@@ -165,9 +165,25 @@ type physiologicalData struct {
 	HeartRateVariability   float64 `json:"heart_rate_variability"`
 	SpO2                   float64 `json:"spo2"`
 	Temperature            float64 `json:"temperature"`
+	TemperatureSource      string  `json:"temperature_source"`             // "wrist" (браслет) | "core"
+	TemperatureBaseline    float64 `json:"temperature_baseline,omitempty"` // скользящее среднее, °C
 	BloodPressureSystolic  float64 `json:"blood_pressure_systolic"`
 	BloodPressureDiastolic float64 `json:"blood_pressure_diastolic"`
 	SleepHours             float64 `json:"sleep_hours"`
+}
+
+// temperatureThresholds возвращает пороги «лёгкой лихорадки» и «высокой».
+// Для браслетов (кожа запястья) абсолютные core-пороги (37.5/38.0) не годятся:
+// кожа на 2–3 °C холоднее ядра. Если есть персональный базлайн — считаем
+// отклонение от него, иначе используем абсолютные wrist-пороги.
+func (d physiologicalData) temperatureThresholds() (subfebrile, feverSign, high float64) {
+	if strings.EqualFold(d.TemperatureSource, "core") {
+		return 37.3, 37.5, 38.0
+	}
+	if d.TemperatureBaseline > 0 {
+		return d.TemperatureBaseline + 0.4, d.TemperatureBaseline + 0.7, d.TemperatureBaseline + 1.2
+	}
+	return 35.8, 36.0, 36.5
 }
 
 type userProfile struct {
@@ -200,6 +216,8 @@ type classifyResponse struct {
 	HrRange           string             `json:"hr_range,omitempty"`
 	PersonalizedNotes *string            `json:"personalized_notes,omitempty"`
 	Model             string             `json:"model,omitempty"`
+	MissingMetrics    []string           `json:"missing_metrics,omitempty"`
+	DataQuality       string             `json:"data_quality"`
 }
 
 type healthResponse struct {
@@ -332,6 +350,11 @@ func (s *classifierServer) classifyHandler(w http.ResponseWriter, r *http.Reques
 	}
 
 	data := req.PhysiologicalData
+	if data.TemperatureSource == "" {
+		data.TemperatureSource = "wrist"
+	}
+	missing := missingMetrics(req.PhysiologicalData)
+	quality := dataQuality(missing)
 	data.HeartRateVariability = defaultIfZero(data.HeartRateVariability, 50.0)
 	data.SpO2 = defaultIfZero(data.SpO2, 98.0)
 	data.Temperature = defaultIfZero(data.Temperature, 37.0)
@@ -365,6 +388,7 @@ func (s *classifierServer) classifyHandler(w http.ResponseWriter, r *http.Reques
 	if predictedClass < 0 || predictedClass >= len(trainingClasses) {
 		predictedClass = unknownClass
 	}
+	confidence = applyQualityPenalty(confidence, quality)
 
 	classInfo := trainingClasses[predictedClass]
 	personalizedNotes := generatePersonalizedNotes(data, req.UserProfile, predictedClass)
@@ -385,6 +409,8 @@ func (s *classifierServer) classifyHandler(w http.ResponseWriter, r *http.Reques
 		HrRange:           classInfo.HrRange,
 		PersonalizedNotes: personalizedNotes,
 		Model:             modelUsed,
+		MissingMetrics:    missing,
+		DataQuality:       quality,
 	}
 
 	metrics.ClassificationConfidence.WithLabelValues(modelUsed, classInfo.Name).Set(confidence)
@@ -552,21 +578,71 @@ func defaultIfZero(val, def float64) float64 {
 	return val
 }
 
+// missingMetrics возвращает показатели, которых не было в запросе.
+// ЧСС обязательна (проверяется валидацией), поэтому в списке её нет.
+func missingMetrics(d physiologicalData) []string {
+	missing := make([]string, 0, 6)
+	if d.HeartRateVariability <= 0 {
+		missing = append(missing, "hrv")
+	}
+	if d.SpO2 <= 0 {
+		missing = append(missing, "spo2")
+	}
+	if d.Temperature <= 0 {
+		missing = append(missing, "temperature")
+	}
+	if d.SleepHours <= 0 {
+		missing = append(missing, "sleep_hours")
+	}
+	if d.BloodPressureSystolic <= 0 {
+		missing = append(missing, "systolic_pressure")
+	}
+	if d.BloodPressureDiastolic <= 0 {
+		missing = append(missing, "diastolic_pressure")
+	}
+	return missing
+}
+
+// dataQuality оценивает полноту входных данных.
+func dataQuality(missing []string) string {
+	switch {
+	case len(missing) == 0:
+		return "high"
+	case len(missing) <= 2:
+		return "medium"
+	default:
+		return "low"
+	}
+}
+
+// applyQualityPenalty снижает уверенность при неполных данных: подставленные
+// дефолты не должны выглядеть как измерения.
+func applyQualityPenalty(confidence float64, quality string) float64 {
+	switch quality {
+	case "low":
+		confidence *= 0.8
+	case "medium":
+		confidence *= 0.9
+	}
+	return math.Round(confidence*10000) / 10000.0
+}
+
 func classifyState(data physiologicalData, age int) (int, float64, map[string]float64) {
 	hrMax := computeMaxHR(age)
 	hrPct := computeHRPercentage(data.HeartRate, hrMax)
 	zone := computeZone(hrPct)
 	overtrainingSigns := countOvertrainingSigns(data, hrPct)
 	illnessSigns := countIllnessSigns(data)
-	hasMildFever := data.Temperature > 37.3 && data.Temperature <= 37.5
+	mildFever, feverSign, highFever := data.temperatureThresholds()
+	hasMildFever := data.Temperature > mildFever && data.Temperature <= feverSign
 
-	if illnessSigns >= 2 && data.Temperature > 37.5 {
+	if illnessSigns >= 2 && data.Temperature > feverSign {
 		return classifyByIllnessSigns(illnessSigns, hasMildFever, data)
 	}
-	if data.Temperature > 38.0 {
+	if data.Temperature > highFever {
 		return 5, 0.45, buildIllnessProbabilities(0.45)
 	}
-	if data.Temperature > 37.3 {
+	if data.Temperature > mildFever {
 		return 6, 0.50, buildLowSpO2Probabilities()
 	}
 	if hasMildFever || (data.SpO2 < 93.0 && data.SpO2 > 0) {
@@ -622,7 +698,8 @@ func countOvertrainingSigns(data physiologicalData, hrPct float64) int {
 
 func countIllnessSigns(data physiologicalData) int {
 	signs := 0
-	if data.Temperature > 37.5 {
+	_, feverSign, _ := data.temperatureThresholds()
+	if data.Temperature > feverSign {
 		signs++
 	}
 	if data.SpO2 < 95.0 && data.SpO2 > 0 {
@@ -635,7 +712,8 @@ func countIllnessSigns(data physiologicalData) int {
 }
 
 func classifyByIllnessSigns(illnessSigns int, hasMildFever bool, data physiologicalData) (int, float64, map[string]float64) {
-	if data.Temperature > 38.0 {
+	_, _, highFever := data.temperatureThresholds()
+	if data.Temperature > highFever {
 		return 5, 0.45, buildIllnessProbabilities(0.45)
 	}
 	if hasMildFever || (data.SpO2 < 93.0 && data.SpO2 > 0) {
