@@ -10,16 +10,16 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func newMockStore(t *testing.T) (*PostgresDeltaStore, sqlmock.Sqlmock, *sql.DB) {
+func newMockStore(t *testing.T) (*PostgresDeltaStore, sqlmock.Sqlmock) {
 	t.Helper()
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = db.Close() })
-	return NewPostgresDeltaStore(db), mock, db
+	return NewPostgresDeltaStore(db), mock
 }
 
 func TestPostgresDeltaStore_GetDelta(t *testing.T) {
-	store, mock, _ := newMockStore(t)
+	store, mock := newMockStore(t)
 
 	mock.ExpectQuery("SELECT delta FROM classifier_deltas WHERE user_id").
 		WithArgs("u1").
@@ -32,7 +32,7 @@ func TestPostgresDeltaStore_GetDelta(t *testing.T) {
 }
 
 func TestPostgresDeltaStore_GetDeltaNotFound(t *testing.T) {
-	store, mock, _ := newMockStore(t)
+	store, mock := newMockStore(t)
 
 	mock.ExpectQuery("SELECT delta FROM classifier_deltas WHERE user_id").
 		WithArgs("missing").
@@ -45,7 +45,7 @@ func TestPostgresDeltaStore_GetDeltaNotFound(t *testing.T) {
 }
 
 func TestPostgresDeltaStore_GetDeltaInvalidJSON(t *testing.T) {
-	store, mock, _ := newMockStore(t)
+	store, mock := newMockStore(t)
 
 	mock.ExpectQuery("SELECT delta FROM classifier_deltas WHERE user_id").
 		WithArgs("u1").
@@ -57,7 +57,7 @@ func TestPostgresDeltaStore_GetDeltaInvalidJSON(t *testing.T) {
 }
 
 func TestPostgresDeltaStore_SetAndReset(t *testing.T) {
-	store, mock, _ := newMockStore(t)
+	store, mock := newMockStore(t)
 
 	mock.ExpectExec("INSERT INTO classifier_deltas").
 		WithArgs("u1", sqlmock.AnyArg()).
@@ -74,7 +74,7 @@ func TestPostgresDeltaStore_SetAndReset(t *testing.T) {
 }
 
 func TestPostgresDeltaStore_GetAllDeltas(t *testing.T) {
-	store, mock, _ := newMockStore(t)
+	store, mock := newMockStore(t)
 
 	mock.ExpectQuery("SELECT user_id, delta FROM classifier_deltas").
 		WillReturnRows(
@@ -90,7 +90,7 @@ func TestPostgresDeltaStore_GetAllDeltas(t *testing.T) {
 }
 
 func TestPostgresDeltaStore_GetAllDeltasRowError(t *testing.T) {
-	store, mock, _ := newMockStore(t)
+	store, mock := newMockStore(t)
 
 	mock.ExpectQuery("SELECT user_id, delta FROM classifier_deltas").
 		WillReturnError(errors.New("boom"))
@@ -111,7 +111,7 @@ func TestPostgresDeltaStore_NilSafe(t *testing.T) {
 }
 
 func TestPostgresDeltaStore_EmptyUserID(t *testing.T) {
-	store, mock, _ := newMockStore(t)
+	store, mock := newMockStore(t)
 	store.SetDelta("", []float64{1})
 	store.ResetDelta("")
 	_, ok := store.GetDelta("")
