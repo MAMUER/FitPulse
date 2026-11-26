@@ -79,11 +79,13 @@ func jitter(rng *rand.Rand, bounds [2]float64) float64 {
 // ML-путь не может расходиться с правилами на базовой выборке.
 func dumpDistilledDataset(path string, perClass int) error {
 	if dir := filepath.Dir(path); dir != "" && dir != "." {
-		if err := os.MkdirAll(dir, 0o755); err != nil {
+		// #nosec G703 -- путь задаётся флагом запуска
+		if err := os.MkdirAll(dir, 0o750); err != nil {
 			return fmt.Errorf("create dataset dir: %w", err)
 		}
 	}
 
+	// #nosec G304,G703 -- путь задаётся флагом запуска
 	f, err := os.Create(path)
 	if err != nil {
 		return fmt.Errorf("create dataset: %w", err)
@@ -101,6 +103,7 @@ func dumpDistilledDataset(path string, perClass int) error {
 		return fmt.Errorf("write header: %w", err)
 	}
 
+	// #nosec G404 -- детерминированная выборка для воспроизводимости
 	rng := rand.New(rand.NewSource(20261122))
 	counts := make([]int, len(trainingClasses))
 	written := 0

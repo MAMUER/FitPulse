@@ -136,7 +136,9 @@ def export_go_weights(model, output_path: Path, feature_columns: list[str]) -> N
             float(scaler.get(col, {}).get("max", 1.0)) for col in feature_columns
         ]
     else:
-        print(f"WARNING: {scaler_path} не найден — веса экспортированы без нормализации")
+        print(
+            f"WARNING: {scaler_path} не найден — веса экспортированы без нормализации"
+        )
 
     with open(output_path, "w") as f:
         json.dump(weights_data, f, indent=2)
@@ -309,7 +311,9 @@ def export_fallback_onnx(x_train, y_train, feature_columns, args):
     fallback_model.fit(x_sample, y_sample)
 
     if convert_sklearn is None or FloatTensorType is None:
-        print("skl2onnx не установлен — ONNX-экспорт пропущен (Go использует JSON-веса)")
+        print(
+            "skl2onnx не установлен — ONNX-экспорт пропущен (Go использует JSON-веса)"
+        )
         return fallback_model
 
     initial_types = [("input", FloatTensorType([1, len(feature_columns)]))]

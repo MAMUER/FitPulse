@@ -247,9 +247,7 @@ def merge_sleep_dataset(df: pd.DataFrame, normalized: bool) -> pd.DataFrame:
     if normalized:
         sleep_df = normalize_with_scaler(sleep_df)
 
-    merged = pd.concat(
-        [df, sleep_df[FEATURE_COLUMNS + ["label"]]], ignore_index=True
-    )
+    merged = pd.concat([df, sleep_df[FEATURE_COLUMNS + ["label"]]], ignore_index=True)
     print(f"Добавлен sleep_dataset.csv: +{len(sleep_df)} строк", flush=True)
     return merged
 

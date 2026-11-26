@@ -1330,6 +1330,7 @@ def normalize_features(
 
 def vectorized_labels(df: pd.DataFrame) -> pd.Series:
     """Векторизованный аналог rule_based_label (порядок правил сохранён)."""
+
     def col(name: str) -> pd.Series:
         if name in df.columns:
             return pd.to_numeric(df[name], errors="coerce")
@@ -1379,13 +1380,22 @@ def main() -> None:
     # и скрипт выглядел «зависшим»).
     processors: list[tuple[str, Callable[[], pd.DataFrame]]] = [
         ("bidmc", process_bidmc),
-        ("E4SelfLearning_ADARP", lambda: process_e4_like_dir(RAW_ROOT / "ADARP", max_sessions=9999)),
-        ("E4SelfLearning_big-ideas", lambda: process_e4_like_dir(RAW_ROOT / "big-ideas", max_sessions=9999)),
+        (
+            "E4SelfLearning_ADARP",
+            lambda: process_e4_like_dir(RAW_ROOT / "ADARP", max_sessions=9999),
+        ),
+        (
+            "E4SelfLearning_big-ideas",
+            lambda: process_e4_like_dir(RAW_ROOT / "big-ideas", max_sessions=9999),
+        ),
         ("in-gauge_en-gage", lambda: process_in_gauge_en_gage(max_participants=9999)),
         ("PPG_DaLiA", lambda: process_ppg_dalia(max_subjects=999)),
         ("SPD", lambda: process_e4_like_dir(RAW_ROOT / "SPD", max_sessions=9999)),
         ("stress_nurses", lambda: process_stress_nurses(max_participants=9999)),
-        ("Toadstool", lambda: process_e4_like_dir(RAW_ROOT / "Toadstool", max_sessions=9999)),
+        (
+            "Toadstool",
+            lambda: process_e4_like_dir(RAW_ROOT / "Toadstool", max_sessions=9999),
+        ),
         ("ue4w", lambda: process_e4_like_dir(RAW_ROOT / "ue4w", max_sessions=9999)),
         ("WEEE", lambda: process_weee(max_sessions=9999)),
         ("WESAD", process_wesad),
@@ -1428,7 +1438,9 @@ def main() -> None:
     # Балансировка и очистка всё равно делаются в prepare_classifier_dataset.py.
     if os.environ.get("DEDUP", "0") == "1":
         print("Removing duplicate feature rows (DEDUP=1) ...", flush=True)
-        df = df.drop_duplicates(subset=FEATURE_COLUMNS, keep="first").reset_index(drop=True)
+        df = df.drop_duplicates(subset=FEATURE_COLUMNS, keep="first").reset_index(
+            drop=True
+        )
         print(f"Rows after dedupe: {len(df)}", flush=True)
 
     if "_label_override" in df.columns:

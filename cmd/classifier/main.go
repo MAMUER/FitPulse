@@ -322,6 +322,56 @@ func (s *classifierServer) autoDelta(req classifyRequest, ruleClass, mlClass int
 	}
 }
 
+// buildClassifyResponse собирает ответ /classify.
+func buildClassifyResponse(
+	predictedClass int,
+	confidence float64,
+	probs map[string]float64,
+	modelUsed string,
+	missing []string,
+	quality string,
+	personalized *string,
+) classifyResponse {
+	classInfo := trainingClasses[predictedClass]
+	fatigueLevel, motivationScore, recoveryQuality := deriveScores(predictedClass)
+	return classifyResponse{
+		Status:            "success",
+		State:             classInfo.Name,
+		Confidence:        confidence,
+		Recommendation:    classInfo.Recommendations,
+		FatigueLevel:      &fatigueLevel,
+		MotivationScore:   &motivationScore,
+		RecoveryQuality:   &recoveryQuality,
+		PredictedClass:    classInfo.Name,
+		Probabilities:     probs,
+		Description:       classInfo.Description,
+		HrRange:           classInfo.HrRange,
+		PersonalizedNotes: personalized,
+		Model:             modelUsed,
+		MissingMetrics:    missing,
+		DataQuality:       quality,
+	}
+}
+
+// applyPhysiologicalDefaults подставляет нейтральные значения для отсутствующих метрик.
+func applyPhysiologicalDefaults(data physiologicalData) physiologicalData {
+	data.HeartRateVariability = defaultIfZero(data.HeartRateVariability, 50.0)
+	data.SpO2 = defaultIfZero(data.SpO2, 98.0)
+	data.Temperature = defaultIfZero(data.Temperature, 37.0)
+	data.BloodPressureSystolic = defaultIfZero(data.BloodPressureSystolic, 120.0)
+	data.BloodPressureDiastolic = defaultIfZero(data.BloodPressureDiastolic, 80.0)
+	data.SleepHours = defaultIfZero(data.SleepHours, 7.0)
+	return data
+}
+
+// resolveAge возвращает возраст из профиля или 30 по умолчанию.
+func resolveAge(profile *userProfile) int {
+	if profile != nil && profile.Age > 0 {
+		return profile.Age
+	}
+	return 30
+}
+
 // buildClassifierFeatures формирует карту признаков для ML-модели.
 // Отсутствующие (нулевые) показатели НЕ подставляются: дерево HistGradientBoosting
 // обучено на пропусках и использует missing_go_to_left. Если подставить 0,
@@ -393,17 +443,8 @@ func (s *classifierServer) classifyHandler(w http.ResponseWriter, r *http.Reques
 	}
 	missing := missingMetrics(req.PhysiologicalData)
 	quality := dataQuality(missing)
-	data.HeartRateVariability = defaultIfZero(data.HeartRateVariability, 50.0)
-	data.SpO2 = defaultIfZero(data.SpO2, 98.0)
-	data.Temperature = defaultIfZero(data.Temperature, 37.0)
-	data.BloodPressureSystolic = defaultIfZero(data.BloodPressureSystolic, 120.0)
-	data.BloodPressureDiastolic = defaultIfZero(data.BloodPressureDiastolic, 80.0)
-	data.SleepHours = defaultIfZero(data.SleepHours, 7.0)
-
-	age := 30
-	if req.UserProfile != nil && req.UserProfile.Age > 0 {
-		age = req.UserProfile.Age
-	}
+	data = applyPhysiologicalDefaults(data)
+	age := resolveAge(req.UserProfile)
 
 	// Правила — первичный источник истины: они кодируют предметную семантику
 	// (core temperature, SpO2, сон) и корректно работают во всём диапазоне.
@@ -432,25 +473,9 @@ func (s *classifierServer) classifyHandler(w http.ResponseWriter, r *http.Reques
 	classInfo := trainingClasses[predictedClass]
 	personalizedNotes := generatePersonalizedNotes(data, req.UserProfile, predictedClass)
 
-	fatigueLevel, motivationScore, recoveryQuality := deriveScores(predictedClass)
-
-	resp := classifyResponse{
-		Status:            "success",
-		State:             classInfo.Name,
-		Confidence:        confidence,
-		Recommendation:    classInfo.Recommendations,
-		FatigueLevel:      &fatigueLevel,
-		MotivationScore:   &motivationScore,
-		RecoveryQuality:   &recoveryQuality,
-		PredictedClass:    classInfo.Name,
-		Probabilities:     probs,
-		Description:       classInfo.Description,
-		HrRange:           classInfo.HrRange,
-		PersonalizedNotes: personalizedNotes,
-		Model:             modelUsed,
-		MissingMetrics:    missing,
-		DataQuality:       quality,
-	}
+	resp := buildClassifyResponse(
+		predictedClass, confidence, probs, modelUsed, missing, quality, personalizedNotes,
+	)
 
 	metrics.ClassificationConfidence.WithLabelValues(modelUsed, classInfo.Name).Set(confidence)
 

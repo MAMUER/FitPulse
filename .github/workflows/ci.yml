@@ -1938,8 +1938,12 @@ jobs:
           set -euo pipefail
           mkdir -p ~/security-results
           chmod +x /tmp/kube-bench
-          echo "Running $(/tmp/kube-bench --version 2>&1 | head -1) with cfg from /tmp/kube-bench-cfg"
-          sudo /tmp/kube-bench run --config-dir /tmp/kube-bench-cfg --targets node --json \
+          # tar распаковывает папку cfg, поэтому конфиги лежат в /tmp/kube-bench-cfg/cfg.
+          # Если структура другая — используем корень.
+          CFG_DIR=/tmp/kube-bench-cfg/cfg
+          [ -d "$CFG_DIR" ] || CFG_DIR=/tmp/kube-bench-cfg
+          echo "Running $(/tmp/kube-bench --version 2>&1 | head -1) with cfg from $CFG_DIR"
+          sudo /tmp/kube-bench run --config-dir "$CFG_DIR" --targets node --json \
             > ~/security-results/kube-bench-results.json
           EOF
 

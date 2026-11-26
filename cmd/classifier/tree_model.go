@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math"
 	"os"
@@ -94,8 +95,9 @@ type treeFile struct {
 func NewTreeModel(path string) (*TreeModel, error) {
 	clean := strings.TrimSpace(path)
 	if clean == "" {
-		return nil, fmt.Errorf("empty tree model path")
+		return nil, errors.New("empty tree model path")
 	}
+	// #nosec G304 -- путь задаётся конфигом, не пользователем
 	data, err := os.ReadFile(clean)
 	if err != nil {
 		return nil, fmt.Errorf("read tree model: %w", err)
@@ -109,7 +111,7 @@ func NewTreeModel(path string) (*TreeModel, error) {
 		return nil, fmt.Errorf("unsupported tree model format %q", file.Format)
 	}
 	if file.NumClasses <= 0 || len(file.Trees) == 0 {
-		return nil, fmt.Errorf("invalid tree model")
+		return nil, errors.New("invalid tree model")
 	}
 
 	model := &TreeModel{
@@ -162,7 +164,7 @@ func (m *TreeModel) Predict(features map[string]float64) (int, float64, error) {
 		}
 	}
 	if best >= len(m.labels) {
-		return 0, 0, fmt.Errorf("invalid prediction index")
+		return 0, 0, errors.New("invalid prediction index")
 	}
 	return m.labels[best], m.Confidence(scores), nil
 }

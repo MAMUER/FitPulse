@@ -8,11 +8,7 @@ import yaml  # type: ignore
 from fastapi import FastAPI, Request  # type: ignore
 from telegram import Update  # type: ignore
 from telegram.constants import ParseMode  # type: ignore
-from telegram.ext import (  # type: ignore
-    Application,
-    CommandHandler,
-    ContextTypes,
-)
+from telegram.ext import Application, CommandHandler, ContextTypes  # type: ignore
 
 logger = logging.getLogger("oncall-bot")
 

@@ -104,6 +104,7 @@ func forwardToBiometricService(ctx context.Context, body []byte) (string, error)
 	timestamp := strconv.FormatInt(time.Now().Unix(), 10)
 	signature := signPayload([]byte(os.Getenv("OPEN_WEARABLES_WEBHOOK_SECRET")), timestamp, body)
 
+	// #nosec G704 -- target задаётся env-переменной BIOMETRIC_SERVICE_URL
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, target+biometricWebhookPath, bytes.NewReader(body))
 	if err != nil {
 		return "", fmt.Errorf("create forward request: %w", err)
@@ -114,6 +115,7 @@ func forwardToBiometricService(ctx context.Context, body []byte) (string, error)
 	req.Header.Set("X-Webhook-Id", "device-aggregator-"+timestamp)
 
 	client := &http.Client{Timeout: 5 * time.Second}
+	// #nosec G704 -- target из env, не из пользовательского ввода
 	resp, err := client.Do(req)
 	if err != nil {
 		return "", fmt.Errorf("forward request failed: %w", err)

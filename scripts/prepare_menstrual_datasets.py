@@ -24,7 +24,11 @@ OUTPUT = PROJECT_ROOT / "datasets" / "processed" / "menstrual_dataset.csv"
 
 
 def load_factors() -> pd.DataFrame:
-    path = RAW_ROOT / "Menstrual_cycle_data_with_factors" / "menstrual_cycle_dataset_with_factors.csv"
+    path = (
+        RAW_ROOT
+        / "Menstrual_cycle_data_with_factors"
+        / "menstrual_cycle_dataset_with_factors.csv"
+    )
     if not path.exists():
         return pd.DataFrame()
     df = pd.read_csv(path)
@@ -73,7 +77,12 @@ def main() -> None:
     OUTPUT.parent.mkdir(parents=True, exist_ok=True)
     df.to_csv(OUTPUT, index=False)
     print(f"Saved {len(df)} rows to {OUTPUT}", flush=True)
-    print(df[["age", "bmi", "stress", "sleep_hours", "cycle_length"]].describe().to_string(), flush=True)
+    print(
+        df[["age", "bmi", "stress", "sleep_hours", "cycle_length"]]
+        .describe()
+        .to_string(),
+        flush=True,
+    )
 
 
 if __name__ == "__main__":

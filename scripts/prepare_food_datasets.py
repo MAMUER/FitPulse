@@ -15,6 +15,7 @@
 from __future__ import annotations
 
 import json
+import math
 import zipfile
 from pathlib import Path
 
@@ -33,10 +34,12 @@ def _num(value) -> float:
         v = float(value)
     except (TypeError, ValueError):
         return 0.0
-    return v if v == v else 0.0
+    return 0.0 if math.isnan(v) else v
 
 
-def _row_from_nutriments(name: str, nutriments: dict, allergens: str, source: str) -> dict:
+def _row_from_nutriments(
+    name: str, nutriments: dict, allergens: str, source: str
+) -> dict:
     return {
         "source": source,
         "name": str(name)[:200],
@@ -46,8 +49,6 @@ def _row_from_nutriments(name: str, nutriments: dict, allergens: str, source: st
         "fat_g": _num(nutriments.get("fat")),
         "allergens": allergens,
     }
-
-
 
 
 def _nutriments_to_dict(value) -> dict:
@@ -68,6 +69,7 @@ def _nutriments_to_dict(value) -> dict:
         return out
     return {}
 
+
 def process_open_food_facts() -> list[dict]:
     path = RAW_ROOT / "food" / "food.parquet"
     if not path.exists():
@@ -80,23 +82,31 @@ def process_open_food_facts() -> list[dict]:
     cols = ["product_name", "allergens_tags", "nutriments"]
     rows: list[dict] = []
     for batch in pf.iter_batches(batch_size=20000, columns=cols):
-        bdf = batch.to_pandas()
-        for _, record in bdf.iterrows():
-            name = record.get("product_name")
-            if isinstance(name, (list, tuple, np.ndarray)):
-                name = name[0] if len(name) else None
-            nutriments = _nutriments_to_dict(record.get("nutriments"))
-            if not name or not nutriments:
-                continue
-            allergens = record.get("allergens_tags")
-            allergens_text = ", ".join(str(a) for a in allergens) if allergens is not None else ""
-            rows.append(_row_from_nutriments(name, nutriments, allergens_text, "openfoodfacts"))
-            if len(rows) >= MAX_ROWS_PER_SOURCE:
-                break
+        _consume_batch(batch, rows)
         if len(rows) >= MAX_ROWS_PER_SOURCE:
             break
     print(f"Open Food Facts: {len(rows)} rows", flush=True)
     return rows
+
+
+def _consume_batch(batch, rows: list[dict]) -> None:
+    """Извлекает продукты из одного parquet-батча."""
+    for _, record in batch.to_pandas().iterrows():
+        name = record.get("product_name")
+        if isinstance(name, (list, tuple, np.ndarray)):
+            name = name[0] if len(name) else None
+        nutriments = _nutriments_to_dict(record.get("nutriments"))
+        if not name or not nutriments:
+            continue
+        allergens = record.get("allergens_tags")
+        allergens_text = (
+            ", ".join(str(a) for a in allergens) if allergens is not None else ""
+        )
+        rows.append(
+            _row_from_nutriments(name, nutriments, allergens_text, "openfoodfacts")
+        )
+        if len(rows) >= MAX_ROWS_PER_SOURCE:
+            return
 
 
 def process_usda() -> list[dict]:

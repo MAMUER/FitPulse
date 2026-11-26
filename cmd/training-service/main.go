@@ -568,6 +568,40 @@ type userProfile struct {
 	Goal   float64
 }
 
+// genderCode переводит NULL/строку в числовой код пола (0 female, 1 male).
+func genderCode(g sql.NullString) (float64, bool) {
+	if !g.Valid || strings.TrimSpace(g.String) == "" {
+		return 0, false
+	}
+	switch strings.ToLower(g.String) {
+	case "female":
+		return 0, true
+	case "male":
+		return 1, true
+	default:
+		return 1, true
+	}
+}
+
+// goalCode переводит строку цели в числовой код.
+func goalCode(g sql.NullString) float64 {
+	if !g.Valid {
+		return 1
+	}
+	switch strings.ToLower(g.String) {
+	case "weight_loss":
+		return 0
+	case "endurance":
+		return 1
+	case "strength":
+		return 2
+	case "general_health":
+		return 3
+	default:
+		return 1
+	}
+}
+
 func (s *trainingServer) loadUserProfile(ctx context.Context, userID string) (userProfile, bool) {
 	prof := userProfile{}
 	if s.db == nil {
@@ -588,17 +622,7 @@ func (s *trainingServer) loadUserProfile(ctx context.Context, userID string) (us
 		prof.Age = float64(age.Int32)
 	}
 	genderSet := false
-	if gender.Valid && strings.TrimSpace(gender.String) != "" {
-		genderSet = true
-		switch strings.ToLower(gender.String) {
-		case "female":
-			prof.Gender = 0
-		case "male":
-			prof.Gender = 1
-		default:
-			prof.Gender = 1
-		}
-	}
+	prof.Gender, genderSet = genderCode(gender)
 	if height.Valid {
 		prof.Height = float64(height.Int32)
 	}
@@ -610,19 +634,8 @@ func (s *trainingServer) loadUserProfile(ctx context.Context, userID string) (us
 	gErr := s.db.QueryRowContext(ctx, `
 		SELECT goal FROM user_goals WHERE user_id = $1 ORDER BY id LIMIT 1
 	`, userID).Scan(&goal)
-	if gErr == nil && goal.Valid {
-		switch strings.ToLower(goal.String) {
-		case "weight_loss":
-			prof.Goal = 0
-		case "endurance":
-			prof.Goal = 1
-		case "strength":
-			prof.Goal = 2
-		case "general_health":
-			prof.Goal = 3
-		default:
-			prof.Goal = 1
-		}
+	if gErr == nil {
+		prof.Goal = goalCode(goal)
 	}
 	complete := prof.Age > 0 && prof.Weight > 0 && prof.Height > 0 && genderSet
 	return prof, complete

@@ -33,7 +33,9 @@ def sign(secret: bytes, timestamp: str, body: bytes) -> str:
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--url", default="http://127.0.0.1:8085/api/v1/webhook/open-wearables")
+    ap.add_argument(
+        "--url", default="http://127.0.0.1:8085/api/v1/webhook/open-wearables"
+    )
     ap.add_argument("--secret", default="")
     ap.add_argument("--user-id", default="")
     ap.add_argument("--source", default="open_wearables")
@@ -61,7 +63,9 @@ def main() -> None:
     req.add_header("X-Webhook-Id", "sim-" + uuid.uuid4().hex)
     req.add_header("X-Webhook-Timestamp", ts)
     if args.secret:
-        req.add_header("X-Webhook-Signature", "sha256=" + sign(args.secret.encode(), ts, body))
+        req.add_header(
+            "X-Webhook-Signature", "sha256=" + sign(args.secret.encode(), ts, body)
+        )
 
     try:
         with urllib.request.urlopen(req, timeout=10) as resp:
@@ -72,4 +76,6 @@ def main() -> None:
         return
 
     print("\nПроверка в БД:")
-    print("  psql -c \"SELECT metric_type, value, created_at FROM biometric_data ORDER BY created_at DESC LIMIT 10;\"")
+    print(
+        '  psql -c "SELECT metric_type, value, created_at FROM biometric_data ORDER BY created_at DESC LIMIT 10;"'
+    )

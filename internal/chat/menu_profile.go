@@ -157,6 +157,7 @@ func isFemaleProfile(gender string) bool {
 
 // buildFoodMenu строит меню из базы продуктов и добавляет примечания.
 func buildFoodMenu(goal string, p DietProfile) (DayMenu, bool) {
+	// #nosec G404 -- детерминированный выбор блюд, небезопасный RNG здесь не критичен
 	rng := rand.New(rand.NewSource(hashString(goal + "|" + p.Goal + "|" + p.Diet)))
 	menu, ok := buildMenuFromFoodDB(goal, p, rng)
 	if !ok {

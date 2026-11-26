@@ -607,3 +607,27 @@ Playwright E2E) и стили.
 
 - **GitHub Security Advisory**: [Create a security advisory](https://github.com/MAMUER/fitpulse/security/advisories)
 - **Email**: [mihnikolaenko12@yandex.ru](mailto:mihnikolaenko12@yandex.ru)
+
+## Исключения и обработка ошибок
+
+В коде действует правило: **исключение не подавляется молча**.
+
+- `except Exception` допускается только на границе с внешним источником (файл датасета, EDF, parquet, сеть) и всегда с комментарием, почему ошибка не критична.
+- В `scripts/prepare_*` пропущенный файл/датасет логируется и не роняет весь прогон — это осознанная деградация, а не «заглушка».
+- В Go-коде используются `errors.New`/`fmt.Errorf` с `%w` для сохранения цепочки; `panic` не используется.
+- Пустые `except: pass` запрещены; если нужно игнорировать — пишется `except Exception:  # причина`.
+
+## Ложные срабатывания (false positives)
+
+Часть замечаний закрывается обоснованным `#nosec` / dismissal, но **не «на всякий случай»**:
+
+| Правило | Где | Почему false positive |
+| --- | --- | --- |
+| G304 (file inclusion) | `tree_model.go`, `dataset_dump.go` | путь задаётся конфигом/флагом, не пользователем |
+| G703 (path traversal) | `dataset_dump.go` | путь из флага запуска, не из HTTP |
+| G404 (weak rand) | `dataset_dump.go`, `menu_profile.go` | детерминированная выборка, не криптография |
+| G704 (SSRF) | `device-aggregator/webhooks.go` | target из env `BIOMETRIC_SERVICE_URL` |
+| S1764 (NaN check) | Python | заменено на `math.isnan` |
+| Email injection | `internal/email` | `net/mail.ParseAddress` + `stripCRLF` + `html.EscapeString` |
+
+Каждое `#nosec` содержит комментарий с причиной. Если правило можно исправить кодом — исправляется кодом (как G301: `0o750`, G404: заменено/обосновано).

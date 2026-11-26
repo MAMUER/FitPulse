@@ -18,6 +18,7 @@ sleep_hours, label.
 from __future__ import annotations
 
 import json
+import math
 import os
 from pathlib import Path
 
@@ -119,13 +120,17 @@ def _shhs_row(sig, fields, ann) -> dict:
     row = empty_row()
     names = [f.lower() for f in fields["sig_name"]]
 
-    spo2_idx = next((i for i, n in enumerate(names) if "sao2" in n or "spo2" in n), None)
+    spo2_idx = next(
+        (i for i, n in enumerate(names) if "sao2" in n or "spo2" in n), None
+    )
     if spo2_idx is not None:
         value = _median_in_range(sig[:, spo2_idx], 50, 100)
         if value is not None:
             row["spo2"] = value
 
-    hr_idx = next((i for i, n in enumerate(names) if n in ("pr", "hr", "heart_rate")), None)
+    hr_idx = next(
+        (i for i, n in enumerate(names) if n in ("pr", "hr", "heart_rate")), None
+    )
     if hr_idx is not None:
         value = _median_in_range(sig[:, hr_idx], 20, 250)
         if value is not None:
@@ -189,7 +194,10 @@ def _sleepaccel_row(label_file: Path, hr_file: Path) -> dict:
 
 
 def process_sleepaccel() -> list[dict]:
-    dataset = RAW_ROOT / "motion-and-heart-rate-from-a-wrist-worn-wearable-and-labeled-sleep-from-polysomnography-1.0.0"
+    dataset = (
+        RAW_ROOT
+        / "motion-and-heart-rate-from-a-wrist-worn-wearable-and-labeled-sleep-from-polysomnography-1.0.0"
+    )
     if not dataset.exists():
         print("SleepAccel: missing", flush=True)
         return []
@@ -243,7 +251,9 @@ def _pmdata_sleep_hours(sleep_file: Path) -> float | None:
         sessions = json.loads(sleep_file.read_text(encoding="utf-8"))
     except Exception:
         return None
-    minutes = [float(s.get("minutesAsleep", 0)) for s in sessions if s.get("minutesAsleep")]
+    minutes = [
+        float(s.get("minutesAsleep", 0)) for s in sessions if s.get("minutesAsleep")
+    ]
     if not minutes:
         return None
     return min(24.0, float(np.mean(minutes)) / 60.0)
@@ -285,14 +295,14 @@ def process_pmdata() -> list[dict]:
     return records
 
 
-
 # ----------------------------------------------------------------------
 # UCDDB (EDF .rec + _stage.txt)
 # ----------------------------------------------------------------------
 def _ucddb_row(rec_path: Path, stage_path: Path) -> dict | None:
-    import mne
     import shutil
     import tempfile
+
+    import mne
 
     tmp = tempfile.NamedTemporaryFile(suffix=".edf", delete=False)
     tmp_path = tmp.name
@@ -311,7 +321,9 @@ def _ucddb_row(rec_path: Path, stage_path: Path) -> dict | None:
     row = empty_row()
     names = [n.lower() for n in raw.ch_names]
     spo2_idx = next((i for i, n in enumerate(names) if "spo2" in n), None)
-    pulse_idx = next((i for i, n in enumerate(names) if n in ("pulse", "pr", "hr")), None)
+    pulse_idx = next(
+        (i for i, n in enumerate(names) if n in ("pulse", "pr", "hr")), None
+    )
 
     if spo2_idx is not None:
         value = _median_in_range(raw.get_data()[spo2_idx], 50, 100)
@@ -348,7 +360,6 @@ def process_ucddb() -> list[dict]:
     return records
 
 
-
 # ----------------------------------------------------------------------
 # Sleep-EDF PSG (core temperature; гипнограммы в скачанной копии битые)
 # ----------------------------------------------------------------------
@@ -366,54 +377,65 @@ def _sleep_stage_seconds(annotations) -> float:
     return total
 
 
-def process_sleep_edf() -> list[dict]:
+def _psg_temperature(psg: Path) -> float | None:
+    """Температура (core, Temp rectal) из PSG-файла Sleep-EDF."""
     import mne
+
+    try:
+        raw = mne.io.read_raw_edf(psg, preload=True, verbose="ERROR")
+    except Exception:
+        return None
+    names = [n.lower() for n in raw.ch_names]
+    idx = next((i for i, n in enumerate(names) if "temp" in n), None)
+    if idx is None:
+        return None
+    return _median_in_range(raw.get_data()[idx], 30, 40)
+
+
+def _hypnogram_sleep(hyp: Path | None) -> float:
+    """Длительность сна из гипнограммы (0, если файл битый)."""
+    if hyp is None:
+        return 0.0
     from edf_reader import read_edf_annotations
 
+    try:
+        return _sleep_stage_seconds(read_edf_annotations(hyp))
+    except Exception:
+        return 0.0
+
+
+def process_sleep_edf() -> list[dict]:
     dataset = RAW_ROOT / "sleep-edfx"
     if not dataset.exists():
         print("Sleep-EDF: missing", flush=True)
         return []
 
-    hypnograms: dict[str, Path] = {}
-    for path in sorted(dataset.glob("SC*-Hypnogram.edf")):
-        hypnograms[path.name[:6]] = path
+    hypnograms = {p.name[:6]: p for p in sorted(dataset.glob("SC*-Hypnogram.edf"))}
 
     records = []
     for psg in sorted(dataset.glob("SC*-PSG.edf")):
-        subject = psg.name[:6]
-
         row = empty_row()
-        try:
-            raw = mne.io.read_raw_edf(psg, preload=True, verbose="ERROR")
-            names = [n.lower() for n in raw.ch_names]
-            idx = next((i for i, n in enumerate(names) if "temp" in n), None)
-            if idx is not None:
-                value = _median_in_range(raw.get_data()[idx], 30, 40)
-                if value is not None:
-                    row["temperature"] = value
-        except Exception:
-            pass
-
-        hyp = hypnograms.get(subject)
-        if hyp is not None:
-            try:
-                seconds = _sleep_stage_seconds(read_edf_annotations(hyp))
-            except Exception:
-                seconds = 0.0  # битый файл (S3 NoSuchKey) — пропускаем
-            if seconds > 0:
-                row["sleep_hours"] = min(24.0, seconds / 3600.0)
-
-        if not (row["temperature"] == row["temperature"] or row["sleep_hours"] == row["sleep_hours"]):
+        temperature = _psg_temperature(psg)
+        if temperature is not None:
+            row["temperature"] = temperature
+        seconds = _hypnogram_sleep(hypnograms.get(psg.name[:6]))
+        if seconds > 0:
+            row["sleep_hours"] = min(24.0, seconds / 3600.0)
+        if math.isnan(row["temperature"]) and math.isnan(row["sleep_hours"]):
             continue
         records.append(row)
-
     return records
 
 
 def main() -> None:
     records: list[dict] = []
-    for processor in (process_shhs, process_sleepaccel, process_apnea_ecg, process_pmdata, process_ucddb):
+    for processor in (
+        process_shhs,
+        process_sleepaccel,
+        process_apnea_ecg,
+        process_pmdata,
+        process_ucddb,
+    ):
         records.extend(processor())
 
     # Sleep-EDF PSG содержит core temperature (~37 °C), а E4 — кожу (~33 °C).

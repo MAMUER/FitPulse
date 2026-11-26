@@ -129,12 +129,18 @@ def export_golden_set(
             norm = row[col]
             if pd.isna(norm):
                 continue  # отсутствующее значение — Go должен импутировать
-            raw[col] = float(norm) * (scaler[col]["max"] - scaler[col]["min"]) + scaler[col]["min"]
+            raw[col] = (
+                float(norm) * (scaler[col]["max"] - scaler[col]["min"])
+                + scaler[col]["min"]
+            )
 
         x = [
-            (raw[col] - scaler[col]["min"]) / (scaler[col]["max"] - scaler[col]["min"])
-            if col in raw
-            else np.nan
+            (
+                (raw[col] - scaler[col]["min"])
+                / (scaler[col]["max"] - scaler[col]["min"])
+                if col in raw
+                else np.nan
+            )
             for col in feature_columns
         ]
         predicted = int(model.predict(np.array([x]))[0])
