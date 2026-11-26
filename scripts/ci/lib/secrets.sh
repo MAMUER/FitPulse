@@ -247,7 +247,7 @@ create_secrets() {
 	fi
 
 	echo "Creating per-service DB credentials (fallback)..."
-	for svc in user-service training-service biometric-service data-processor; do
+	for svc in user-service training-service biometric-service data-processor classifier; do
 		sec="${svc}-db-credentials"
 		kubectl create secret generic "$sec" -n fitness-platform-production \
 			--from-literal=POSTGRES_USER="${POSTGRES_USER:-fitness_admin}" \

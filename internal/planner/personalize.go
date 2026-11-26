@@ -229,7 +229,7 @@ func applyRestrictions(adj *Adjustment, restrictions []string, note noteFunc) {
 		case strings.Contains(r, "диабет"), strings.Contains(r, "diabetes"):
 			adj.IntensityFactor *= 0.85
 			note("диабет: интенсивность ×0.85")
-		case strings.Contains(r, "почеч"), strings.Contains(r, "kidney"):
+		case strings.Contains(r, "почеч"), strings.Contains(r, "почек"), strings.Contains(r, "kidney"):
 			adj.IntensityFactor *= 0.8
 			note("заболевание почек: интенсивность ×0.8")
 		case strings.Contains(r, "печён"), strings.Contains(r, "печен"), strings.Contains(r, "liver"):

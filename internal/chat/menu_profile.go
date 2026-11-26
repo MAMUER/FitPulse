@@ -301,6 +301,8 @@ func applyMenstrualNotes(p DietProfile, lunch *Meal) string {
 		return "менструация: акцент на железо"
 	case "luteal", "лютеиновая":
 		return "лютеиновая фаза: больше магния и сложных углеводов"
+	case "follicular", "фолликулярная", "ovulation", "овуляция":
+		return "благоприятная фаза цикла: без снижения нагрузки"
 	default:
 		return ""
 	}

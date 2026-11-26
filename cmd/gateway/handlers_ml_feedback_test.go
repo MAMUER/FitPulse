@@ -1,102 +1,147 @@
 package main
 
 import (
-	"bytes"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 
-	"github.com/MAMUER/project/internal/logger"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap"
+
+	"github.com/MAMUER/project/internal/logger"
 )
 
-func TestHandleMLFeedback_Success(t *testing.T) {
-	g := newTestGateway()
-	g.log = &logger.Logger{Logger: zap.NewNop()}
+func newFeedbackGateway(t *testing.T, handler http.HandlerFunc) *gateway {
+	t.Helper()
+	srv := httptest.NewServer(handler)
+	t.Cleanup(srv.Close)
+	return &gateway{log: logger.New("test"), classifierURL: srv.URL}
+}
 
-	body, err := json.Marshal(map[string]interface{}{
-		"prediction_id": "pred-123",
-		"feedback":      "good",
-		"user_id":       "user-123",
-	})
-	require.NoError(t, err)
-
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/ml/feedback", bytes.NewReader(body))
+func postFeedback(t *testing.T, g *gateway, body string) *httptest.ResponseRecorder {
+	t.Helper()
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/ml/feedback", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
-	w := httptest.NewRecorder()
+	rec := httptest.NewRecorder()
+	g.handleMLFeedback(rec, req)
+	return rec
+}
 
-	g.handleMLFeedback(w, req)
+func TestHandleMLFeedback_Success(t *testing.T) {
+	g := newFeedbackGateway(t, func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"status": "ok", "applied": true, "target_used": 1.0,
+		})
+	})
 
-	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Contains(t, w.Header().Get("Content-Type"), "application/json")
+	rec := postFeedback(t, g, `{"prediction_id":"p1","feedback":"correct","user_id":"u1","class_index":2}`)
+	assert.Equal(t, http.StatusOK, rec.Code)
 
-	var resp map[string]interface{}
-	require.NoError(t, json.NewDecoder(w.Body).Decode(&resp))
-	assert.Equal(t, "success", resp["status"])
-	assert.NotEmpty(t, resp["feedback_id"])
+	var resp mlFeedbackResponse
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+	assert.True(t, resp.DeltaApplied)
+	assert.NotEmpty(t, resp.FeedbackID)
+}
+
+func TestHandleMLFeedback_ClassifierError(t *testing.T) {
+	g := newFeedbackGateway(t, func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	})
+
+	rec := postFeedback(t, g, `{"prediction_id":"p1","feedback":"correct","user_id":"u1","class_index":2}`)
+	assert.Equal(t, http.StatusOK, rec.Code)
+	var resp mlFeedbackResponse
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+	assert.False(t, resp.DeltaApplied)
+	assert.NotEmpty(t, resp.DeltaReason)
+}
+
+func TestHandleMLFeedback_NotApplied(t *testing.T) {
+	g := newFeedbackGateway(t, func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{"applied": false})
+	})
+
+	rec := postFeedback(t, g, `{"prediction_id":"p1","feedback":"correct","user_id":"u1","class_index":2}`)
+	var resp mlFeedbackResponse
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+	assert.False(t, resp.DeltaApplied)
+}
+
+func TestHandleMLFeedback_BadRequests(t *testing.T) {
+	g := newFeedbackGateway(t, func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{"applied": true})
+	})
+
+	cases := []struct {
+		name string
+		body string
+	}{
+		{"invalid json", `{`},
+		{"no prediction", `{"feedback":"x"}`},
+		{"no feedback", `{"prediction_id":"p1"}`},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			rec := postFeedback(t, g, tc.body)
+			assert.Equal(t, http.StatusBadRequest, rec.Code)
+		})
+	}
+}
+
+func TestHandleMLFeedback_NoUser(t *testing.T) {
+	g := newFeedbackGateway(t, func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{"applied": true})
+	})
+
+	rec := postFeedback(t, g, `{"prediction_id":"p1","feedback":"correct"}`)
+	assert.Equal(t, http.StatusOK, rec.Code)
+	var resp mlFeedbackResponse
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+	assert.False(t, resp.DeltaApplied)
+	assert.Contains(t, resp.DeltaReason, "user_id")
+}
+
+func TestHandleMLFeedback_NoClass(t *testing.T) {
+	g := newFeedbackGateway(t, func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{"applied": true})
+	})
+
+	rec := postFeedback(t, g, `{"prediction_id":"p1","feedback":"correct","user_id":"u1"}`)
+	var resp mlFeedbackResponse
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+	assert.False(t, resp.DeltaApplied)
+	assert.Contains(t, resp.DeltaReason, "class")
 }
 
 func TestHandleMLFeedback_MethodNotAllowed(t *testing.T) {
-	g := newTestGateway()
-	g.log = &logger.Logger{Logger: zap.NewNop()}
-
+	g := &gateway{log: logger.New("test")}
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/ml/feedback", nil)
-	w := httptest.NewRecorder()
-
-	g.handleMLFeedback(w, req)
-
-	assert.Equal(t, http.StatusMethodNotAllowed, w.Code)
+	rec := httptest.NewRecorder()
+	g.handleMLFeedback(rec, req)
+	assert.Equal(t, http.StatusMethodNotAllowed, rec.Code)
 }
 
-func TestHandleMLFeedback_MissingPredictionID(t *testing.T) {
-	g := newTestGateway()
-	g.log = &logger.Logger{Logger: zap.NewNop()}
+func TestResolveFeedbackClassIndex(t *testing.T) {
+	g := &gateway{}
+	idx := 3
+	req := &mlFeedbackRequest{ClassIndex: &idx}
+	got, ok := g.resolveFeedbackClassIndex(req)
+	assert.True(t, ok)
+	assert.Equal(t, 3, got)
 
-	body, err := json.Marshal(map[string]interface{}{
-		"feedback": "good",
-	})
-	require.NoError(t, err)
+	req = &mlFeedbackRequest{ClassifierState: "power_hiit"}
+	got, ok = g.resolveFeedbackClassIndex(req)
+	assert.True(t, ok)
+	assert.Equal(t, 3, got)
 
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/ml/feedback", bytes.NewReader(body))
-	req.Header.Set("Content-Type", "application/json")
-	w := httptest.NewRecorder()
+	req = &mlFeedbackRequest{Metadata: map[string]interface{}{"predicted_class": "recovery"}}
+	got, ok = g.resolveFeedbackClassIndex(req)
+	assert.True(t, ok)
+	assert.Equal(t, 0, got)
 
-	g.handleMLFeedback(w, req)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-}
-
-func TestHandleMLFeedback_MissingFeedback(t *testing.T) {
-	g := newTestGateway()
-	g.log = &logger.Logger{Logger: zap.NewNop()}
-
-	body, err := json.Marshal(map[string]interface{}{
-		"prediction_id": "pred-123",
-	})
-	require.NoError(t, err)
-
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/ml/feedback", bytes.NewReader(body))
-	req.Header.Set("Content-Type", "application/json")
-	w := httptest.NewRecorder()
-
-	g.handleMLFeedback(w, req)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-}
-
-func TestHandleMLFeedback_InvalidJSON(t *testing.T) {
-	g := newTestGateway()
-	g.log = &logger.Logger{Logger: zap.NewNop()}
-
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/ml/feedback", strings.NewReader("invalid"))
-	req.Header.Set("Content-Type", "application/json")
-	w := httptest.NewRecorder()
-
-	g.handleMLFeedback(w, req)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
+	req = &mlFeedbackRequest{}
+	_, ok = g.resolveFeedbackClassIndex(req)
+	assert.False(t, ok)
 }
