@@ -631,3 +631,11 @@ Playwright E2E) и стили.
 | Email injection | `internal/email` | `net/mail.ParseAddress` + `stripCRLF` + `html.EscapeString` |
 
 Каждое `#nosec` содержит комментарий с причиной. Если правило можно исправить кодом — исправляется кодом (как G301: `0o750`, G404: заменено/обосновано).
+
+## Code scanning: статусы алертов
+
+| Alert | Правило | Статус |
+| --- | --- | --- |
+| #2684, #2685 | CodeQL `go/email-injection` | **false positive**: тело строится в `buildMessage` (`html.EscapeString`), From/To — `net/mail.ParseAddress`, тема — `stripCRLF`; `// codeql[go/email-injection]` стоит на sink |
+| #2681–#2683 | Semgrep `math-random-used` | закрыто `// nosemgrep` (детерминированная выборка, не криптография) |
+| #823–#830 | CodeQL unused var/import/empty except | **устаревшие**: `cmd/ml_generator/main.py` и `train_gan.py` удалены из репозитория |

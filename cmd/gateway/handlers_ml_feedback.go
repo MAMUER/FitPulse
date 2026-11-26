@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -231,7 +232,7 @@ func (g *gateway) applyClassifierDelta(
 		return fmt.Errorf("decode delta response: %w", err)
 	}
 	if !dr.Applied {
-		return fmt.Errorf("delta not applied")
+		return errors.New("delta not applied")
 	}
 	return nil
 }
