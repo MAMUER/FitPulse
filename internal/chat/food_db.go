@@ -56,7 +56,7 @@ func pickFoodItem(rng *rand.Rand, allergies []string, minKcal, maxKcal int) (Foo
 	return FoodItem{}, false
 }
 
-func foodToMeal(item FoodItem, slot string, time string) Meal {
+func foodToMeal(item FoodItem, slot, time string) Meal {
 	return Meal{
 		Name:        slot,
 		Time:        time,

@@ -299,6 +299,29 @@ func (s *classifierServer) modelInfoHandler(w http.ResponseWriter, r *http.Reque
 	}
 }
 
+// autoDelta обновляет персональную дельту автоматически, без кнопки.
+func (s *classifierServer) autoDelta(req classifyRequest, ruleClass, mlClass int, data physiologicalData) {
+	if s.personalClassifier == nil || req.UserID == "" {
+		return
+	}
+	features := map[string]float64{
+		"heart_rate":         data.HeartRate,
+		"hrv":                data.HeartRateVariability,
+		"spo2":               data.SpO2,
+		"temperature":        data.Temperature,
+		"systolic_pressure":  data.BloodPressureSystolic,
+		"diastolic_pressure": data.BloodPressureDiastolic,
+		"sleep_hours":        data.SleepHours,
+	}
+	target := 0.0
+	if ruleClass == mlClass {
+		target = 1.0
+	}
+	if _, err := s.personalClassifier.UpdateDelta(req.UserID, mlClass, target, features, 0.005); err != nil {
+		s.log.Warn("Авто-дельта не обновлена", zap.Error(err))
+	}
+}
+
 // buildClassifierFeatures формирует карту признаков для ML-модели.
 // Отсутствующие (нулевые) показатели НЕ подставляются: дерево HistGradientBoosting
 // обучено на пропусках и использует missing_go_to_left. Если подставить 0,
@@ -387,7 +410,8 @@ func (s *classifierServer) classifyHandler(w http.ResponseWriter, r *http.Reques
 	// ML-модель на реальных публичных датасетах откалибрована на кожную
 	// температуру (~33 °C) и почти не имеет SpO2, поэтому применяется только
 	// там, где правила не дают ответа (unknown).
-	predictedClass, confidence, probs := classifyState(data, age)
+	ruleClass, ruleConfidence, ruleProbs := classifyState(data, age)
+	predictedClass, confidence, probs := ruleClass, ruleConfidence, ruleProbs
 	modelUsed := modelRuleBased
 
 	if predictedClass == unknownClass && s.activeModel() != nil {
@@ -437,6 +461,9 @@ func (s *classifierServer) classifyHandler(w http.ResponseWriter, r *http.Reques
 		zap.String("state", sanitize.LogString(classInfo.Name)),
 		zap.String("model", sanitize.LogString(modelUsed)),
 	)
+
+	// Авто-персонализация без участия пользователя: ML должен согласовываться с правилами.
+	s.autoDelta(req, ruleClass, predictedClass, data)
 
 	w.Header().Set(headerContentType, contentTypeJSON)
 	if err := json.NewEncoder(w).Encode(resp); err != nil {

@@ -155,29 +155,39 @@ func isFemaleProfile(gender string) bool {
 	}
 }
 
+// buildFoodMenu строит меню из базы продуктов и добавляет примечания.
+func buildFoodMenu(goal string, p DietProfile) (DayMenu, bool) {
+	rng := rand.New(rand.NewSource(hashString(goal + "|" + p.Goal + "|" + p.Diet)))
+	menu, ok := buildMenuFromFoodDB(goal, p, rng)
+	if !ok {
+		return DayMenu{}, false
+	}
+
+	notes := make([]string, 0, 4)
+	if len(p.Allergies) > 0 {
+		notes = append(notes, "аллергии: "+strings.Join(p.Allergies, ", "))
+	}
+	if p.MenstrualPhase != "" {
+		notes = append(notes, "фаза цикла: "+p.MenstrualPhase)
+	}
+	if p.StressLevel >= 7 {
+		notes = append(notes, fmt.Sprintf("высокий стресс %.0f/10", p.StressLevel))
+	}
+	if len(p.Restrictions) > 0 {
+		notes = append(notes, "ограничения: "+strings.Join(p.Restrictions, ", "))
+	}
+	if len(notes) > 0 {
+		menu.Note += " Персонализация: " + strings.Join(notes, "; ") + "."
+	}
+	return menu, true
+}
+
 // BuildDayMenuForProfile строит меню с учётом аллергий, калорийности,
 // менструальной фазы, стресса и ограничений по здоровью.
 func BuildDayMenuForProfile(goal string, p DietProfile) DayMenu {
 	// Если есть профиль и загружена база продуктов — строим меню из реальных блюд.
 	if hasProfileExtrasForFood(p) {
-		rng := rand.New(rand.NewSource(hashString(goal + "|" + p.Goal + "|" + p.Diet)))
-		if menu, ok := buildMenuFromFoodDB(goal, p, rng); ok {
-			notes := make([]string, 0, 4)
-			if len(p.Allergies) > 0 {
-				notes = append(notes, "аллергии: "+strings.Join(p.Allergies, ", "))
-			}
-			if p.MenstrualPhase != "" {
-				notes = append(notes, "фаза цикла: "+p.MenstrualPhase)
-			}
-			if p.StressLevel >= 7 {
-				notes = append(notes, fmt.Sprintf("высокий стресс %.0f/10", p.StressLevel))
-			}
-			if len(p.Restrictions) > 0 {
-				notes = append(notes, "ограничения: "+strings.Join(p.Restrictions, ", "))
-			}
-			if len(notes) > 0 {
-				menu.Note += " Персонализация: " + strings.Join(notes, "; ") + "."
-			}
+		if menu, ok := buildFoodMenu(goal, p); ok {
 			return menu
 		}
 	}
