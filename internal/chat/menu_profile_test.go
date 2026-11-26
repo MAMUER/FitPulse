@@ -102,13 +102,12 @@ func TestBuildDayMenuForProfile_MenstrualPhase(t *testing.T) {
 	menses := base
 	menses.MenstrualPhase = "menstruation"
 	menu := BuildDayMenuForProfile("balance", menses)
-	assert.Contains(t, menu.Note, "менструация")
-	assert.Contains(t, menu.Note, "железо")
+	assert.Contains(t, menu.Note, "фаза цикла")
 
 	luteal := base
 	luteal.MenstrualPhase = "luteal"
 	menu = BuildDayMenuForProfile("balance", luteal)
-	assert.Contains(t, menu.Note, "лютеиновая")
+	assert.Contains(t, menu.Note, "фаза цикла")
 
 	male := base
 	male.Gender = "male"
@@ -130,4 +129,32 @@ func TestBuildDayMenuForProfile_Diabetes(t *testing.T) {
 	}
 	menu := BuildDayMenuForProfile("balance", profile)
 	assert.Contains(t, menu.Note, "диабет")
+}
+
+func TestBuildDayMenuForProfile_UsesFoodDB(t *testing.T) {
+	if FoodDBSize() == 0 {
+		t.Skip("food_data.json не загружен")
+	}
+	profile := DietProfile{
+		Goal: "balance", Age: 30, Gender: "male", WeightKg: 75, HeightCm: 180,
+	}
+	menu := BuildDayMenuForProfile("balance", profile)
+	assert.Contains(t, menu.Note, "Open Food Facts")
+	assert.Len(t, menu.Meals, 4)
+	assert.Greater(t, menu.TotalKcal, 0)
+}
+
+func TestBuildDayMenuForProfile_AllergyAvoidsDish(t *testing.T) {
+	if FoodDBSize() == 0 {
+		t.Skip("food_data.json не загружен")
+	}
+	profile := DietProfile{
+		Goal: "balance", Age: 30, Gender: "male", WeightKg: 75, HeightCm: 180,
+		Allergies: []string{"Молоко", "Орехи", "Глютен", "Яйца"},
+	}
+	menu := BuildDayMenuForProfile("balance", profile)
+	for _, m := range menu.Meals {
+		assert.Empty(t, conflictsWithAllergens(m.Description, profile.Allergies),
+			"блюдо %q конфликтует с аллергиями", m.Description)
+	}
 }

@@ -2,6 +2,7 @@ package chat
 
 import (
 	"fmt"
+	"math/rand"
 	"strings"
 )
 
@@ -157,6 +158,30 @@ func isFemaleProfile(gender string) bool {
 // BuildDayMenuForProfile строит меню с учётом аллергий, калорийности,
 // менструальной фазы, стресса и ограничений по здоровью.
 func BuildDayMenuForProfile(goal string, p DietProfile) DayMenu {
+	// Если есть профиль и загружена база продуктов — строим меню из реальных блюд.
+	if hasProfileExtrasForFood(p) {
+		rng := rand.New(rand.NewSource(hashString(goal + "|" + p.Goal + "|" + p.Diet)))
+		if menu, ok := buildMenuFromFoodDB(goal, p, rng); ok {
+			notes := make([]string, 0, 4)
+			if len(p.Allergies) > 0 {
+				notes = append(notes, "аллергии: "+strings.Join(p.Allergies, ", "))
+			}
+			if p.MenstrualPhase != "" {
+				notes = append(notes, "фаза цикла: "+p.MenstrualPhase)
+			}
+			if p.StressLevel >= 7 {
+				notes = append(notes, fmt.Sprintf("высокий стресс %.0f/10", p.StressLevel))
+			}
+			if len(p.Restrictions) > 0 {
+				notes = append(notes, "ограничения: "+strings.Join(p.Restrictions, ", "))
+			}
+			if len(notes) > 0 {
+				menu.Note += " Персонализация: " + strings.Join(notes, "; ") + "."
+			}
+			return menu
+		}
+	}
+
 	menu := BuildDayMenu(goal)
 	if len(menu.Meals) < 4 {
 		return menu

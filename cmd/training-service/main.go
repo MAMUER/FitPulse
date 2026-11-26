@@ -445,6 +445,24 @@ func isFemaleGender(gender string) bool {
 	}
 }
 
+// temperatureBaseline — скользящее среднее температуры за 14 дней.
+func (s *trainingServer) temperatureBaseline(ctx context.Context, userID string) float64 {
+	if s.db == nil || userID == "" {
+		return 0
+	}
+	var avg sql.NullFloat64
+	err := s.db.QueryRowContext(ctx, `
+		SELECT AVG((metrics->>'temperature')::float)
+		FROM biometric_data
+		WHERE user_id = $1
+		  AND metrics ? 'temperature'
+		  AND created_at > NOW() - INTERVAL '14 days'`, userID).Scan(&avg)
+	if err != nil || !avg.Valid {
+		return 0
+	}
+	return math.Round(avg.Float64*10) / 10
+}
+
 // resolveClassification определяет класс функционального состояния через
 // classifier-сервис. Если сервис недоступен или биометрии нет — безопасный
 // фоллбек endurance_basic.
@@ -462,6 +480,7 @@ func (s *trainingServer) resolveClassification(ctx context.Context, userID strin
 			"spo2":                     b.Spo2,
 			"temperature":              b.Temperature,
 			"temperature_source":       "wrist",
+			"temperature_baseline":     s.temperatureBaseline(ctx, userID),
 			"sleep_hours":              b.SleepHours,
 			"blood_pressure_systolic":  b.SystolicBP,
 			"blood_pressure_diastolic": b.DiastolicBP,

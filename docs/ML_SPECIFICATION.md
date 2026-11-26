@@ -505,3 +505,9 @@ internal/chat/
 `process_sleep_edf()` объединяет `SC*-PSG.edf` (core temp) и `SC*-Hypnogram.edf` (стадии сна) по префиксу subject id.
 Скачана только `SC4001EC-Hypnogram.edf` (1.175 ч сна); остальные гипнограммы в копии — S3 `NoSuchKey`, их нужно перекачать:
 `https://physionet-open.s3.amazonaws.com/sleep-edfx/1.0.0/sleep-cassette/SC4001EC-Hypnogram.edf`
+
+## 17. Меню из реальных продуктов и базлайн температуры
+
+- `scripts/export_menu_food.py` отбирает 1 500 блюд из `food_nutrients.csv` → `internal/chat/food_data.json` (go:embed, 203 КБ).
+- `BuildDayMenuForProfile` при наличии профиля строит меню из базы: 4 приёма пищи, калораж по Миффлину–Сан Жеору, фильтр аллергий, ограничения (диабет), менструальная фаза, стресс.
+- `training-service.temperatureBaseline()` считает среднюю температуру за 14 дней и передаёт её как `temperature_baseline` — wrist-пороги становятся относительными.
