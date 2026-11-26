@@ -300,18 +300,33 @@ func (s *classifierServer) modelInfoHandler(w http.ResponseWriter, r *http.Reque
 }
 
 // buildClassifierFeatures формирует карту признаков для ML-модели.
-// Ключи совпадают с feature_keys из models/classifier_weights.json; лишние
-// модель игнорирует, отсутствующие считаются нулевыми.
+// Отсутствующие (нулевые) показатели НЕ подставляются: дерево HistGradientBoosting
+// обучено на пропусках и использует missing_go_to_left. Если подставить 0,
+// поведение разойдётся с обучением.
 func (s *classifierServer) buildClassifierFeatures(data physiologicalData) map[string]float64 {
-	return map[string]float64{
-		"heart_rate":         data.HeartRate,
-		"hrv":                data.HeartRateVariability,
-		"spo2":               data.SpO2,
-		"temperature":        data.Temperature,
-		"systolic_pressure":  data.BloodPressureSystolic,
-		"diastolic_pressure": data.BloodPressureDiastolic,
-		"sleep_hours":        data.SleepHours,
+	features := make(map[string]float64, 7)
+	if data.HeartRate > 0 {
+		features["heart_rate"] = data.HeartRate
 	}
+	if data.HeartRateVariability > 0 {
+		features["hrv"] = data.HeartRateVariability
+	}
+	if data.SpO2 > 0 {
+		features["spo2"] = data.SpO2
+	}
+	if data.Temperature > 0 {
+		features["temperature"] = data.Temperature
+	}
+	if data.BloodPressureSystolic > 0 {
+		features["systolic_pressure"] = data.BloodPressureSystolic
+	}
+	if data.BloodPressureDiastolic > 0 {
+		features["diastolic_pressure"] = data.BloodPressureDiastolic
+	}
+	if data.SleepHours > 0 {
+		features["sleep_hours"] = data.SleepHours
+	}
+	return features
 }
 
 func (s *classifierServer) initPersonalClassifier(deltaSize int) {
@@ -376,7 +391,7 @@ func (s *classifierServer) classifyHandler(w http.ResponseWriter, r *http.Reques
 	modelUsed := modelRuleBased
 
 	if predictedClass == unknownClass && s.activeModel() != nil {
-		features := s.buildClassifierFeatures(data)
+		features := s.buildClassifierFeatures(req.PhysiologicalData)
 		mlClass, mlConfidence, err := s.classifyWithDelta(features, req.UserID)
 		if err == nil && mlConfidence >= mlSwitchThreshold {
 			predictedClass = mlClass

@@ -326,7 +326,31 @@ python scripts\export_go_model.py
 > одного датасета **E4SelfLearning** (<https://huggingface.co/datasets/FcmC/E4SelfLearning/tree/main>).
 > Они уже распакованы в `datasets/raw/<ИМЯ>`.
 
-### 10.1. Подготовка
+### 10.1. Данные сна и SpO2 (PhysioNet)
+
+Эти датасеты закрывают `sleep_hours` и `spo2`, которых нет в E4/PPG:
+
+| Датасет | Папка | Ссылка | Что берём |
+| --------- | ------- | -------- | ----------- |
+| **SHHS PSG** | `datasets/raw/sleep-heart-health-study-psg-database-1.0.0` | <https://physionet.org/content/shhpsgdb/1.0.0/> | SaO2, PR, гипнограмма → sleep_hours |
+| **SleepAccel** | `datasets/raw/motion-and-heart-rate-from-a-wrist-worn-wearable-and-labeled-sleep-from-polysomnography-1.0.0` | <https://physionet.org/content/sleep-accel/1.0.0/> | Apple Watch HR + стадии сна → sleep_hours |
+| **Apnea-ECG** | `datasets/raw/apnea-ecg-database-1.0.0` | <https://physionet.org/content/apnea-ecg/1.0.0/> | SpO2 (записи `*r`) |
+| **PMData** | `datasets/raw/pmdata` | <https://datasets.simula.no/pmdata> | Fitbit minutesAsleep → sleep_hours, HR |
+| **UCDDB** | `datasets/raw/ucddb-1.0.0` | <https://physionet.org/content/ucddb/1.0.0/> | SpO2 + стадии (EDF; пропускается без pyedflib) |
+| **Respiratory + Oximetry** | `datasets/raw/respiratory-oximetry-apnoea-1.0.0` | <https://physionet.org/content/respiratory-oximetry-apnoea/1.0.0/> | PPG/SpO2 у здоровых |
+
+Скрипт: `scripts/prepare_sleep_datasets.py` → `datasets/processed/sleep_dataset.csv`.
+
+### 10.2. Питание и менструальный цикл
+
+| Датасет | Папка | Ссылка | Скрипт | Результат |
+| --------- | ------- | -------- | -------- | ----------- |
+| **Open Food Facts** | `datasets/raw/food` | <https://huggingface.co/datasets/openfoodfacts/product-database> | `prepare_food_datasets.py` | аллергены/нутриенты (parquet, требует schema-парсера) |
+| **USDA FoodData Central** | `datasets/raw/usda` | <https://fdc.nal.usda.gov/download-datasets.html> | `prepare_food_datasets.py` | `food_nutrients.csv` (16 301 продукт) |
+| **Menstrual (factors)** | `datasets/raw/Menstrual_cycle_data_with_factors` | <https://www.kaggle.com/datasets/akshayas02/menstrual-cycle-data-with-factors-dataset> | `prepare_menstrual_datasets.py` | `menstrual_dataset.csv` |
+| **Menstrual Health** | `datasets/raw/Menstrual_Health_&_Productivity` | <https://www.kaggle.com/datasets/puspitachowdhury2/menstrual-health-dataset> | `prepare_menstrual_datasets.py` | 18 871 запись (цикл, стресс, сон) |
+
+### 10.3. Подготовка
 
 Все архивы распакованы, лишние файлы удалены. Проверить:
 
@@ -341,6 +365,15 @@ Get-ChildItem datasets\raw | Select-Object Name, LinkType, Target
 ```powershell
 # 1. 13 датасетов -> classifier_dataset.csv (сырые значения)
 python -u scripts\prepare_raw_datasets.py
+
+# 2. сон + SpO2 из PhysioNet -> sleep_dataset.csv
+python -u scripts\prepare_sleep_datasets.py
+
+# 2a. питание (USDA) -> food_nutrients.csv
+python -u scripts\prepare_food_datasets.py
+
+# 2b. менструальный цикл -> menstrual_dataset.csv
+python -u scripts\prepare_menstrual_datasets.py
 
 # 2. очистка выбросов + min-max (models/classifier_scaler.json) + балансировка
 python -u scripts\prepare_classifier_dataset.py
@@ -371,12 +404,23 @@ go test ./cmd/classifier -run TestTreeModelMatchesGoldenSet -v
 
 | Метрика | Значение |
 | --------- | ---------- |
-| Сырых строк (13 датасетов) | 12 951 581 |
-| После очистки | 6 184 166 |
-| После балансировки | ~100 000 (до 20 000 на класс) |
-| HistGradientBoosting, validation accuracy | ≈ 0.999 |
+| Сырых строк (13 датасетов) | 31 227 838 |
+| После очистки (выбросы, NaN) | 21 107 086 |
+| После балансировки | 120 070 (по 20 000 на класс, `recovery` — 70) |
+| HistGradientBoosting, validation accuracy | 0.9997 |
+| HistGradientBoosting, test accuracy | 0.9994 |
 | Деревья для Go | 700 деревьев, 39 800 узлов, 1.9 МБ |
 | Go vs Python (golden set) | 400 / 400 |
+
+### 12.1. Ограничение модели
+
+Метрики 0.999+ относятся к **отложенной выборке того же распределения**, что и обучение (правила `rule_based_label` на реальных E4/PPG-данных). На синтетических «канонических» состояниях (например, HR 50 / HRV 90 / сон 8) модель тяготеет к `overtraining`, потому что в публичных датасетах почти нет примеров `recovery` (15) и `illness` (125).
+
+Поэтому:
+
+- **правила — первичный источник** (они покрывают весь физиологический диапазон);
+- **ML применяется только для `unknown`** (низкий SpO2, субфебрилитет);
+- `recovery` и `illness` недопредставлены в данных — это ограничение датасетов, а не кода.
 
 ---
 
@@ -447,3 +491,17 @@ internal/chat/
 
 *Последнее обновление: 2026-11-22*
 *Отражает реализованный пайплайн на момент коммита*
+
+## 16. Дополнение: реальные данные (2026-11-26)
+
+- **Open Food Facts**: `nutriments` — массив `{name, 100g}`; парсер `prepare_food_datasets.py` извлекает 50 000 продуктов. Вместе с USDA (16 301) — `food_nutrients.csv` (66 301).
+- **Sleep-EDF**: PSG читается (`mne`), `Temp rectal` — core temperature → `datasets/processed/sleep_edf_dataset.csv` (18 записей). Гипнограммы в скачанной копии битые (S3 `NoSuchKey`), их нужно перекачать по `https://physionet-open.s3.amazonaws.com/sleep-edfx/1.0.0/sleep-cassette/SC4001EC-Hypnogram.edf`.
+- **Core vs skin**: температура ядра (~37 °C) и кожи запястья (~33 °C) хранятся раздельно, чтобы не смешивать семантику.
+- **UCDDB**: 25 записей EDF → SpO2 + стадии сна → `sleep_dataset.csv` (всего 81 строка).
+
+### 16.1. EDF+ гипнограммы (TAL)
+
+`scripts/edf_reader.py` читает EDF+ аннотации формата `+onset\x15duration\x14text\x14\x00`.
+`process_sleep_edf()` объединяет `SC*-PSG.edf` (core temp) и `SC*-Hypnogram.edf` (стадии сна) по префиксу subject id.
+Скачана только `SC4001EC-Hypnogram.edf` (1.175 ч сна); остальные гипнограммы в копии — S3 `NoSuchKey`, их нужно перекачать:
+`https://physionet-open.s3.amazonaws.com/sleep-edfx/1.0.0/sleep-cassette/SC4001EC-Hypnogram.edf`

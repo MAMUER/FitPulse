@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import pickle
 import time
 import zipfile
@@ -55,6 +56,9 @@ def safe_read_csv(path: Path, **kwargs) -> pd.DataFrame | None:
     try:
         if not path.exists() or path.stat().st_size == 0:
             return None
+        # low_memory=False убирает DtypeWarning на E4-файлах: первая колонка
+        # timestamp смешивает числа и строки, pandas читает чанками и ругается.
+        kwargs.setdefault("low_memory", False)
         return pd.read_csv(path, **kwargs)
     except Exception:
         return None
@@ -1415,9 +1419,17 @@ def main() -> None:
     df = pd.concat(summary, ignore_index=True)
     print(f"Combined rows before cleanup: {len(df)}", flush=True)
 
+    print("Removing all-NaN rows ...", flush=True)
     df = df.dropna(subset=FEATURE_COLUMNS, how="all").reset_index(drop=True)
-    df = df.drop_duplicates(subset=FEATURE_COLUMNS, keep="first").reset_index(drop=True)
-    print(f"Rows after dropping all-NaN and duplicates: {len(df)}", flush=True)
+    print(f"Rows after dropna: {len(df)}", flush=True)
+
+    # Полный drop_duplicates на 30+ млн строк занимает минуты и требует много
+    # памяти, а дубликаты между датасетами — это легитимные повторные измерения.
+    # Балансировка и очистка всё равно делаются в prepare_classifier_dataset.py.
+    if os.environ.get("DEDUP", "0") == "1":
+        print("Removing duplicate feature rows (DEDUP=1) ...", flush=True)
+        df = df.drop_duplicates(subset=FEATURE_COLUMNS, keep="first").reset_index(drop=True)
+        print(f"Rows after dedupe: {len(df)}", flush=True)
 
     if "_label_override" in df.columns:
         df = apply_label_overrides(df)

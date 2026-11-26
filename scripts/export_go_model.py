@@ -162,12 +162,22 @@ def main() -> None:
     ) as fh:
         scaler = json.load(fh)
 
-    feature_columns = list(model.feature_names_in_) if hasattr(model, "feature_names_in_") else [
-        "heart_rate",
-        "hrv",
-        "spo2",
-        "temperature",
-    ]
+    if hasattr(model, "feature_names_in_"):
+        feature_columns = list(model.feature_names_in_)
+    else:
+        # Тот же порядок, что в train_classifier.py: только непустые признаки.
+        required = [
+            "heart_rate",
+            "hrv",
+            "spo2",
+            "temperature",
+            "systolic_pressure",
+            "diastolic_pressure",
+            "sleep_hours",
+        ]
+        feature_columns = [
+            c for c in required if c in df.columns and df[c].notna().sum() > 0
+        ]
     classes = [str(c) for c in model.classes_]
 
     export_trees(model, feature_columns, classes, scaler)

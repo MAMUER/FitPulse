@@ -1,0 +1,228 @@
+﻿╨Ю╨▒╤А╨░╨▒╨╛╤В╨║╨░ 13 ╨┤╨░╤В╨░╤Б╨╡╤В╨╛╨▓. ╨Ъ╨╛╤А╨╡╨╜╤М: C:\Users\mihni\Documents\FitPulse\datasets\raw
+[1/13] bidmc ...
+  BIDMC: ╤Б╤Г╨▒╤К╨╡╨║╤В╨╛╨▓ 10/53
+  BIDMC: ╤Б╤Г╨▒╤К╨╡╨║╤В╨╛╨▓ 20/53
+  BIDMC: ╤Б╤Г╨▒╤К╨╡╨║╤В╨╛╨▓ 30/53
+  BIDMC: ╤Б╤Г╨▒╤К╨╡╨║╤В╨╛╨▓ 40/53
+  BIDMC: ╤Б╤Г╨▒╤К╨╡╨║╤В╨╛╨▓ 50/53
+BIDMC files used: 53, rows: 25493
+[1/13] bidmc: 25493 ╤Б╤В╤А╨╛╨║ ╨╖╨░ 1.4╤Б
+[2/13] E4SelfLearning_ADARP ...
+  ADARP: ╤Б╨╡╤Б╤Б╨╕╨╣ 100
+  ADARP: ╤Б╨╡╤Б╤Б╨╕╨╣ 200
+ADARP: sessions=237, rows=6091678
+[2/13] E4SelfLearning_ADARP: 6091678 ╤Б╤В╤А╨╛╨║ ╨╖╨░ 79.0╤Б
+[3/13] E4SelfLearning_big-ideas ...
+big-ideas: sessions=16, rows=9384435
+[3/13] E4SelfLearning_big-ideas: 9384435 ╤Б╤В╤А╨╛╨║ ╨╖╨░ 199.0╤Б
+[4/13] in-gauge_en-gage ...
+  in-gauge: ╤Б╨╡╤Б╤Б╨╕╨╣ 1000
+  in-gauge: ╤Б╨╡╤Б╤Б╨╕╨╣ 1100
+in-gauge_en-gage: sessions=1120, rows=3719753
+[4/13] in-gauge_en-gage: 3719753 ╤Б╤В╤А╨╛╨║ ╨╖╨░ 96.0╤Б
+[5/13] PPG_DaLiA ...
+  PPG_DaLiA: ╤Б╤Г╨▒╤К╨╡╨║╤В╨╛╨▓ 5/15
+  PPG_DaLiA: ╤Б╤Г╨▒╤К╨╡╨║╤В╨╛╨▓ 10/15
+  PPG_DaLiA: ╤Б╤Г╨▒╤К╨╡╨║╤В╨╛╨▓ 15/15
+PPG_DaLiA: subjects=135622
+[5/13] PPG_DaLiA: 135622 ╤Б╤В╤А╨╛╨║ ╨╖╨░ 177.7╤Б
+[6/13] SPD ...
+SPD: sessions=35, rows=115720
+[6/13] SPD: 115720 ╤Б╤В╤А╨╛╨║ ╨╖╨░ 5.2╤Б
+[7/13] stress_nurses ...
+stress_nurses: participants=15, rows=4635993
+[7/13] stress_nurses: 4635993 ╤Б╤В╤А╨╛╨║ ╨╖╨░ 78.8╤Б
+[8/13] Toadstool ...
+Toadstool: sessions=20, rows=1287033
+[8/13] Toadstool: 1287033 ╤Б╤В╤А╨╛╨║ ╨╖╨░ 2.6╤Б
+[9/13] ue4w ...
+ue4w: sessions=29, rows=955947
+[9/13] ue4w: 955947 ╤Б╤В╤А╨╛╨║ ╨╖╨░ 21.1╤Б
+[10/13] WEEE ...
+WEEE: sessions=19, rows=4433132
+[10/13] WEEE: 4433132 ╤Б╤В╤А╨╛╨║ ╨╖╨░ 9.6╤Б
+[11/13] WESAD ...
+  WESAD: ╤Д╨░╨╣╨╗╨╛╨▓ 10/15
+WESAD: subjects=15
+[11/13] WESAD: 15 ╤Б╤В╤А╨╛╨║ ╨╖╨░ 106.5╤Б
+[12/13] WESAD_labels ...
+WESAD_labels: subjects=15
+[12/13] WESAD_labels: 15 ╤Б╤В╤А╨╛╨║ ╨╖╨░ 110.0╤Б
+[13/13] WESD ...
+WESD: Data.zip missing
+  WESD: ╤Г╤З╨░╤Б╤В╨╜╨╕╨║╨╛╨▓ 25
+WESD: participants=30, rows=443002
+[13/13] WESD: 443002 ╤Б╤В╤А╨╛╨║ ╨╖╨░ 4.4╤Б
+╨Ф╨░╤В╨░╤Б╨╡╤В╤Л ╨╛╨▒╤А╨░╨▒╨╛╤В╨░╨╜╤Л ╨╖╨░ 891.1╤Б
+Combined rows before cleanup: 31227838
+Removing all-NaN rows ...
+Rows after dropna: 31227838
+╨Ч╨░╨┐╨╕╤Б╤М C:\Users\mihni\Documents\FitPulse\datasets\processed\classifier_dataset.csv ...
+
+Dataset saved to C:\Users\mihni\Documents\FitPulse\datasets\processed\classifier_dataset.csv
+Total samples: 31227838
+Class distribution:
+label
+unknown                21536149
+endurance_basic         6402304
+overtraining            3259398
+endurance_threshold       16907
+power_hiit                 8668
+illness                    4397
+recovery                     15
+Feature stats:
+        heart_rate        hrv     spo2  temperature systolic_pressure diastolic_pressure sleep_hours
+count   31227753.0  7330857.0  25365.0  26692709.00                 0                  0           0
+unique   4153755.0      681.0     17.0      1282.00                 0                  0           0
+top           79.0        0.0    100.0        34.23               NaN                NaN         NaN
+freq       18318.0  1198838.0   5813.0    106311.00               NaN                NaN         NaN
+Sleep-EDF (core temp): 18 rows -> C:\Users\mihni\Documents\FitPulse\datasets\processed\sleep_edf_dataset.csv
+
+Saved 81 rows to C:\Users\mihni\Documents\FitPulse\datasets\processed\sleep_dataset.csv
+label
+unknown         45
+illness         20
+overtraining    16
+       heart_rate  hrv       spo2  temperature  systolic_pressure  diastolic_pressure  sleep_hours
+count   73.000000  0.0  34.000000          0.0                0.0                 0.0    73.000000
+mean    67.382296  NaN  92.579657          NaN                NaN                 NaN     5.101557
+std      9.196598  NaN   2.258701          NaN                NaN                 NaN     1.304584
+min     49.000000  NaN  86.000000          NaN                NaN                 NaN     0.000000
+25%     61.115462  NaN  91.909625          NaN                NaN                 NaN     4.400000
+50%     67.000000  NaN  92.645270          NaN                NaN                 NaN     5.200000
+75%     73.496111  NaN  94.074664          NaN                NaN                 NaN     5.912151
+max     96.374074  NaN  96.000000          NaN                NaN                 NaN     7.372748
+Open Food Facts: 50000 rows
+USDA: 16301 rows
+Saved 66301 rows to C:\Users\mihni\Documents\FitPulse\datasets\processed\food_nutrients.csv
+source
+openfoodfacts          50000
+usda:sr-legacy.zip     15963
+usda:foundation.zip      338
+Saved 18871 rows to C:\Users\mihni\Documents\FitPulse\datasets\processed\menstrual_dataset.csv
+              age         bmi        stress   sleep_hours  cycle_length
+count  895.000000  895.000000  18871.000000  18871.000000  18871.000000
+mean    31.024581   24.483598      5.622633      6.961602     28.269991
+std      8.276909    3.184808      1.846853      1.310601      3.500650
+min     18.000000   18.550000      1.000000      4.500000     22.000000
+25%     25.000000   21.785000      4.400000      6.000000     26.000000
+50%     31.000000   24.380000      5.700000      7.000000     28.000000
+75%     38.000000   26.970000      6.900000      7.900000     29.000000
+max     45.000000   29.570000     10.000000     10.000000     50.000000
+Preparing classifier dataset...
+Loading existing dataset from C:\Users\mihni\Documents\FitPulse\datasets\processed\classifier_dataset.csv
+Loaded 31227838 samples
+╨Ф╨╛╨▒╨░╨▓╨╗╨╡╨╜ sleep_dataset.csv: +81 ╤Б╤В╤А╨╛╨║
+  ╤Г╨┤╨░╨╗╨╡╨╜╨╕╨╡ all-NaN ╤Б╤В╤А╨╛╨║ ...
+After cleaning: 21107167 samples
+Scaler saved to C:\Users\mihni\Documents\FitPulse\models\classifier_scaler.json
+╨С╨░╨╗╨░╨╜╤Б╨╕╤А╨╛╨▓╨║╨░ ╨║╨╗╨░╤Б╤Б╨╛╨▓ (╨┤╨╛ 20000 ╨╜╨░ ╨║╨╗╨░╤Б╤Б): {'endurance_threshold': 20000, 'illness': 20000, 'endurance_basic': 20000, 'overtraining': 20000, 'power_hiit': 20000, 'unknown': 20000, 'recovery': 70}
+Dataset saved to C:\Users\mihni\Documents\FitPulse\datasets\processed\classifier_dataset.csv (120070 samples)
+
+Class distribution:
+label
+endurance_threshold    20000
+illness                20000
+endurance_basic        20000
+overtraining           20000
+power_hiit             20000
+unknown                20000
+recovery                  70
+
+Feature stats:
+          heart_rate           hrv          spo2   temperature  systolic_pressure  diastolic_pressure  sleep_hours
+count  119983.000000  65735.000000  20248.000000  99036.000000                0.0                 0.0    51.000000
+mean        0.494618      0.155987      0.482382      0.447033                NaN                 NaN     0.666560
+std         0.210884      0.130020      0.191555      0.214848                NaN                 NaN     0.118554
+min         0.005392      0.036838      0.000000      0.000000                NaN                 NaN     0.450985
+25%         0.302367      0.036840      0.529412      0.274933                NaN                 NaN     0.562319
+50%         0.471505      0.117103      0.588235      0.466307                NaN                 NaN     0.679303
+75%         0.678169      0.197367      0.588235      0.629380                NaN                 NaN     0.738079
+max         0.992182      1.000000      1.000000      0.956873                NaN                 NaN     0.888407
+Loading dataset from datasets\processed\classifier_dataset.csv
+Using features: ['heart_rate', 'hrv', 'spo2', 'temperature', 'sleep_hours']
+Dataset shape: (120070, 5), classes: 7
+  Class recovery: 70 samples
+  Class endurance_basic: 20000 samples
+  Class endurance_threshold: 20000 samples
+  Class power_hiit: 20000 samples
+  Class overtraining: 20000 samples
+  Class illness: 20000 samples
+  Class unknown: 20000 samples
+Split: train=84048, val=24014, test=12008
+Training HistGradientBoosting...
+Validation accuracy: 0.9997
+
+Classification report (validation):
+                     precision    recall  f1-score   support
+
+           recovery       1.00      1.00      1.00        14
+    endurance_basic       1.00      1.00      1.00      4000
+endurance_threshold       1.00      1.00      1.00      4000
+         power_hiit       1.00      1.00      1.00      4000
+       overtraining       1.00      1.00      1.00      4000
+            illness       1.00      1.00      1.00      4000
+            unknown       1.00      1.00      1.00      4000
+
+           accuracy                           1.00     24014
+          macro avg       1.00      1.00      1.00     24014
+       weighted avg       1.00      1.00      1.00     24014
+
+Test accuracy: 0.9997
+
+Classification report (test):
+                     precision    recall  f1-score   support
+
+           recovery       1.00      1.00      1.00         7
+    endurance_basic       1.00      1.00      1.00      2000
+endurance_threshold       1.00      1.00      1.00      2000
+         power_hiit       1.00      1.00      1.00      2000
+       overtraining       1.00      1.00      1.00      2001
+            illness       1.00      1.00      1.00      2000
+            unknown       1.00      1.00      1.00      2000
+
+           accuracy                           1.00     12008
+          macro avg       1.00      1.00      1.00     12008
+       weighted avg       1.00      1.00      1.00     12008
+
+Model saved to models\classifier.pkl
+
+Exporting fallback ONNX to models\classifier.onnx ...
+Fallback sample distribution: {np.int64(0): np.int64(49), np.int64(1): np.int64(831), np.int64(2): np.int64(825), np.int64(3): np.int64(823), np.int64(4): np.int64(815), np.int64(5): np.int64(831), np.int64(6): np.int64(826)}
+skl2onnx ╨╜╨╡ ╤Г╤Б╤В╨░╨╜╨╛╨▓╨╗╨╡╨╜ тАФ ONNX-╤Н╨║╤Б╨┐╨╛╤А╤В ╨┐╤А╨╛╨┐╤Г╤Й╨╡╨╜ (Go ╨╕╤Б╨┐╨╛╨╗╤М╨╖╤Г╨╡╤В JSON-╨▓╨╡╤Б╨░)
+Go weights exported to models\classifier_weights.json
+Metrics exported to models\train_metrics.json
+Done.
+Trees exported to C:\Users\mihni\Documents\FitPulse\models\classifier_trees.json (700 trees)
+python : Traceback (most recent call last):
+строка:1 знак:1
++ python -u scripts\export_go_model.py 2>&1 | Tee-Object -FilePath $log ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Traceback (most recent call last)::String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+  File "C:\Users\mihni\Documents\FitPulse\scripts\export_go_model.py", line 178, in <module>
+    main()
+    ~~~~^^
+  File "C:\Users\mihni\Documents\FitPulse\scripts\export_go_model.py", line 174, in main
+    export_golden_set(model, df, feature_columns, scaler, classes)
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\mihni\Documents\FitPulse\scripts\export_go_model.py", line 140, in export_golden_set
+    predicted = int(model.predict(np.array([x]))[0])
+                    ~~~~~~~~~~~~~^^^^^^^^^^^^^^^
+  File "C:\Users\mihni\Documents\FitPulse\.venv\Lib\site-packages\sklearn\ensemble\_hist_gradient_boosting\gradient_boosting.py", line 2115, in predict
+    raw_predictions = self._raw_predict(X)
+  File "C:\Users\mihni\Documents\FitPulse\.venv\Lib\site-packages\sklearn\ensemble\_hist_gradient_boosting\gradient_boosting.py", line 1201, in _raw_predict
+    X = self._preprocess_X(X, reset=False)
+  File "C:\Users\mihni\Documents\FitPulse\.venv\Lib\site-packages\sklearn\ensemble\_hist_gradient_boosting\gradient_boosting.py", line 266, in _preprocess_X
+    return validate_data(self, X, reset=False, **check_X_kwargs)
+  File "C:\Users\mihni\Documents\FitPulse\.venv\Lib\site-packages\sklearn\utils\validation.py", line 3062, in validate_data
+    _check_n_features(_estimator, X, reset=reset)
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\mihni\Documents\FitPulse\.venv\Lib\site-packages\sklearn\utils\validation.py", line 2926, in _check_n_features
+    raise ValueError(
+    ...<2 lines>...
+    )
+ValueError: X has 4 features, but HistGradientBoostingClassifier is expecting 5 features as input.
+ok  	github.com/MAMUER/project/cmd/classifier	0.291s
+

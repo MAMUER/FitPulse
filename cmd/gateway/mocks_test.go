@@ -106,15 +106,16 @@ func (m *mockBiometricClient) GetSources(ctx context.Context, req *biometricpb.G
 // ========== Mock Training Client ==========
 
 type mockTrainingClient struct {
-	plans       map[string]*trainingpb.TrainingPlan
-	planData    *trainingpb.GeneratePlanResponse
-	listResp    *trainingpb.ListPlansResponse
-	progress    *trainingpb.GetProgressResponse
-	completeErr error
-	progressErr error
-	getErr      error
-	listErr     error
-	generateErr error
+	plans           map[string]*trainingpb.TrainingPlan
+	planData        *trainingpb.GeneratePlanResponse
+	listResp        *trainingpb.ListPlansResponse
+	progress        *trainingpb.GetProgressResponse
+	completeErr     error
+	progressErr     error
+	getErr          error
+	listErr         error
+	generateErr     error
+	lastGenerateReq *trainingpb.GeneratePlanRequest
 }
 
 func newMockTrainingClient() *mockTrainingClient {
@@ -124,6 +125,7 @@ func newMockTrainingClient() *mockTrainingClient {
 }
 
 func (m *mockTrainingClient) GeneratePlan(ctx context.Context, req *trainingpb.GeneratePlanRequest, opts ...grpc.CallOption) (*trainingpb.GeneratePlanResponse, error) {
+	m.lastGenerateReq = req
 	if m.generateErr != nil {
 		return nil, m.generateErr
 	}

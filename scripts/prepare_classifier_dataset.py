@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 from typing import NamedTuple
 
@@ -46,7 +47,7 @@ SLEEP_MIN, SLEEP_MAX = 0.0, 12.0
 MIN_DATASET_SIZE = 10000
 
 
-def validate_raw_dataset(df: pd.DataFrame) -> pd.DataFrame:
+def validate_raw_dataset(df: pd.DataFrame, normalized: bool = False) -> pd.DataFrame:
     df = df.copy()
     required = [c for c in FEATURE_COLUMNS if c in df.columns]
     if not required:
@@ -54,7 +55,8 @@ def validate_raw_dataset(df: pd.DataFrame) -> pd.DataFrame:
 
     df = df.dropna(subset=required, how="all")
 
-    if "heart_rate" in df.columns:
+    # У нормализованного датасета heart_rate уже в [0,1] — колонку трогать нельзя.
+    if not normalized and "heart_rate" in df.columns:
         hr = df["heart_rate"].dropna()
         if not hr.empty and hr.max() < 1.0:
             df = df.drop(columns=["heart_rate"], errors="ignore")
@@ -197,48 +199,92 @@ VALID_RANGES = {
 }
 
 
-def clean_dataset(df: pd.DataFrame) -> pd.DataFrame:
-    df = df.copy()
+def clean_dataset(df: pd.DataFrame, normalized: bool = False) -> pd.DataFrame:
     subset = [c for c in FEATURE_COLUMNS if c in df.columns] + ["label"]
-    df = df.drop_duplicates(subset=subset, keep="first")
-    df = df.dropna(subset=FEATURE_COLUMNS, how="all")
-    for col, (low, high) in VALID_RANGES.items():
-        if col in df.columns:
-            series = df[col]
-            # NaN допустим: признак может отсутствовать в источнике.
-            df = df[series.isna() | ((series >= low) & (series <= high))]
+
+    # Полный drop_duplicates на десятках миллионов строк занимает минуты.
+    # По умолчанию пропускаем: дубликаты легитимны (повторные измерения).
+    if os.environ.get("DEDUP", "0") == "1":
+        print("  удаление дубликатов ...", flush=True)
+        df = df.drop_duplicates(subset=subset, keep="first")
+
+    print("  удаление all-NaN строк ...", flush=True)
+    df = df.dropna(subset=subset, how="all")
+
+    # Фильтр выбросов применяем только к сырым значениям: у нормализованного
+    # датасета признаки уже в [0,1], и сырые пороги отбросили бы всё.
+    if not normalized:
+        for col, (low, high) in VALID_RANGES.items():
+            if col in df.columns:
+                series = df[col]
+                df = df[series.isna() | ((series >= low) & (series <= high))]
     return df
 
 
-def main() -> None:
-    print("Preparing classifier dataset...", flush=True)
-
-    already_normalized = False
-    if INPUT_PATH.exists():
-        print(f"Loading existing dataset from {INPUT_PATH}", flush=True)
-        df = pd.read_csv(INPUT_PATH)
-        print(f"Loaded {len(df)} samples", flush=True)
-
-        df = validate_raw_dataset(df)
-        df = clean_dataset(df)
-        print(f"After cleaning: {len(df)} samples", flush=True)
-
-        if len(df) < MIN_DATASET_SIZE:
-            print(
-                f"WARNING: Dataset too small after cleaning ({len(df)} < {MIN_DATASET_SIZE}). Generating synthetic fallback.",
-                flush=True,
-            )
-            df = generate_synthetic_dataset()
-        elif "heart_rate" in df.columns and df["heart_rate"].max() <= 1.0:
-            # Повторный запуск не должен сжимать признаки второй раз.
-            already_normalized = True
-            print("Признаки уже в [0,1] — повторная нормализация пропущена", flush=True)
-    else:
+def load_main_dataset() -> tuple[pd.DataFrame, bool]:
+    """Загружает основной датасет и определяет, нормализован ли он."""
+    if not INPUT_PATH.exists():
         print("No existing dataset found. Generating synthetic dataset.", flush=True)
-        df = generate_synthetic_dataset()
+        return generate_synthetic_dataset(), False
 
-    if already_normalized:
-        df = df.copy()
+    print(f"Loading existing dataset from {INPUT_PATH}", flush=True)
+    df = pd.read_csv(INPUT_PATH)
+    print(f"Loaded {len(df)} samples", flush=True)
+    normalized = bool("heart_rate" in df.columns and df["heart_rate"].max() <= 1.0)
+    return df, normalized
+
+
+def merge_sleep_dataset(df: pd.DataFrame, normalized: bool) -> pd.DataFrame:
+    """Подмешивает sleep_dataset.csv (сон + SpO2 из PhysioNet)."""
+    sleep_path = INPUT_PATH.parent / "sleep_dataset.csv"
+    if not sleep_path.exists():
+        return df
+
+    sleep_df = pd.read_csv(sleep_path)
+    if sleep_df.empty:
+        return df
+
+    if normalized:
+        sleep_df = normalize_with_scaler(sleep_df)
+
+    merged = pd.concat(
+        [df, sleep_df[FEATURE_COLUMNS + ["label"]]], ignore_index=True
+    )
+    print(f"Добавлен sleep_dataset.csv: +{len(sleep_df)} строк", flush=True)
+    return merged
+
+
+def normalize_with_scaler(df: pd.DataFrame) -> pd.DataFrame:
+    """Приводит sleep-датасет к той же [0,1]-шкале, что и основной."""
+    scaler_path = PROJECT_ROOT / "models" / "classifier_scaler.json"
+    if not scaler_path.exists():
+        return df
+    with open(scaler_path, encoding="utf-8") as fh:
+        scaler = json.load(fh)
+    for col in FEATURE_COLUMNS:
+        if col in df.columns:
+            low = scaler[col]["min"]
+            span = scaler[col]["max"] - low
+            if span > 0:
+                df[col] = (df[col] - low) / span
+    return df
+
+
+def finalize_dataset(df: pd.DataFrame, normalized: bool) -> pd.DataFrame:
+    """Чистит, нормализует и балансирует датасет."""
+    df = validate_raw_dataset(df, normalized)
+    df = clean_dataset(df, normalized)
+    print(f"After cleaning: {len(df)} samples", flush=True)
+
+    if len(df) < MIN_DATASET_SIZE:
+        print(
+            f"WARNING: Dataset too small after cleaning ({len(df)} < {MIN_DATASET_SIZE}). Generating synthetic fallback.",
+            flush=True,
+        )
+        return balance_dataset(generate_synthetic_dataset())
+
+    if normalized:
+        print("Признаки уже в [0,1] — повторная нормализация пропущена", flush=True)
     else:
         df = normalize_features(df)
 
@@ -246,8 +292,15 @@ def main() -> None:
         if col not in df.columns:
             df[col] = np.nan
 
-    df = df[FEATURE_COLUMNS + ["label"]]
-    df = balance_dataset(df)
+    return balance_dataset(df[FEATURE_COLUMNS + ["label"]])
+
+
+def main() -> None:
+    print("Preparing classifier dataset...", flush=True)
+
+    df, normalized = load_main_dataset()
+    df = merge_sleep_dataset(df, normalized)
+    df = finalize_dataset(df, normalized)
 
     OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
     df.to_csv(OUTPUT_PATH, index=False)

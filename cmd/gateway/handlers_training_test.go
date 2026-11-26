@@ -59,7 +59,7 @@ func TestTraining_GeneratePlanHandler_Success(t *testing.T) {
 	assert.Contains(t, w.Body.String(), "status")
 }
 
-func TestTraining_GeneratePlanHandler_DefaultClass(t *testing.T) {
+func TestTraining_GeneratePlanHandler_EmptyClass(t *testing.T) {
 	g := newTestGateway()
 	withTrainingClient(g)
 
@@ -71,7 +71,11 @@ func TestTraining_GeneratePlanHandler_DefaultClass(t *testing.T) {
 	g.generatePlanHandler(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Contains(t, w.Body.String(), "endurance_basic")
+	// Класс не подставляется: его определяет training-service через classifier.
+	mock := g.trainingClient.(*mockTrainingClient)
+	if assert.NotNil(t, mock.lastGenerateReq) {
+		assert.Empty(t, mock.lastGenerateReq.Classification)
+	}
 }
 
 func TestTraining_GeneratePlanHandler_GRPCError(t *testing.T) {
