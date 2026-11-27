@@ -17,9 +17,15 @@ from pathlib import Path
 PLAN_DIM = 19
 
 # Тип тренировки -> индекс упражнения (p6..p12).
-WORKOUT_TYPES = ["Strength", "HIIT", "Cardio", "Yoga", "Other", "Other", "Other"]
+WORKOUT_TYPE_INDEX = {
+    "Strength": 0,
+    "HIIT": 1,
+    "Cardio": 2,
+    "Yoga": 3,
+}
+OTHER_TYPE_INDEX = 4
 
-# Базовые параметры по типу: (подходы, повторы, отдых,секундах)
+# Базовые параметры по типу: (подходы, повторы, отдых в секундах).
 TYPE_PARAMS = {
     "Strength": (4, 10, 75.0),
     "HIIT": (4, 18, 35.0),
@@ -60,7 +66,7 @@ def classify(
     return 0
 
 
-def build_vector(row: dict) -> tuple[list[float], int]:
+def build_vector(row: dict) -> tuple[list[float], list[float]]:
     age = float(row["Age"])
     gender = 1.0 if row["Gender"].strip().lower() == "male" else 0.0
     weight = float(row["Weight (kg)"])
@@ -89,7 +95,7 @@ def build_vector(row: dict) -> tuple[list[float], int]:
     plan[4] = round(clamp01(reps / 25.0), 4)
     plan[5] = round(clamp01(rest / 120.0), 4)
 
-    type_index = WORKOUT_TYPES.index(workout_type) if workout_type in WORKOUT_TYPES else 4
+    type_index = WORKOUT_TYPE_INDEX.get(workout_type, OTHER_TYPE_INDEX)
     for i in range(7):
         plan[6 + i] = 1.0 if i == type_index else 0.05
 
@@ -100,7 +106,13 @@ def build_vector(row: dict) -> tuple[list[float], int]:
     plan[17] = round(clamp01((max_bpm - 150.0) / 50.0), 4)
     plan[18] = round(clamp01(intensity * 0.5 + experience / 6.0), 4)
 
-    class_index = classify(intensity, calories, duration, frequency, workout_type)
+    class_index = classify(
+        intensity,
+        calories,
+        duration,
+        frequency,
+        workout_type,
+    )
 
     profile = [class_index, age, gender, weight, height, goal]
     return plan, profile
@@ -120,7 +132,7 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    rows = []
+    rows: list[list[float]] = []
     with args.input.open(newline="", encoding="utf-8") as fh:
         for row in csv.DictReader(fh):
             plan, profile = build_vector(row)
@@ -141,8 +153,9 @@ def main() -> None:
         writer.writerows(rows)
 
     counts: dict[int, int] = {}
-    for row in rows:
-        counts[int(row[PLAN_DIM])] = counts.get(int(row[PLAN_DIM]), 0) + 1
+    for record in rows:
+        class_index = int(record[PLAN_DIM])
+        counts[class_index] = counts.get(class_index, 0) + 1
     print(f"Записано {len(rows)} строк в {args.output}")
     print("Распределение классов:", dict(sorted(counts.items())))
 
