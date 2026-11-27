@@ -860,13 +860,7 @@ func buildGateway(opts gatewayBuildOptions) *gateway {
 
 	}
 
-	g.biometricWebhookProxy = httputil.NewSingleHostReverseProxy(biometricWebhookTarget)
-
-	g.biometricWebhookProxy.Rewrite = func(req *httputil.ProxyRequest) {
-
-		req.Out.Header.Set(headerCorrelationID, middleware.GetCorrelationID(req.In.Context()))
-
-	}
+	g.biometricWebhookProxy = newPrefixProxy(biometricWebhookTarget)
 
 	owFrontendTarget, err := url.Parse(opts.cfg.openWearablesFrontendURL)
 

@@ -254,7 +254,7 @@ func buildPlanData(plan *entity.TrainingPlan, req *pb.GeneratePlanRequest, train
 		"class":                plan.Classification,
 		"duration_weeks":       int(req.DurationWeeks),
 		"training_goal":        trainingGoal,
-		"weeks":                weeks,
+		"weeks":                planWeeksToData(weeks),
 		"generation_method":    ganParams.GenerationMethod,
 		"gan_intensity":        ganParams.Intensity,
 		"gan_duration_minutes": ganParams.DurationMinutes,
@@ -264,6 +264,54 @@ func buildPlanData(plan *entity.TrainingPlan, req *pb.GeneratePlanRequest, train
 		planData["gan_vector"] = ganParams.RawVector
 	}
 	return planData
+}
+
+// planWeeksToData преобразует недели плана в JSON-совместимые структуры:
+// structpb.NewStruct не принимает Go-структуры и time.Time.
+func planWeeksToData(weeks []*entity.PlanWeek) []interface{} {
+	result := make([]interface{}, 0, len(weeks))
+	for _, w := range weeks {
+		if w == nil {
+			continue
+		}
+		days := make([]interface{}, 0, len(w.Days))
+		for _, d := range w.Days {
+			if d == nil {
+				continue
+			}
+			exercises := make([]interface{}, 0, len(d.Exercises))
+			for _, e := range d.Exercises {
+				if e == nil {
+					continue
+				}
+				exercises = append(exercises, map[string]interface{}{
+					"name":             e.ExerciseName,
+					"duration_minutes": int(e.DurationMinutes),
+					"intensity":        e.Intensity,
+					"sets":             int(e.Sets),
+					"reps":             int(e.Reps),
+					"rest_seconds":     int(e.RestSeconds),
+					"description":      e.Description,
+				})
+			}
+			days = append(days, map[string]interface{}{
+				"day_of_week":            int(d.DayOfWeek),
+				"training_date":          d.TrainingDate.Format(time.RFC3339),
+				"training_type":          d.TrainingType,
+				"is_rest_day":            d.IsRestDay,
+				"total_duration_minutes": int(d.TotalDurationMinutes),
+				"notes":                  d.Notes,
+				"exercises":              exercises,
+			})
+		}
+		result = append(result, map[string]interface{}{
+			"week":                   int(w.WeekNumber),
+			"total_training_days":    int(w.TotalTrainingDays),
+			"total_duration_minutes": int(w.TotalDurationMinutes),
+			"days":                   days,
+		})
+	}
+	return result
 }
 
 // buildPlanSummaries сериализует доменные планы в protobuf-структуры для ListPlans.

@@ -22,6 +22,7 @@ spec:
     metadata:
       labels:
         app: open-wearables
+        tier: backend
         zone: internal
         environment: production
         app.kubernetes.io/name: open-wearables

@@ -17,3 +17,11 @@ spec:
       ports:
         - protocol: TCP
           port: 3000
+    # Gateway публикует OpenWearables через reverse proxy (/open-wearables).
+    - from:
+        - podSelector:
+            matchLabels:
+              app: gateway
+      ports:
+        - protocol: TCP
+          port: 3000

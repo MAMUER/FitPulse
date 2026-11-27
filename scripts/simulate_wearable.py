@@ -26,15 +26,16 @@ import urllib.request
 import uuid
 
 
-def sign(secret: bytes, timestamp: str, body: bytes) -> str:
-    mac = hmac.new(secret, timestamp.encode() + b"." + body, hashlib.sha256)
+def sign(secret: bytes, body: bytes) -> str:
+    mac = hmac.new(secret, body, hashlib.sha256)
     return mac.hexdigest()
 
 
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument(
-        "--url", default="http://127.0.0.1:8085/api/v1/webhook/open-wearables"
+        "--url",
+        default="http://127.0.0.1:8085/api/v1/integrations/open-wearables/webhook",
     )
     ap.add_argument("--secret", default="")
     ap.add_argument("--user-id", default="")
@@ -52,7 +53,7 @@ def main() -> None:
             {"metric_type": "heart_rate", "value": 62.0, "unit": "bpm"},
             {"metric_type": "hrv", "value": 45.0, "unit": "ms"},
             {"metric_type": "spo2", "value": 97.5, "unit": "%"},
-            {"metric_type": "temperature", "value": 36.6, "unit": "C"},
+            {"metric_type": "temperature", "value": 33.5, "unit": "C"},
             {"metric_type": "sleep", "value": 7.2, "unit": "h"},
         ],
     }
@@ -63,9 +64,7 @@ def main() -> None:
     req.add_header("X-Webhook-Id", "sim-" + uuid.uuid4().hex)
     req.add_header("X-Webhook-Timestamp", ts)
     if args.secret:
-        req.add_header(
-            "X-Webhook-Signature", "sha256=" + sign(args.secret.encode(), ts, body)
-        )
+        req.add_header("X-Open-Wearables-Signature", sign(args.secret.encode(), body))
 
     try:
         with urllib.request.urlopen(req, timeout=10) as resp:
@@ -79,3 +78,7 @@ def main() -> None:
     print(
         '  psql -c "SELECT metric_type, value, created_at FROM biometric_data ORDER BY created_at DESC LIMIT 10;"'
     )
+
+
+if __name__ == "__main__":
+    main()
