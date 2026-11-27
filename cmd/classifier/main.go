@@ -186,6 +186,17 @@ func (d physiologicalData) temperatureThresholds() (subfebrile, feverSign, high 
 	return 35.8, 36.0, 36.5
 }
 
+// resolveTemperatureSource определяет источник температуры, если он не задан явно.
+// Платформа измеряет только температуру кожи запястья, поэтому по умолчанию
+// используется "wrist". Явно переданные "core"/"wrist" имеют приоритет.
+func resolveTemperatureSource(data physiologicalData) string {
+	source := strings.ToLower(strings.TrimSpace(data.TemperatureSource))
+	if source == "core" || source == "wrist" {
+		return source
+	}
+	return "wrist"
+}
+
 type userProfile struct {
 	Gender           string   `json:"gender"`
 	Age              int      `json:"age"`
@@ -357,11 +368,22 @@ func buildClassifyResponse(
 func applyPhysiologicalDefaults(data physiologicalData) physiologicalData {
 	data.HeartRateVariability = defaultIfZero(data.HeartRateVariability, 50.0)
 	data.SpO2 = defaultIfZero(data.SpO2, 98.0)
-	data.Temperature = defaultIfZero(data.Temperature, 37.0)
+	data.Temperature = defaultIfZero(data.Temperature, defaultTemperature(data.TemperatureSource))
 	data.BloodPressureSystolic = defaultIfZero(data.BloodPressureSystolic, 120.0)
 	data.BloodPressureDiastolic = defaultIfZero(data.BloodPressureDiastolic, 80.0)
 	data.SleepHours = defaultIfZero(data.SleepHours, 7.0)
 	return data
+}
+
+// defaultTemperature возвращает нейтральное значение температуры для источника:
+// кожа запястья ~33.5 °C, ядро — 37.0 °C. Ранее для всех подставлялось 37.0,
+// и при wrist-порогах (>36.5 — лихорадка) отсутствие измерения приводило к
+// class=illness в 100% запросов.
+func defaultTemperature(source string) float64 {
+	if strings.EqualFold(source, "core") {
+		return 37.0
+	}
+	return 33.5
 }
 
 // resolveAge возвращает возраст из профиля или 30 по умолчанию.
@@ -438,9 +460,7 @@ func (s *classifierServer) classifyHandler(w http.ResponseWriter, r *http.Reques
 	}
 
 	data := req.PhysiologicalData
-	if data.TemperatureSource == "" {
-		data.TemperatureSource = "wrist"
-	}
+	data.TemperatureSource = resolveTemperatureSource(data)
 	missing := missingMetrics(req.PhysiologicalData)
 	quality := dataQuality(missing)
 	data = applyPhysiologicalDefaults(data)

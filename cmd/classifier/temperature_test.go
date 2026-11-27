@@ -74,6 +74,41 @@ func TestClassifyState_TemperatureSemantics(t *testing.T) {
 	})
 }
 
+func TestResolveTemperatureSource(t *testing.T) {
+	t.Run("empty source defaults to wrist", func(t *testing.T) {
+		assert.Equal(t, "wrist", resolveTemperatureSource(physiologicalData{Temperature: 36.6}))
+		assert.Equal(t, "wrist", resolveTemperatureSource(physiologicalData{}))
+	})
+
+	t.Run("explicit source wins", func(t *testing.T) {
+		assert.Equal(t, "core", resolveTemperatureSource(physiologicalData{Temperature: 36.6, TemperatureSource: "core"}))
+		assert.Equal(t, "wrist", resolveTemperatureSource(physiologicalData{Temperature: 33.5, TemperatureSource: "wrist"}))
+	})
+}
+
+func TestDefaultTemperature(t *testing.T) {
+	assert.InDelta(t, 33.5, defaultTemperature("wrist"), 1e-9)
+	assert.InDelta(t, 33.5, defaultTemperature(""), 1e-9)
+	assert.InDelta(t, 37.0, defaultTemperature("core"), 1e-9)
+}
+
+func TestClassifyState_MissingTemperatureIsNotFever(t *testing.T) {
+	data := physiologicalData{
+		HeartRate:              62,
+		HeartRateVariability:   55,
+		SpO2:                   98,
+		SleepHours:             7.5,
+		BloodPressureSystolic:  118,
+		BloodPressureDiastolic: 76,
+	}
+	data.TemperatureSource = resolveTemperatureSource(data)
+	data = applyPhysiologicalDefaults(data)
+
+	class, _, _ := classifyState(data, 30)
+	assert.NotEqual(t, 5, class, "отсутствие температуры не должно давать illness")
+	assert.NotEqual(t, unknownClass, class, "отсутствие температуры не должно давать unknown")
+}
+
 func TestMissingMetricsAndQuality(t *testing.T) {
 	t.Run("nothing missing", func(t *testing.T) {
 		d := physiologicalData{

@@ -254,7 +254,7 @@ describe('Training', () => {
     expect(screen.getByText('Планы FitPulse')).toBeInTheDocument();
     // План виден и в карточке «Мой план», и в списке «Планы FitPulse».
     expect(screen.getAllByText('Силовая база').length).toBeGreaterThan(1);
-    fireEvent.click(screen.getByText('Сгенерировать'));
+    fireEvent.click(screen.getByText('Сгенерировать план'));
 
     expect(context.generatePlan).toHaveBeenCalledWith({ durationWeeks: 4 });
   });
@@ -374,6 +374,8 @@ describe('Training', () => {
 
     // Без видео раздел «Видео-уроки» не показываем.
     expect(screen.queryByText('Видео-уроки')).not.toBeInTheDocument();
-    expect(screen.queryByText('Планы FitPulse')).not.toBeInTheDocument();
+    // Кнопка генерации доступна всегда, даже если планов ещё нет.
+    expect(screen.getByText('Планы FitPulse')).toBeInTheDocument();
+    expect(screen.getByText('Сгенерировать план')).toBeInTheDocument();
   });
 });

@@ -24,11 +24,14 @@ type MetricRules struct {
 // GetMetricRules returns validation rules for a given biometric metric type.
 func GetMetricRules(metricType string) (MetricRules, bool) {
 	rules := map[string]MetricRules{
-		"heart_rate":               {30, 220, "heart_rate"},
-		"resting_heart_rate":       {20, 220, "resting_heart_rate"},
-		"spo2":                     {70, 100, "spo2"},
-		"temperature":              {35.5, 38.5, "temperature"},
-		"body_temperature":         {35.5, 38.5, "body_temperature"},
+		"heart_rate":         {30, 220, "heart_rate"},
+		"resting_heart_rate": {20, 220, "resting_heart_rate"},
+		"spo2":               {70, 100, "spo2"},
+		// Кожа запястья на 2–3 °C холоднее ядра, поэтому нижняя граница
+		// расширена до 30 °C: иначе wrist-значения (~31–34.5 °C) отклоняются
+		// при приёме и не попадают в biometric_data.
+		"temperature":              {30.0, 38.5, "temperature"},
+		"body_temperature":         {30.0, 38.5, "body_temperature"},
 		"blood_pressure_systolic":  {80, 200, "blood_pressure_systolic"},
 		"blood_pressure_diastolic": {50, 130, "blood_pressure_diastolic"},
 		"steps":                    {0, 100000, "steps"},

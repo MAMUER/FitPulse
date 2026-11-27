@@ -61,7 +61,7 @@ spec:
               name: http
           env:
             - name: VITE_API_URL
-              value: "https://fitpulse.tail6f5dca.ts.net"
+              value: "/ow-api"
           # The Vite/Node server accepts connections before it can answer an
           # HTTP probe reliably; an HTTP probe here kept the pod unready and
           # eventually tripped liveness. A TCP probe verifies the listener.

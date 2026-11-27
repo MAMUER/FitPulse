@@ -301,47 +301,45 @@ export default function Training() {
         );
       })}
 
+      <div className='section'>
+        <div className='between'>
+          <h3>{t('Планы FitPulse', 'FitPulse plans')}</h3>
+          <button
+            type='button'
+            className='secondary'
+            disabled={!profileComplete}
+            title={
+              profileComplete
+                ? undefined
+                : t(
+                    'Заполните возраст, рост и вес в профиле',
+                    'Add age, height and weight to your profile'
+                  )
+            }
+            onClick={() => generatePlan({ durationWeeks: 4 })}
+          >
+            {profileComplete
+              ? t('Сгенерировать план', 'Generate plan')
+              : t('Заполните профиль', 'Complete profile')}
+          </button>
+        </div>
+      </div>
       {plans.length > 0 && (
-        <>
-          <div className='section'>
-            <div className='between'>
-              <h3>{t('Планы FitPulse', 'FitPulse plans')}</h3>
-              <button
-                type='button'
-                className='secondary'
-                disabled={!profileComplete}
-                title={
-                  profileComplete
-                    ? undefined
-                    : t(
-                        'Заполните возраст, рост и вес в профиле',
-                        'Add age, height and weight to your profile'
-                      )
-                }
-                onClick={() => generatePlan({ durationWeeks: 4 })}
-              >
-                {profileComplete
-                  ? t('Сгенерировать', 'Generate')
-                  : t('Заполните профиль', 'Complete profile')}
-              </button>
+        <section className='card'>
+          {plans.map((plan, index) => (
+            <div className='body-row' key={plan.id || index}>
+              <span>
+                {Array.isArray(plan.title)
+                  ? (plan.title[0] ?? `#${index + 1}`)
+                  : plan.title || plan.name || `#${index + 1}`}
+              </span>
+              <b>
+                {plan.duration_weeks || plan.durationWeeks || ''}{' '}
+                {t('нед.', 'wk')}
+              </b>
             </div>
-          </div>
-          <section className='card'>
-            {plans.map((plan, index) => (
-              <div className='body-row' key={plan.id || index}>
-                <span>
-                  {Array.isArray(plan.title)
-                    ? (plan.title[0] ?? `#${index + 1}`)
-                    : plan.title || plan.name || `#${index + 1}`}
-                </span>
-                <b>
-                  {plan.duration_weeks || plan.durationWeeks || ''}{' '}
-                  {t('нед.', 'wk')}
-                </b>
-              </div>
-            ))}
-          </section>
-        </>
+          ))}
+        </section>
       )}
 
       <div className='section'>

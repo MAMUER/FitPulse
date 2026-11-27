@@ -450,12 +450,15 @@ func (s *trainingServer) temperatureBaseline(ctx context.Context, userID string)
 	if s.db == nil || userID == "" {
 		return 0
 	}
+	// biometric_data хранит показатели в столбцах metric_type/value (JSONB-колонки
+	// metrics не существует), поэтому прежний запрос metrics->>'temperature'
+	// всегда падал с 42703 и базлайн всегда был равен 0.
 	var avg sql.NullFloat64
 	err := s.db.QueryRowContext(ctx, `
-		SELECT AVG((metrics->>'temperature')::float)
+		SELECT AVG(value)
 		FROM biometric_data
 		WHERE user_id = $1
-		  AND metrics ? 'temperature'
+		  AND metric_type = 'temperature'
 		  AND created_at > NOW() - INTERVAL '14 days'`, userID).Scan(&avg)
 	if err != nil || !avg.Valid {
 		return 0
@@ -472,6 +475,9 @@ func (s *trainingServer) resolveClassification(ctx context.Context, userID strin
 		return fallback
 	}
 
+	// temperature_source не передаётся явно: платформа измеряет только температуру
+	// кожи запястья, поэтому классификатор по умолчанию применяет "wrist"
+	// (см. resolveTemperatureSource в cmd/classifier).
 	payload := map[string]interface{}{
 		"user_id": userID,
 		"physiological_data": map[string]interface{}{
@@ -479,7 +485,6 @@ func (s *trainingServer) resolveClassification(ctx context.Context, userID strin
 			"heart_rate_variability":   b.HRV,
 			"spo2":                     b.Spo2,
 			"temperature":              b.Temperature,
-			"temperature_source":       "wrist",
 			"temperature_baseline":     s.temperatureBaseline(ctx, userID),
 			"sleep_hours":              b.SleepHours,
 			"blood_pressure_systolic":  b.SystolicBP,

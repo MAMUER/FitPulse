@@ -50,12 +50,22 @@ export default function Integrations() {
     const source = provider.source;
     const isConnected = provider.connected;
     if (!isConnected) {
-      // Реального connect-API нет: синхронизация устройств управляется на
-      // стороне OpenWearables (агрегатор Apple Health / Google Fit и т.д.).
+      // Реального connect-API нет: привязка выполняется в OpenWearables.
+      // Открываем его через gateway (reverse proxy /open-wearables).
+      const configured =
+        import.meta.env.VITE_OPEN_WEARABLES_URL || '/open-wearables';
+      const base = configured.endsWith('/')
+        ? configured.slice(0, -1)
+        : configured;
+      window.open(
+        `${base}/?source=${encodeURIComponent(source)}`,
+        '_blank',
+        'noopener,noreferrer'
+      );
       notify(
         t(
-          `Чтобы подключить «${provider.source_name || source}», откройте OpenWearables и привяжите устройство/сервис там. FitPulse получает данные через OpenWearables автоматически.`,
-          `To connect "${provider.source_name || source}", open OpenWearables and link the device/service there. FitPulse receives data through OpenWearables automatically.`
+          `Открываем OpenWearables для подключения «${provider.source_name || source}».`,
+          `Opening OpenWearables to connect "${provider.source_name || source}".`
         )
       );
       return;
@@ -145,8 +155,8 @@ export default function Integrations() {
               style={{ marginTop: 6, fontSize: 11, lineHeight: 1.5 }}
             >
               {t(
-                'FitPulse использует Open Wearables — агрегатор данных с фитнес-устройств и приложений. Чтобы подключить: откройте Open Wearables, привяжите источник (по OAuth), и FitPulse начнёт получать пульс, шаги, сон, SpO2 автоматически.',
-                'FitPulse uses Open Wearables — an aggregator for fitness devices and apps. To connect: open Open Wearables, link the source (via OAuth), and FitPulse will start receiving heart rate, steps, sleep and SpO2 automatically.'
+                'FitPulse использует Open Wearables — агрегатор данных с фитнес-устройств и приложений. Нажмите «Подключить» напротив источника: откроется Open Wearables, где нужно привязать устройство или сервис по OAuth. FitPulse начнёт получать пульс, шаги, сон и SpO2 автоматически.',
+                'FitPulse uses Open Wearables — an aggregator for fitness devices and apps. Click "Connect" next to a source: Open Wearables opens, where you link the device or service via OAuth. FitPulse will start receiving heart rate, steps, sleep and SpO2 automatically.'
               )}
             </p>
             <div className='fp-provider-chips' style={{ marginTop: 8 }}>

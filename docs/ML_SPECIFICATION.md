@@ -350,7 +350,15 @@ python scripts\export_go_model.py
 | **Menstrual (factors)** | `datasets/raw/Menstrual_cycle_data_with_factors` | <https://www.kaggle.com/datasets/akshayas02/menstrual-cycle-data-with-factors-dataset> | `prepare_menstrual_datasets.py` | `menstrual_dataset.csv` |
 | **Menstrual Health** | `datasets/raw/Menstrual_Health_&_Productivity` | <https://www.kaggle.com/datasets/puspitachowdhury2/menstrual-health-dataset> | `prepare_menstrual_datasets.py` | 18 871 запись (цикл, стресс, сон) |
 
-### 10.3. Подготовка
+### 10.3. Тренировочные планы (условная ГАН)
+
+| Датасет | Путь | Ссылка | Лицензия | Что используется |
+| ------- | ---- | ------ | -------- | ---------------- |
+| **Gym Members Exercise Dataset** | `datasets/raw/gym_members_exercise_tracking.csv` | <https://www.kaggle.com/datasets/valakhorasani/gym-members-exercise-dataset> | Apache 2.0 | 973 записи: Max/Avg/Resting BPM, длительность, калории, тип тренировки, частота, опыт, профиль → 19-мерный вектор плана |
+
+Скрипт: `scripts/build_training_plans_from_gym.py` → `datasets/processed/training_plans.csv` (973 строки, классы 0–5: 222/70/169/281/102/129).
+
+### 10.4. Подготовка
 
 Все архивы распакованы, лишние файлы удалены. Проверить:
 

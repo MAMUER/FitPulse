@@ -143,6 +143,12 @@ spec:
               value: "/etc/secrets/VALKEY_PASSWORD"
             - name: ML_ASYNC
               value: "false"
+            # OpenWearables публикуется через gateway (reverse proxy), т.к.
+            # ingress-nginx не входит в контур запроса.
+            - name: OPEN_WEARABLES_FRONTEND_URL
+              value: "http://open-wearables-frontend:3000"
+            - name: OPEN_WEARABLES_API_URL
+              value: "http://open-wearables:8000"
             - name: RABBITMQ_URL_FILE
               value: "/etc/secrets/RABBITMQ_URL"
             - name: SMTP_HOST_FILE

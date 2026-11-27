@@ -49,6 +49,8 @@ const (
 
 	headerContentType = "Content-Type"
 
+	headerCorrelationID = "X-Correlation-ID"
+
 	contentTypeJSON = "application/json"
 
 	accessTokenCookieName = "fitpulse-access-token"

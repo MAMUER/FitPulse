@@ -28,7 +28,7 @@ func (g *gateway) callClassifier(ctx context.Context, payload []byte) (map[strin
 		return nil, err
 	}
 	req.Header.Set(headerContentType, contentTypeJSON)
-	req.Header.Set("X-Correlation-ID", middleware.GetCorrelationID(ctx))
+	req.Header.Set(headerCorrelationID, middleware.GetCorrelationID(ctx))
 
 	client := &http.Client{}
 	resp, err := client.Do(req)

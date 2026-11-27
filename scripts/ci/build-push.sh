@@ -169,6 +169,29 @@ RUN set -eu; \
     fi
 HARDEN
 
+	# SvelteKit читает base только из svelte.config.js, а апстрим-репозиторий
+	# конфига не содержит. Создаём минимальный конфиг (поведение апстрима
+	# сохраняется при пустом SVELTEKIT_BASE) и запекаем base=/open-wearables/
+	# на этапе сборки: фронтенд публикуется через gateway reverse proxy.
+	if [[ ! -f /tmp/open-wearables/frontend/svelte.config.js ]]; then
+		cat >/tmp/open-wearables/frontend/svelte.config.js <<'SVELTE'
+import adapter from '@sveltejs/adapter-node';
+
+/** @type {import('@sveltejs/kit').Config} */
+export default {
+	kit: {
+		adapter: adapter(),
+		paths: {
+			base: process.env.SVELTEKIT_BASE || '',
+			relative: false
+		}
+	}
+};
+SVELTE
+	fi
+
+	sed -i 's|^RUN bun run build|ENV SVELTEKIT_BASE=/open-wearables/\nRUN bun run build|' /tmp/open-wearables/frontend/Dockerfile
+
 	SHA=$(git rev-parse --short HEAD)
 	pids=()
 	names=()

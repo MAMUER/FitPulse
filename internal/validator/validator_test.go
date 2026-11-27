@@ -878,3 +878,26 @@ func TestValidateGetProgressRequest(t *testing.T) {
 func ptrInt32(v int32) *int32       { return &v }
 func ptrString(v string) *string    { return &v }
 func ptrFloat64(v float64) *float64 { return &v }
+
+func TestGetMetricRules_TemperatureRange(t *testing.T) {
+	for _, metric := range []string{"temperature", "body_temperature"} {
+		rules, ok := GetMetricRules(metric)
+		assert.True(t, ok, metric)
+		assert.InDelta(t, 30.0, rules.Min, 1e-9, metric)
+		assert.InDelta(t, 38.5, rules.Max, 1e-9, metric)
+	}
+}
+
+func TestValidateBiometricRecord_WristTemperature(t *testing.T) {
+	for _, value := range []float64{31.0, 33.5, 34.5} {
+		req := &biometricpb.AddRecordRequest{UserId: "user-1", MetricType: "temperature", Value: value}
+		assert.NoError(t, ValidateBiometricRecord(req), "temperature=%v", value)
+	}
+
+	tooCold := &biometricpb.AddRecordRequest{UserId: "user-1", MetricType: "temperature", Value: 29.9}
+	err := ValidateBiometricRecord(tooCold)
+	assert.Error(t, err)
+	st, ok := status.FromError(err)
+	assert.True(t, ok)
+	assert.Equal(t, codes.InvalidArgument, st.Code())
+}

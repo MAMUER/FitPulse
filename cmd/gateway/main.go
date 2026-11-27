@@ -92,6 +92,10 @@ type gateway struct {
 
 	biometricWebhookProxy *httputil.ReverseProxy
 
+	openWearablesProxy *httputil.ReverseProxy
+
+	openWearablesAPIProxy *httputil.ReverseProxy
+
 	captchaProvider CaptchaProvider
 
 	captchaSiteKey string
@@ -332,6 +336,10 @@ func loadGatewayConfig(log *logger.Logger) gatewayConfig {
 
 		classifierURL: config.GetEnv("CLASSIFIER_URL", "http://classifier:8001"),
 
+		openWearablesFrontendURL: config.GetEnv("OPEN_WEARABLES_FRONTEND_URL", "http://open-wearables-frontend:3000"),
+
+		openWearablesAPIURL: config.GetEnv("OPEN_WEARABLES_API_URL", "http://open-wearables:8000"),
+
 		mlAsync: config.GetEnv("ML_ASYNC", "false") == "true",
 
 		valkeyAddr: valkeyAddress(),
@@ -455,6 +463,10 @@ type gatewayConfig struct {
 	trainingServiceAddr string
 
 	classifierURL string
+
+	openWearablesFrontendURL string
+
+	openWearablesAPIURL string
 
 	rabbitmqURL string
 
@@ -852,11 +864,77 @@ func buildGateway(opts gatewayBuildOptions) *gateway {
 
 	g.biometricWebhookProxy.Rewrite = func(req *httputil.ProxyRequest) {
 
-		req.Out.Header.Set("X-Correlation-ID", middleware.GetCorrelationID(req.In.Context()))
+		req.Out.Header.Set(headerCorrelationID, middleware.GetCorrelationID(req.In.Context()))
 
 	}
 
+	owFrontendTarget, err := url.Parse(opts.cfg.openWearablesFrontendURL)
+
+	if err != nil {
+
+		opts.log.Fatal("Failed to parse OpenWearables frontend target", zap.Error(err))
+
+	}
+
+	g.openWearablesProxy = newPrefixProxy(owFrontendTarget)
+
+	owAPITarget, err := url.Parse(opts.cfg.openWearablesAPIURL)
+
+	if err != nil {
+
+		opts.log.Fatal("Failed to parse OpenWearables API target", zap.Error(err))
+
+	}
+
+	g.openWearablesAPIProxy = newPrefixProxy(owAPITarget)
+
 	return g
+
+}
+
+// newPrefixProxy создаёт reverse proxy с явной подстановкой целевого хоста.
+// Префикс пути уже удалён через http.StripPrefix, поэтому достаточно
+// перенести оставшийся путь на target.
+func newPrefixProxy(target *url.URL) *httputil.ReverseProxy {
+
+	return &httputil.ReverseProxy{
+
+		Rewrite: func(req *httputil.ProxyRequest) {
+
+			req.Out.URL.Scheme = target.Scheme
+
+			req.Out.URL.Host = target.Host
+
+			req.Out.URL.Path = singleJoiningSlash(target.Path, req.Out.URL.Path)
+
+			req.Out.Host = target.Host
+
+			req.Out.Header.Set(headerCorrelationID, middleware.GetCorrelationID(req.In.Context()))
+
+		},
+	}
+
+}
+
+func singleJoiningSlash(a, b string) string {
+
+	aslash := strings.HasSuffix(a, "/")
+
+	bslash := strings.HasPrefix(b, "/")
+
+	switch {
+
+	case aslash && bslash:
+
+		return a + b[1:]
+
+	case !aslash && !bslash:
+
+		return a + "/" + b
+
+	}
+
+	return a + b
 
 }
 
@@ -1189,7 +1267,7 @@ func (g *gateway) registerRoutes() *chi.Mux {
 
 		AllowedMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 
-		AllowedHeaders: []string{"Content-Type", "Authorization", "X-Correlation-ID", "X-Captcha-Token"},
+		AllowedHeaders: []string{"Content-Type", "Authorization", headerCorrelationID, "X-Captcha-Token"},
 
 		AllowCredentials: true,
 
@@ -1213,6 +1291,15 @@ func (g *gateway) registerRoutes() *chi.Mux {
 	fsStatic := http.StripPrefix("/static/", http.FileServer(http.Dir("./web/dist/static/")))
 
 	r.Get("/static/*", fsStatic.ServeHTTP)
+
+	// OpenWearables публикуется через gateway: ingress-nginx не входит в
+	// контур запроса (Tailscale Funnel → NodePort 30081 → gateway), поэтому
+	// reverse proxy выполняет роль ingress. Фронтенд SvelteKit собирается с
+	// base=/open-wearables/, поэтому префикс сохраняется; API живёт в корне
+	// контейнера, поэтому для него префикс снимается.
+	r.Handle("/open-wearables/*", g.openWearablesProxy)
+
+	r.Handle("/ow-api/*", http.StripPrefix("/ow-api", g.openWearablesAPIProxy))
 
 	r.Get("/*", spaFileHandler("./web/dist"))
 

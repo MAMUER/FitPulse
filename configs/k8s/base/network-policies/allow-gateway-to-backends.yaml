@@ -30,6 +30,13 @@ spec:
     - to:
         - podSelector:
             matchLabels:
+              app: open-wearables-frontend
+      ports:
+        - protocol: TCP
+          port: 3000
+    - to:
+        - podSelector:
+            matchLabels:
               app: valkey
       ports:
         - protocol: TCP
