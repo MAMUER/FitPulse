@@ -177,9 +177,17 @@ spec:
                 NOW()
               FROM admin_data
               ON CONFLICT (email_hash) DO NOTHING;
-              INSERT INTO user_profiles (user_id)
-              SELECT id FROM users WHERE email_hash = encode(digest(lower(btrim(:'email')), 'sha256'), 'hex')
-              ON CONFLICT (user_id) DO NOTHING;
+              INSERT INTO user_profiles (user_id, age, gender, height_cm, weight_kg, fitness_level, nutrition, sleep_hours)
+              SELECT id, 30, 'male', 180, 75.0, 'intermediate', 'balanced', 7.5
+              FROM users WHERE email_hash = encode(digest(lower(btrim(:'email')), 'sha256'), 'hex')
+              ON CONFLICT (user_id) DO UPDATE
+              SET age = EXCLUDED.age,
+                  gender = EXCLUDED.gender,
+                  height_cm = EXCLUDED.height_cm,
+                  weight_kg = EXCLUDED.weight_kg,
+                  fitness_level = EXCLUDED.fitness_level,
+                  nutrition = EXCLUDED.nutrition,
+                  sleep_hours = EXCLUDED.sleep_hours;
               INSERT INTO invite_codes (code, role, max_uses, is_active, created_at)
               SELECT
                 'INVITE-' || substr(md5(random()::text || i::text), 1, 8),

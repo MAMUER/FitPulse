@@ -610,8 +610,9 @@ func (s *trainingServer) loadUserProfile(ctx context.Context, userID string) (us
 	var age, height sql.NullInt32
 	var weight sql.NullFloat64
 	var gender sql.NullString
+	// Профиль хранится в user_profiles (его пишет UpdateProfile).
 	err := s.db.QueryRowContext(ctx, `
-		SELECT age, gender, height_cm, weight_kg FROM users WHERE id = $1
+		SELECT age, gender, height_cm, weight_kg FROM user_profiles WHERE user_id = $1
 	`, userID).Scan(&age, &gender, &height, &weight)
 	if err != nil {
 		s.log.Debug("Не удалось загрузить профиль пользователя",
